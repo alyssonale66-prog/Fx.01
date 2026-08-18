@@ -2,33 +2,36 @@
    FX.01
    Estilo visual completo
    Tema escuro fixo
+   Preto + dourado
    ============================================================ */
 
 :root {
-  --bg: #0f1115;
-  --surface: #171a21;
-  --surface-2: #1e222b;
-  --surface-3: #252a34;
+  --bg: #0a0a0a;
+  --surface: #111111;
+  --surface-2: #181818;
+  --surface-3: #202020;
 
-  --border: #2c323d;
+  --border: #2a2a2a;
+  --border-gold: #6f5a1c;
 
-  --text: #f4f5f7;
-  --text-secondary: #a9afb9;
-  --text-muted: #737a86;
+  --text: #f4f2ed;
+  --text-secondary: #aaa69d;
+  --text-muted: #706d66;
 
-  --accent: #4ade80;
-  --accent-dark: #22c55e;
+  --accent: #c9a227;
+  --accent-dark: #a8861c;
+  --accent-soft: rgba(201, 162, 39, 0.12);
 
-  --danger: #ef4444;
-  --danger-dark: #dc2626;
+  --danger: #b83a3a;
+  --danger-dark: #922e2e;
 
-  --warning: #f59e0b;
+  --warning: #c9a227;
 
   --radius-small: 10px;
   --radius-medium: 14px;
   --radius-large: 20px;
 
-  --shadow: 0 8px 30px rgba(0, 0, 0, 0.28);
+  --shadow: 0 8px 30px rgba(0, 0, 0, 0.38);
 
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
@@ -147,7 +150,7 @@ label {
 .error-message {
   margin-top: 10px;
 
-  color: #fca5a5;
+  color: #e7a3a3;
 
   font-size: 14px;
   line-height: 1.4;
@@ -253,6 +256,13 @@ label {
   letter-spacing: -0.5px;
 }
 
+.main-header-actions {
+  display: flex;
+  align-items: center;
+
+  gap: 8px;
+}
+
 
 /* ============================================================
    CONFIGURAÇÃO INICIAL
@@ -333,11 +343,13 @@ label {
   transition:
     transform 0.1s ease,
     opacity 0.1s ease,
-    background 0.15s ease;
+    background 0.15s ease,
+    border-color 0.15s ease;
 }
 
 .primary-button {
-  color: #06130b;
+  color: #0a0a0a;
+
   background: var(--accent);
 }
 
@@ -361,7 +373,8 @@ label {
 }
 
 .secondary-button:hover {
-  background: #2a303b;
+  background: #272727;
+  border-color: #3a3a3a;
 }
 
 .danger-button {
@@ -375,8 +388,8 @@ label {
 }
 
 .icon-button {
-  width: 42px;
-  height: 42px;
+  width: 40px;
+  height: 40px;
 
   display: inline-flex;
   align-items: center;
@@ -384,17 +397,31 @@ label {
 
   border-radius: 50%;
 
-  background: var(--surface-2);
+  background: transparent;
 
-  border: 1px solid var(--border);
+  border: 1px solid transparent;
 
-  color: var(--text);
+  color: var(--text-secondary);
 
   font-size: 18px;
+
+  transition:
+    color 0.15s ease,
+    background 0.15s ease,
+    border-color 0.15s ease,
+    transform 0.1s ease;
+}
+
+.icon-button:hover {
+  color: var(--accent);
+
+  background: var(--accent-soft);
+
+  border-color: var(--border-gold);
 }
 
 .icon-button:active {
-  transform: scale(0.95);
+  transform: scale(0.94);
 }
 
 
@@ -429,7 +456,7 @@ label {
 }
 
 .choice-button.selected {
-  color: #06130b;
+  color: #0a0a0a;
 
   background: var(--accent);
 
@@ -447,7 +474,7 @@ label {
 
   margin: 0 auto;
 
-  padding-bottom: 84px;
+  padding-bottom: 30px;
 }
 
 
@@ -556,7 +583,7 @@ label {
 }
 
 .extra-button:active {
-  background: rgba(74, 222, 128, 0.1);
+  background: var(--accent-soft);
 }
 
 
@@ -696,6 +723,8 @@ label {
 
   border: 1px solid var(--border);
 
+  color: var(--text);
+
   font-size: 18px;
 }
 
@@ -792,61 +821,6 @@ label {
 
 
 /* ============================================================
-   NAVEGAÇÃO INFERIOR
-   ============================================================ */
-
-.bottom-navigation {
-  position: fixed;
-
-  left: 0;
-  right: 0;
-  bottom: 0;
-
-  z-index: 20;
-
-  padding:
-    10px
-    16px
-    calc(10px + var(--safe-bottom));
-
-  background: rgba(15, 17, 21, 0.94);
-
-  border-top: 1px solid var(--border);
-
-  backdrop-filter: blur(12px);
-}
-
-.navigation-button {
-  width: 100%;
-  max-width: 560px;
-
-  min-height: 48px;
-
-  margin: 0 auto;
-
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
-  gap: 8px;
-
-  border-radius: var(--radius-small);
-
-  background: var(--surface-2);
-
-  border: 1px solid var(--border);
-
-  color: var(--text);
-
-  font-weight: 700;
-}
-
-.navigation-button span:first-child {
-  font-size: 17px;
-}
-
-
-/* ============================================================
    CONFIGURAÇÕES
    ============================================================ */
 
@@ -904,6 +878,14 @@ label {
   text-align: left;
 
   font-weight: 650;
+
+  transition:
+    color 0.15s ease,
+    background 0.15s ease;
+}
+
+.settings-item:hover {
+  color: var(--accent);
 }
 
 .settings-item:active {
@@ -965,6 +947,8 @@ label {
   border-radius: 50%;
 
   background: var(--surface-3);
+
+  color: var(--accent);
 }
 
 .settings-category-info {
@@ -1020,7 +1004,7 @@ label {
     16px
     calc(16px + var(--safe-bottom));
 
-  background: rgba(0, 0, 0, 0.72);
+  background: rgba(0, 0, 0, 0.78);
 
   animation: modal-background-in 0.15s ease;
 }
@@ -1101,10 +1085,16 @@ label {
 
   background: var(--surface-3);
 
-  color: var(--text);
+  color: var(--text-secondary);
 
   font-size: 24px;
   line-height: 1;
+}
+
+.modal-close:hover {
+  color: var(--accent);
+
+  background: var(--accent-soft);
 }
 
 .modal-body {
@@ -1149,6 +1139,8 @@ label {
 
   margin-top: 5px;
 
+  color: var(--text);
+
   font-size: 27px;
   font-weight: 800;
 }
@@ -1167,6 +1159,104 @@ label {
 
 .reserve-form > * + * {
   margin-top: 10px;
+}
+
+.reserve-origin-section {
+  padding-top: 4px;
+}
+
+.reserve-origin-title {
+  color: var(--text-secondary);
+
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.reserve-origin-options {
+  display: grid;
+
+  grid-template-columns: repeat(2, 1fr);
+
+  gap: 10px;
+
+  margin-top: 10px;
+}
+
+.reserve-origin-option {
+  min-width: 0;
+
+  min-height: 70px;
+
+  padding: 12px;
+
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+
+  gap: 4px;
+
+  background: var(--surface-3);
+
+  border: 1px solid var(--border);
+
+  border-radius: var(--radius-small);
+
+  color: var(--text);
+
+  text-align: left;
+
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease,
+    transform 0.1s ease;
+}
+
+.reserve-origin-option:hover {
+  border-color: var(--border-gold);
+}
+
+.reserve-origin-option:active {
+  transform: scale(0.98);
+}
+
+.reserve-origin-option.selected {
+  background: var(--accent-soft);
+
+  border-color: var(--accent);
+
+  box-shadow:
+    inset 0 0 0 1px rgba(201, 162, 39, 0.18);
+}
+
+.reserve-origin-name {
+  color: var(--text-secondary);
+
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.reserve-origin-balance {
+  color: var(--text);
+
+  font-size: 16px;
+  font-weight: 750;
+}
+
+.reserve-origin-option.selected .reserve-origin-name,
+.reserve-origin-option.selected .reserve-origin-balance {
+  color: var(--accent);
+}
+
+.selected-reserve-origin {
+  min-height: 20px;
+
+  color: var(--accent);
+
+  font-size: 13px;
+  font-weight: 650;
+
+  text-align: center;
 }
 
 
@@ -1373,6 +1463,6 @@ button:disabled {
    ============================================================ */
 
 ::selection {
-  background: rgba(74, 222, 128, 0.25);
+  background: rgba(201, 162, 39, 0.25);
   color: var(--text);
-  }
+}
