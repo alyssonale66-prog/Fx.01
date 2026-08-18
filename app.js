@@ -165,7 +165,7 @@ function loadApplication() {
       return;
     }
 
-    if (state.locked) {
+    if (state.security && state.security.locked) {
 
       showScreen("lock");
 
@@ -223,6 +223,10 @@ function normalizeState() {
     };
   }
 
+  if (!Number.isFinite(Number(state.reserve.balance))) {
+    state.reserve.balance = 0;
+  }
+
   if (!state.salary) {
 
     state.salary = {
@@ -254,6 +258,80 @@ function normalizeState() {
     state.settings = {
       cycleDay: 5
     };
+
+  }
+
+  /*
+   * Garante que as categorias protegidas continuem
+   * identificadas corretamente mesmo em dados antigos.
+   */
+
+  state.categories.forEach(category => {
+
+    if (
+      category.id === "reserve" ||
+      category.id === "other" ||
+      category.id === "fixed" ||
+      category.id === "medicine" ||
+      category.id === "leisure" ||
+      category.id === "phone"
+    ) {
+
+      category.protected = true;
+
+    }
+
+    if (category.id === "reserve") {
+
+      category.hasLimit = false;
+      category.limit = null;
+
+    }
+
+    if (category.id === "other") {
+
+      category.hasLimit = false;
+      category.limit = null;
+
+    }
+
+  });
+
+
+  if (
+    state.currentCycle &&
+    !state.currentCycle.categoryUsage
+  ) {
+
+    state.currentCycle.categoryUsage = {};
+
+  }
+
+
+  if (
+    state.currentCycle &&
+    Array.isArray(state.categories)
+  ) {
+
+    state.categories.forEach(category => {
+
+      if (
+        !Number.isFinite(
+          Number(
+            state.currentCycle.categoryUsage[
+              category.id
+            ]
+          )
+        )
+      ) {
+
+        state.currentCycle.categoryUsage[
+          category.id
+        ] = 0;
+
+      }
+
+    });
 
   }
 
@@ -566,7 +644,7 @@ function completeInitialSetup() {
 
   state.setupCompleted = true;
 
-  state.locked = false;
+  state.security.locked = false;
 
   createInitialCycle();
 
@@ -624,11 +702,6 @@ function createInitialCycle() {
     ] = 0;
 
   });
-
-
-  state.cycles.push(
-    cloneObject(state.currentCycle)
-  );
 
 }
 
@@ -907,6 +980,10 @@ function getExtraBalance() {
 
 function getReserveBalance() {
 
+  if (!state || !state.reserve) {
+    return 0;
+  }
+
   return roundMoney(
     state.reserve.balance
   );
@@ -944,7 +1021,7 @@ function saveToReserve(
   if (origin === "salary") {
 
     createExpenseRecord(
-      "reserve",
+      "salary",
       amount,
       "Transferência para Reserva",
       "salary-to-reserve"
@@ -953,10 +1030,16 @@ function saveToReserve(
   } else if (origin === "extra") {
 
     createExpenseRecord(
-      "reserve",
+      "extra",
       amount,
       "Transferência para Reserva",
       "extra-to-reserve"
+    );
+
+  } else {
+
+    throw new Error(
+      "Origem inválida para a Reserva."
     );
 
   }
@@ -1383,8 +1466,29 @@ function updateCategory(
   }
 
 
+  /*
+   * RESERVA É IMUTÁVEL.
+   * Não permite alterar nome, ícone,
+   * limite ou qualquer outra propriedade.
+   */
+
   if (
     category.id === "reserve"
+  ) {
+
+    throw new Error(
+      "A categoria Reserva é protegida e não pode ser editada."
+    );
+
+  }
+
+
+  /*
+   * OUTROS também permanece sem limite.
+   */
+
+  if (
+    category.id === "other"
   ) {
 
     category.name =
@@ -1555,14 +1659,70 @@ function renderCategories() {
       }
 
 
-      const balanceText =
+      /*
+       * RESERVA:
+       * mostra o saldo real da reserva.
+       */
+
+      let balanceText;
+
+      if (
         category.id === "reserve"
-          ? formatMoney(
-              getReserveBalance()
-            )
-          : category.hasLimit
-            ? formatMoney(balance)
-            : "Sem limite";
+      ) {
+
+        balanceText =
+          formatMoney(
+            getReserveBalance()
+          );
+
+      }
+
+      /*
+       * OUTROS:
+       * não tem limite, mas agora mostra
+       * o total já lançado no ciclo.
+       */
+
+      else if (
+        category.id === "other"
+      ) {
+
+        balanceText =
+          formatMoney(
+            usage
+          );
+
+      }
+
+      /*
+       * Categorias com limite:
+       * mostram quanto ainda está disponível.
+       */
+
+      else if (
+        category.hasLimit
+      ) {
+
+        balanceText =
+          formatMoney(
+            balance
+          );
+
+      }
+
+      /*
+       * Categorias sem limite criadas pelo usuário:
+       * mostram o total lançado.
+       */
+
+      else {
+
+        balanceText =
+          formatMoney(
+            usage
+          );
+
+      }
 
 
       card.innerHTML = `
@@ -1729,6 +1889,25 @@ function renderSettingsCategories() {
         "settings-category-item";
 
 
+      /*
+       * Reserva é protegida e não recebe
+       * botão de edição.
+       */
+
+      const editButton =
+        category.id === "reserve"
+          ? ""
+          : `
+              <button
+                type="button"
+                class="settings-category-edit"
+                data-edit-category="${category.id}"
+              >
+                ✏️
+              </button>
+            `;
+
+
       item.innerHTML = `
 
         <div class="settings-category-icon">
@@ -1745,19 +1924,17 @@ function renderSettingsCategories() {
             ${
               category.hasLimit
                 ? `Limite: ${formatMoney(category.limit)}`
-                : "Sem limite"
+                : category.id === "other"
+                  ? `Lançado: ${formatMoney(
+                      getCategoryUsage(category.id)
+                    )}`
+                  : "Sem limite"
             }
           </div>
 
         </div>
 
-        <button
-          type="button"
-          class="settings-category-edit"
-          data-edit-category="${category.id}"
-        >
-          ✏️
-        </button>
+        ${editButton}
 
       `;
 
@@ -1817,9 +1994,13 @@ function showScreen(name) {
   Object.values(screens)
     .forEach(screen => {
 
-      screen.classList.add(
-        "hidden"
-      );
+      if (screen) {
+
+        screen.classList.add(
+          "hidden"
+        );
+
+      }
 
     });
 
@@ -1836,7 +2017,44 @@ function showScreen(name) {
 }
 
 
+/*
+ * CONFIGURAÇÕES PROTEGIDAS:
+ *
+ * A senha normal do usuário OU a chave mestra
+ * Fx020919 podem abrir as configurações.
+ */
+
 function openSettings() {
+
+  if (!state) {
+    return;
+  }
+
+
+  const key =
+    prompt(
+      "Digite sua senha ou a chave mestra:"
+    );
+
+
+  if (key === null) {
+    return;
+  }
+
+
+  if (
+    key !== state.security.password &&
+    key !== MASTER_KEY
+  ) {
+
+    alert(
+      "Senha ou chave mestra incorreta."
+    );
+
+    return;
+
+  }
+
 
   showScreen(
     "settings"
@@ -2219,6 +2437,11 @@ function openCategoryDetails(
     $("category-details");
 
 
+  if (!container) {
+    return;
+  }
+
+
   const expenses =
     state.currentCycle.expenses
       .filter(
@@ -2239,6 +2462,27 @@ function openCategoryDetails(
     );
 
 
+  const usage =
+    getCategoryUsage(
+      category.id
+    );
+
+
+  let balanceLabel;
+
+  if (category.hasLimit) {
+
+    balanceLabel =
+      `Disponível: ${formatMoney(balance)}`;
+
+  } else {
+
+    balanceLabel =
+      `Total lançado: ${formatMoney(usage)}`;
+
+  }
+
+
   let html = `
 
     <div class="category-detail-header">
@@ -2252,11 +2496,7 @@ function openCategoryDetails(
       </div>
 
       <div class="category-detail-balance">
-        ${
-          category.hasLimit
-            ? `Disponível: ${formatMoney(balance)}`
-            : "Sem limite"
-        }
+        ${balanceLabel}
       </div>
 
     </div>
@@ -2338,6 +2578,23 @@ function openCategoryEditor(
   categoryId = null
 ) {
 
+  /*
+   * Reserva é completamente imutável.
+   */
+
+  if (
+    categoryId === "reserve"
+  ) {
+
+    alert(
+      "A categoria Reserva é protegida e não pode ser editada."
+    );
+
+    return;
+
+  }
+
+
   currentEditingCategoryId =
     categoryId;
 
@@ -2346,6 +2603,20 @@ function openCategoryEditor(
     categoryId
       ? findCategory(categoryId)
       : null;
+
+
+  if (
+    category &&
+    category.id === "reserve"
+  ) {
+
+    alert(
+      "A categoria Reserva é protegida e não pode ser editada."
+    );
+
+    return;
+
+  }
 
 
   $("category-name").value =
@@ -2417,11 +2688,17 @@ function updateCategoryLimitInterface() {
     });
 
 
-  $("category-limit-value-container")
-    .classList.toggle(
+  const container =
+    $("category-limit-value-container");
+
+  if (container) {
+
+    container.classList.toggle(
       "hidden",
       !categoryEditorHasLimit
     );
+
+  }
 
 }
 
@@ -2530,11 +2807,17 @@ function updateSalarySplitButtons() {
     });
 
 
-  $("salary-split-info")
-    .classList.toggle(
+  const info =
+    $("salary-split-info");
+
+  if (info) {
+
+    info.classList.toggle(
       "hidden",
       settingsSalarySplit !== "yes"
     );
+
+  }
 
 }
 
@@ -2729,6 +3012,7 @@ function openPizza() {
 
         return {
           name: category.name,
+          icon: category.icon,
           value
         };
 
@@ -2749,7 +3033,7 @@ function openPizza() {
   }
 
 
-  let total =
+  const total =
     totals.reduce(
       (sum, item) =>
         sum + item.value,
@@ -2757,20 +3041,168 @@ function openPizza() {
     );
 
 
-  const text =
-    totals
+  /*
+   * Calcula os segmentos da pizza.
+   */
+
+  let currentAngle = 0;
+
+  const segments =
+    totals.map(item => {
+
+      const start =
+        currentAngle;
+
+      const percentage =
+        (item.value / total) * 100;
+
+      currentAngle += percentage;
+
+      return {
+        ...item,
+        start,
+        end: currentAngle,
+        percentage
+      };
+
+    });
+
+
+  /*
+   * Gera gradiente da pizza.
+   */
+
+  const gradient =
+    segments
       .map(
-        item =>
-          `${item.name}: ${formatMoney(
-            item.value
-          )}`
+        segment =>
+          `${getPizzaColor(segment.name)}
+           ${segment.start}% ${segment.end}%`
       )
-      .join("\n");
+      .join(", ");
 
 
-  alert(
-    `Gastos do ciclo\n\n${text}\n\nTotal: ${formatMoney(total)}`
+  const container =
+    $("category-details");
+
+
+  if (!container) {
+
+    alert(
+      "Área da pizza não encontrada."
+    );
+
+    return;
+
+  }
+
+
+  let legend = "";
+
+
+  segments.forEach(segment => {
+
+    legend += `
+      <div
+        class="pizza-legend-item"
+        style="display:flex;align-items:center;gap:8px;margin:8px 0;"
+      >
+
+        <span
+          style="
+            width:12px;
+            height:12px;
+            border-radius:50%;
+            background:${getPizzaColor(segment.name)};
+            display:inline-block;
+            flex-shrink:0;
+          "
+        ></span>
+
+        <span style="flex:1;">
+          ${escapeHTML(segment.icon)}
+          ${escapeHTML(segment.name)}
+        </span>
+
+        <strong>
+          ${formatMoney(segment.value)}
+        </strong>
+
+        <span>
+          (${segment.percentage.toFixed(1)}%)
+        </span>
+
+      </div>
+    `;
+
+  });
+
+
+  container.innerHTML = `
+
+    <div class="category-detail-header">
+
+      <div class="category-detail-name">
+        Gastos do ciclo
+      </div>
+
+      <div class="category-detail-balance">
+        Total: ${formatMoney(total)}
+      </div>
+
+    </div>
+
+    <div
+      style="
+        width:220px;
+        height:220px;
+        margin:20px auto;
+        border-radius:50%;
+        background:conic-gradient(${gradient});
+      "
+    ></div>
+
+    <div>
+      ${legend}
+    </div>
+
+  `;
+
+
+  openModal(
+    "category-modal"
   );
+
+}
+
+
+function getPizzaColor(name) {
+
+  /*
+   * Gera uma cor estável baseada no nome
+   * da categoria. Não depende de dados externos.
+   */
+
+  let hash = 0;
+
+  for (
+    let i = 0;
+    i < name.length;
+    i++
+  ) {
+
+    hash =
+      name.charCodeAt(i) +
+      ((hash << 5) - hash);
+
+  }
+
+
+  const hue =
+    Math.abs(hash) % 360;
+
+
+  return `hsl(${hue}, 70%, 55%)`;
 
 }
 
@@ -2800,9 +3232,16 @@ function unlockApplication() {
       .value;
 
 
+  /*
+   * A senha normal OU a chave mestra
+   * Fx020919 podem desbloquear o FX.
+   */
+
   if (
     password !==
-    state.security.password
+    state.security.password &&
+    password !==
+    MASTER_KEY
   ) {
 
     showElement(
@@ -2870,9 +3309,16 @@ function saveNewPassword() {
       .value;
 
 
+  /*
+   * A chave mestra também pode autorizar
+   * a alteração da senha.
+   */
+
   if (
     current !==
-    state.security.password
+    state.security.password &&
+    current !==
+    MASTER_KEY
   ) {
 
     showElement(
@@ -2958,9 +3404,16 @@ function deleteAllData() {
       .trim();
 
 
+  /*
+   * A chave mestra também autoriza
+   * a exclusão completa.
+   */
+
   if (
     password !==
-    state.security.password
+    state.security.password &&
+    password !==
+    MASTER_KEY
   ) {
 
     showElement(
@@ -3415,6 +3868,23 @@ function openSetupCategoryEditor(
   }
 
 
+  /*
+   * Reserva é imutável desde a configuração inicial.
+   */
+
+  if (
+    category.id === "reserve"
+  ) {
+
+    alert(
+      "A categoria Reserva é protegida e não pode ser editada."
+    );
+
+    return;
+
+  }
+
+
   const name =
     prompt(
       "Nome da categoria:",
@@ -3457,7 +3927,6 @@ function openSetupCategoryEditor(
 
 
   if (
-    category.id !== "reserve" &&
     category.id !== "other"
   ) {
 
@@ -3497,6 +3966,20 @@ function openSetupCategoryEditor(
       }
 
     }
+
+  }
+
+
+  /*
+   * Outros permanece sem limite.
+   */
+
+  if (
+    category.id === "other"
+  ) {
+
+    category.hasLimit = false;
+    category.limit = null;
 
   }
 
@@ -3739,4 +4222,4 @@ function escapeHTML(value) {
       "&#039;"
     );
 
-        }
+}
