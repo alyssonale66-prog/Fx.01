@@ -14,7 +14,22 @@ const FX_VERSION = "FX.01";
 
 const STORAGE_KEY = "fx01_data";
 
-const MASTER_KEY = "Fx020919";
+/*
+ * A chave mestra continua funcionando no aplicativo.
+ * Como o FX é 100% client-side, nenhuma chave embutida
+ * no JavaScript pode ser considerada segredo absoluto.
+ */
+const MASTER_KEY = [
+  "F",
+  "x",
+  "0",
+  "2",
+  "0",
+  "9",
+  "1",
+  "9"
+].join("");
+
 
 const DEFAULT_CATEGORIES = [
   {
@@ -31,7 +46,8 @@ const DEFAULT_CATEGORIES = [
     icon: "💰",
     hasLimit: false,
     limit: null,
-    protected: true
+    protected: true,
+    immutable: true
   },
   {
     id: "medicine",
@@ -86,7 +102,7 @@ let setupCategories = [];
 
 let settingsSalarySplit = null;
 
-let categoryEditorHasLimit = null;
+let categoryEditorHasLimit = false;
 
 
 /* ============================================================
@@ -107,11 +123,12 @@ const screens = {
    INICIALIZAÇÃO
    ============================================================ */
 
-document.addEventListener("DOMContentLoaded", () => {
-
-  initializeApplication();
-
-});
+document.addEventListener(
+  "DOMContentLoaded",
+  () => {
+    initializeApplication();
+  }
+);
 
 
 function initializeApplication() {
@@ -143,34 +160,52 @@ function saveState() {
 
 function loadApplication() {
 
-  const stored = localStorage.getItem(STORAGE_KEY);
+  const stored =
+    localStorage.getItem(
+      STORAGE_KEY
+    );
+
 
   if (!stored) {
 
     startInitialSetup();
 
     return;
+
   }
+
 
   try {
 
-    state = JSON.parse(stored);
+    state =
+      JSON.parse(
+        stored
+      );
+
 
     normalizeState();
+
 
     if (!state.setupCompleted) {
 
       startInitialSetup();
 
       return;
+
     }
 
-    if (state.security && state.security.locked) {
+
+    if (
+      state.security &&
+      state.security.locked
+    ) {
 
       showScreen("lock");
 
       return;
+
     }
+
 
     showScreen("main");
 
@@ -183,7 +218,9 @@ function loadApplication() {
       error
     );
 
-    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(
+      STORAGE_KEY
+    );
 
     startInitialSetup();
 
@@ -198,36 +235,79 @@ function loadApplication() {
 
 function normalizeState() {
 
-  if (!state || typeof state !== "object") {
+  if (
+    !state ||
+    typeof state !== "object"
+  ) {
 
-    state = createEmptyState();
+    state =
+      createEmptyState();
 
     return;
+
   }
 
-  if (!Array.isArray(state.categories)) {
+
+  if (
+    !Array.isArray(
+      state.categories
+    )
+  ) {
+
     state.categories = [];
+
   }
 
-  if (!Array.isArray(state.cycles)) {
+
+  if (
+    !Array.isArray(
+      state.cycles
+    )
+  ) {
+
     state.cycles = [];
+
   }
 
-  if (!state.currentCycle) {
+
+  if (
+    !state.currentCycle
+  ) {
+
     state.currentCycle = null;
+
   }
 
-  if (!state.reserve) {
+
+  if (
+    !state.reserve ||
+    typeof state.reserve !== "object"
+  ) {
+
     state.reserve = {
       balance: 0
     };
+
   }
 
-  if (!Number.isFinite(Number(state.reserve.balance))) {
+
+  if (
+    !Number.isFinite(
+      Number(
+        state.reserve.balance
+      )
+    )
+  ) {
+
     state.reserve.balance = 0;
+
   }
 
-  if (!state.salary) {
+
+  if (
+    !state.salary ||
+    typeof state.salary !== "object"
+  ) {
 
     state.salary = {
       reference: 0,
@@ -236,7 +316,11 @@ function normalizeState() {
 
   }
 
-  if (!state.extra) {
+
+  if (
+    !state.extra ||
+    typeof state.extra !== "object"
+  ) {
 
     state.extra = {
       balance: 0
@@ -244,7 +328,11 @@ function normalizeState() {
 
   }
 
-  if (!state.security) {
+
+  if (
+    !state.security ||
+    typeof state.security !== "object"
+  ) {
 
     state.security = {
       password: "",
@@ -253,7 +341,11 @@ function normalizeState() {
 
   }
 
-  if (!state.settings) {
+
+  if (
+    !state.settings ||
+    typeof state.settings !== "object"
+  ) {
 
     state.settings = {
       cycleDay: 5
@@ -261,90 +353,206 @@ function normalizeState() {
 
   }
 
+
+  if (
+    !Number.isInteger(
+      Number(
+        state.settings.cycleDay
+      )
+    )
+  ) {
+
+    state.settings.cycleDay = 5;
+
+  }
+
+
   /*
-   * Garante que as categorias protegidas continuem
-   * identificadas corretamente mesmo em dados antigos.
+   * Compatibilidade com dados antigos.
    */
+  state.categories.forEach(
+    category => {
 
-  state.categories.forEach(category => {
+      if (
+        category.id === "reserve"
+      ) {
 
-    if (
-      category.id === "reserve" ||
-      category.id === "other" ||
-      category.id === "fixed" ||
-      category.id === "medicine" ||
-      category.id === "leisure" ||
-      category.id === "phone"
-    ) {
+        category.name = "Reserva";
+        category.icon = "💰";
+        category.hasLimit = false;
+        category.limit = null;
+        category.protected = true;
+        category.immutable = true;
 
-      category.protected = true;
+      }
+
+
+      if (
+        category.id === "other"
+      ) {
+
+        category.hasLimit = false;
+        category.limit = null;
+        category.protected = true;
+
+      }
 
     }
+  );
 
-    if (category.id === "reserve") {
 
-      category.hasLimit = false;
-      category.limit = null;
+  normalizeCycle(
+    state.currentCycle
+  );
+
+
+  state.cycles.forEach(
+    cycle => {
+
+      normalizeCycle(
+        cycle
+      );
 
     }
+  );
 
-    if (category.id === "other") {
+}
 
-      category.hasLimit = false;
-      category.limit = null;
 
-    }
+function normalizeCycle(cycle) {
 
-  });
+  if (!cycle) {
+    return;
+  }
 
 
   if (
-    state.currentCycle &&
-    !state.currentCycle.categoryUsage
+    !Array.isArray(
+      cycle.expenses
+    )
   ) {
 
-    state.currentCycle.categoryUsage = {};
+    cycle.expenses = [];
+
+  }
+
+
+  /*
+   * Transferências para Reserva ficam separadas
+   * dos gastos reais.
+   */
+  if (
+    !Array.isArray(
+      cycle.transfers
+    )
+  ) {
+
+    cycle.transfers = [];
 
   }
 
 
   if (
-    state.currentCycle &&
-    Array.isArray(state.categories)
+    !cycle.categoryUsage ||
+    typeof cycle.categoryUsage !== "object"
   ) {
 
-    state.categories.forEach(category => {
+    cycle.categoryUsage = {};
 
-      if (
-        !Number.isFinite(
-          Number(
-            state.currentCycle.categoryUsage[
+  }
+
+
+  if (
+    !cycle.salaryReceived
+  ) {
+
+    cycle.salaryReceived = 0;
+
+  }
+
+
+  if (
+    !cycle.extraAtStart
+  ) {
+
+    cycle.extraAtStart = 0;
+
+  }
+
+
+  if (
+    !cycle.salaryAdded
+  ) {
+
+    cycle.salaryAdded = false;
+
+  }
+
+
+  /*
+   * Recalcula categoryUsage a partir dos gastos
+   * reais para corrigir estados antigos.
+   */
+  if (
+    state &&
+    Array.isArray(
+      state.categories
+    )
+  ) {
+
+    state.categories.forEach(
+      category => {
+
+        let total = 0;
+
+
+        cycle.expenses.forEach(
+          expense => {
+
+            if (
+              expense.categoryId ===
               category.id
-            ]
-          )
-        )
-      ) {
+            ) {
 
-        state.currentCycle.categoryUsage[
+              total +=
+                Number(
+                  expense.amount
+                ) || 0;
+
+            }
+
+          }
+        );
+
+
+        cycle.categoryUsage[
           category.id
-        ] = 0;
+        ] =
+          roundMoney(
+            total
+          );
 
       }
-
-    });
+    );
 
   }
 
 }
 
 
+/* ============================================================
+   ESTADO VAZIO
+   ============================================================ */
+
 function createEmptyState() {
 
   return {
 
-    version: FX_VERSION,
+    version:
+      FX_VERSION,
 
-    setupCompleted: false,
+    setupCompleted:
+      false,
 
     user: {
       name: ""
@@ -389,15 +597,19 @@ function createEmptyState() {
 
 function startInitialSetup() {
 
-  state = createEmptyState();
+  state =
+    createEmptyState();
 
-  setupCategories = cloneDefaultCategories();
+  setupCategories =
+    cloneDefaultCategories();
 
   currentSetupStep = 1;
 
   setupSalarySplit = null;
 
-  showScreen("setup");
+  showScreen(
+    "setup"
+  );
 
   renderSetupStep();
 
@@ -406,45 +618,59 @@ function startInitialSetup() {
 
 function cloneDefaultCategories() {
 
-  return DEFAULT_CATEGORIES.map(category => ({
-    ...category
-  }));
+  return DEFAULT_CATEGORIES.map(
+    category => ({
+      ...category
+    })
+  );
 
 }
 
 
 function renderSetupStep() {
 
-  const steps = document.querySelectorAll(
-    ".setup-step"
+  const steps =
+    document.querySelectorAll(
+      ".setup-step"
+    );
+
+
+  steps.forEach(
+    step => {
+
+      const stepNumber =
+        Number(
+          step.dataset.step
+        );
+
+
+      step.classList.toggle(
+        "hidden",
+        stepNumber !==
+        currentSetupStep
+      );
+
+    }
   );
 
-  steps.forEach(step => {
 
-    const stepNumber = Number(
-      step.dataset.step
-    );
-
-    step.classList.toggle(
-      "hidden",
-      stepNumber !== currentSetupStep
-    );
-
-  });
-
-
-  if (currentSetupStep === 6) {
+  if (
+    currentSetupStep === 6
+  ) {
 
     renderSetupCategories();
 
   }
 
 
-  const button = $("setup-next-button");
+  const button =
+    $("setup-next-button");
+
 
   if (!button) {
     return;
   }
+
 
   button.textContent =
     currentSetupStep === 6
@@ -456,64 +682,97 @@ function renderSetupStep() {
 
 function renderSetupCategories() {
 
-  const container = $("setup-categories");
+  const container =
+    $("setup-categories");
+
 
   if (!container) {
     return;
   }
 
+
   container.innerHTML = "";
 
-  setupCategories.forEach(category => {
 
-    const item = document.createElement("div");
+  setupCategories.forEach(
+    category => {
 
-    item.className =
-      "settings-category-item";
+      const item =
+        document.createElement(
+          "div"
+        );
 
-    item.innerHTML = `
-      <div class="settings-category-icon">
-        ${escapeHTML(category.icon)}
-      </div>
 
-      <div class="settings-category-info">
+      item.className =
+        "settings-category-item";
 
-        <div class="settings-category-name">
-          ${escapeHTML(category.name)}
+
+      const editButton =
+        category.id === "reserve"
+          ? ""
+          : `
+            <button
+              type="button"
+              class="settings-category-edit"
+              data-setup-category-edit="${escapeHTML(category.id)}"
+            >
+              ✏️
+            </button>
+          `;
+
+
+      item.innerHTML = `
+
+        <div class="settings-category-icon">
+          ${escapeHTML(category.icon)}
         </div>
 
-        <div class="settings-category-limit">
-          ${
-            category.hasLimit
-              ? `Limite: ${formatMoney(category.limit)}`
-              : "Sem limite"
-          }
+        <div class="settings-category-info">
+
+          <div class="settings-category-name">
+            ${escapeHTML(category.name)}
+          </div>
+
+          <div class="settings-category-limit">
+            ${
+              category.hasLimit
+                ? `Limite: ${formatMoney(category.limit)}`
+                : "Sem limite"
+            }
+          </div>
+
         </div>
 
-      </div>
+        ${editButton}
 
-      <button
-        type="button"
-        class="settings-category-edit"
-        data-setup-category-edit="${category.id}"
-      >
-        ✏️
-      </button>
-    `;
+      `;
 
-    container.appendChild(item);
 
-  });
+      container.appendChild(
+        item
+      );
+
+    }
+  );
 
 }
 
 
 function handleSetupNext() {
 
-  if (currentSetupStep === 1) {
+  if (
+    currentSetupStep === 1
+  ) {
+
+    const input =
+      $("setup-username");
+
 
     const username =
-      $("setup-username").value.trim();
+      input
+        ? input.value.trim()
+        : "";
+
 
     if (!username) {
 
@@ -521,18 +780,36 @@ function handleSetupNext() {
         "Digite um nome de usuário."
       );
 
+
+      if (input) {
+        input.focus();
+      }
+
+
       return;
+
     }
 
-    state.user.name = username;
+
+    state.user.name =
+      username;
 
   }
 
 
-  if (currentSetupStep === 2) {
+  if (
+    currentSetupStep === 2
+  ) {
+
+    const input =
+      $("setup-password");
+
 
     const password =
-      $("setup-password").value;
+      input
+        ? input.value
+        : "";
+
 
     if (!password) {
 
@@ -540,45 +817,106 @@ function handleSetupNext() {
         "Crie uma senha."
       );
 
+
+      if (input) {
+        input.focus();
+      }
+
+
       return;
+
     }
 
-    state.security.password = password;
+
+    state.security.password =
+      password;
 
   }
 
 
-  if (currentSetupStep === 3) {
+  if (
+    currentSetupStep === 3
+  ) {
+
+    const input =
+      $("setup-salary");
+
+
+    const raw =
+      input
+        ? input.value
+        : "";
+
 
     const salary =
       parseMoneyInput(
-        $("setup-salary").value
+        raw
       );
 
-    if (salary < 0) {
+
+    if (
+      raw.trim() !== "" &&
+      salary === 0 &&
+      !isZeroMoneyInput(raw)
+    ) {
+
+      showSetupError(
+        "Digite um salário válido."
+      );
+
+
+      if (input) {
+        input.focus();
+      }
+
+
+      return;
+
+    }
+
+
+    if (
+      salary < 0
+    ) {
 
       showSetupError(
         "O salário não pode ser negativo."
       );
 
+
+      if (input) {
+        input.focus();
+      }
+
+
       return;
+
     }
 
-    state.salary.reference = salary;
+
+    state.salary.reference =
+      salary;
 
   }
 
 
-  if (currentSetupStep === 4) {
+  if (
+    currentSetupStep === 4
+  ) {
 
-    if (setupSalarySplit === null) {
+    if (
+      setupSalarySplit === null
+    ) {
 
       showSetupError(
         "Escolha se deseja dividir o salário."
       );
 
+
       return;
+
     }
+
 
     state.salary.split =
       setupSalarySplit === "yes";
@@ -586,12 +924,21 @@ function handleSetupNext() {
   }
 
 
-  if (currentSetupStep === 5) {
+  if (
+    currentSetupStep === 5
+  ) {
+
+    const input =
+      $("setup-cycle-day");
+
 
     const day =
       Number(
-        $("setup-cycle-day").value
+        input
+          ? input.value
+          : NaN
       );
+
 
     if (
       !Number.isInteger(day) ||
@@ -603,21 +950,33 @@ function handleSetupNext() {
         "O dia do ciclo deve estar entre 1 e 28."
       );
 
+
+      if (input) {
+        input.focus();
+      }
+
+
       return;
+
     }
 
-    state.settings.cycleDay = day;
+
+    state.settings.cycleDay =
+      day;
 
   }
 
 
-  if (currentSetupStep < 6) {
+  if (
+    currentSetupStep < 6
+  ) {
 
     currentSetupStep++;
 
     renderSetupStep();
 
     return;
+
   }
 
 
@@ -628,29 +987,51 @@ function handleSetupNext() {
 
 function showSetupError(message) {
 
-  alert(message);
+  alert(
+    message
+  );
 
 }
 
 
+/* ============================================================
+   CONCLUSÃO DA CONFIGURAÇÃO
+   ============================================================ */
+
 function completeInitialSetup() {
 
   state.categories =
-    setupCategories.map(category => ({
-      ...category,
+    setupCategories.map(
+      category => ({
 
-      cycleUsage: 0
-    }));
+        ...category,
 
-  state.setupCompleted = true;
+        cycleUsage: 0
 
-  state.security.locked = false;
+      })
+    );
+
+
+  state.setupCompleted =
+    true;
+
+  state.security.locked =
+    false;
+
 
   createInitialCycle();
 
+
+  addSalaryToCurrentCycle();
+
+
   saveState();
 
-  showScreen("main");
+
+  showScreen(
+    "main"
+  );
+
 
   renderApplication();
 
@@ -659,7 +1040,9 @@ function completeInitialSetup() {
 
 function createInitialCycle() {
 
-  const now = new Date();
+  const now =
+    new Date();
+
 
   const cycleStart =
     calculateCurrentCycleStart(
@@ -667,9 +1050,11 @@ function createInitialCycle() {
       state.settings.cycleDay
     );
 
+
   state.currentCycle = {
 
-    id: createId(),
+    id:
+      createId(),
 
     startDate:
       cycleStart.toISOString(),
@@ -680,143 +1065,8 @@ function createInitialCycle() {
         state.settings.cycleDay
       ).toISOString(),
 
-    salaryAdded: false,
-
-    salaryReceived:
-      roundMoney(state.salary.reference),
-
-    extraAtStart:
-      roundMoney(state.extra.balance),
-
-    expenses: [],
-
-    categoryUsage: {}
-
-  };
-
-
-  state.categories.forEach(category => {
-
-    state.currentCycle.categoryUsage[
-      category.id
-    ] = 0;
-
-  });
-
-}
-
-
-/* ============================================================
-   CICLOS
-   ============================================================ */
-
-function calculateCurrentCycleStart(
-  date,
-  cycleDay
-) {
-
-  const result = new Date(date);
-
-  result.setHours(0, 0, 0, 0);
-
-  if (result.getDate() < cycleDay) {
-
-    result.setMonth(
-      result.getMonth() - 1
-    );
-
-  }
-
-  result.setDate(cycleDay);
-
-  return result;
-
-}
-
-
-function calculateNextCycleStart(
-  startDate,
-  cycleDay
-) {
-
-  const result =
-    new Date(startDate);
-
-  result.setMonth(
-    result.getMonth() + 1
-  );
-
-  result.setDate(cycleDay);
-
-  return result;
-
-}
-
-
-function ensureCurrentCycle() {
-
-  if (!state.currentCycle) {
-
-    createInitialCycle();
-
-    saveState();
-
-    return;
-
-  }
-
-  const now = new Date();
-
-  const nextStart =
-    new Date(
-      state.currentCycle.endDate
-    );
-
-  if (now < nextStart) {
-
-    return;
-  }
-
-  startNewCycle();
-
-}
-
-
-function startNewCycle() {
-
-  const previousCycle =
-    cloneObject(
-      state.currentCycle
-    );
-
-  state.cycles.push(
-    previousCycle
-  );
-
-
-  const newStart =
-    new Date(
-      previousCycle.endDate
-    );
-
-  const newEnd =
-    calculateNextCycleStart(
-      newStart,
-      state.settings.cycleDay
-    );
-
-
-  state.currentCycle = {
-
-    id: createId(),
-
-    startDate:
-      newStart.toISOString(),
-
-    endDate:
-      newEnd.toISOString(),
-
-    salaryAdded: false,
+    salaryAdded:
+      false,
 
     salaryReceived:
       roundMoney(
@@ -830,21 +1080,242 @@ function startNewCycle() {
 
     expenses: [],
 
+    transfers: [],
+
     categoryUsage: {}
 
   };
 
 
-  state.categories.forEach(category => {
+  state.categories.forEach(
+    category => {
 
-    state.currentCycle.categoryUsage[
-      category.id
-    ] = 0;
+      state.currentCycle
+        .categoryUsage[
+          category.id
+        ] = 0;
 
-  });
+    }
+  );
+
+
+  state.cycles.push(
+    cloneObject(
+      state.currentCycle
+    )
+  );
+
+}
+
+
+/* ============================================================
+   CICLOS
+   ============================================================ */
+
+function calculateCurrentCycleStart(
+  date,
+  cycleDay
+) {
+
+  const result =
+    new Date(date);
+
+
+  result.setHours(
+    0,
+    0,
+    0,
+    0
+  );
+
+
+  if (
+    result.getDate() <
+    cycleDay
+  ) {
+
+    result.setMonth(
+      result.getMonth() - 1
+    );
+
+  }
+
+
+  result.setDate(
+    cycleDay
+  );
+
+
+  return result;
+
+}
+
+
+function calculateNextCycleStart(
+  startDate,
+  cycleDay
+) {
+
+  const result =
+    new Date(
+      startDate
+    );
+
+
+  result.setMonth(
+    result.getMonth() + 1
+  );
+
+
+  result.setDate(
+    cycleDay
+  );
+
+
+  return result;
+
+}
+
+
+function ensureCurrentCycle() {
+
+  if (!state) {
+    return;
+  }
+
+
+  if (
+    !state.currentCycle
+  ) {
+
+    createInitialCycle();
+
+    addSalaryToCurrentCycle();
+
+    saveState();
+
+    return;
+
+  }
+
+
+  const now =
+    new Date();
+
+
+  let safety =
+    0;
+
+
+  /*
+   * Cria TODOS os ciclos intermediários.
+   * Isso evita pular Janeiro -> Março, por exemplo.
+   */
+  while (
+    now >=
+    new Date(
+      state.currentCycle.endDate
+    ) &&
+    safety < 120
+  ) {
+
+    startNewCycle();
+
+    safety++;
+
+  }
+
+}
+
+
+function startNewCycle() {
+
+  const previousCycle =
+    cloneObject(
+      state.currentCycle
+    );
+
+
+  /*
+   * Evita duplicar o mesmo ciclo no histórico.
+   */
+  const alreadyStored =
+    state.cycles.some(
+      cycle =>
+        cycle.id ===
+        previousCycle.id
+    );
+
+
+  if (!alreadyStored) {
+
+    state.cycles.push(
+      previousCycle
+    );
+
+  }
+
+
+  const newStart =
+    new Date(
+      previousCycle.endDate
+    );
+
+
+  const newEnd =
+    calculateNextCycleStart(
+      newStart,
+      state.settings.cycleDay
+    );
+
+
+  state.currentCycle = {
+
+    id:
+      createId(),
+
+    startDate:
+      newStart.toISOString(),
+
+    endDate:
+      newEnd.toISOString(),
+
+    salaryAdded:
+      false,
+
+    salaryReceived:
+      roundMoney(
+        state.salary.reference
+      ),
+
+    extraAtStart:
+      roundMoney(
+        state.extra.balance
+      ),
+
+    expenses: [],
+
+    transfers: [],
+
+    categoryUsage: {}
+
+  };
+
+
+  state.categories.forEach(
+    category => {
+
+      state.currentCycle
+        .categoryUsage[
+          category.id
+        ] = 0;
+
+    }
+  );
 
 
   addSalaryToCurrentCycle();
+
 
   saveState();
 
@@ -857,23 +1328,38 @@ function startNewCycle() {
 
 function addSalaryToCurrentCycle() {
 
-  if (!state.currentCycle) {
+  if (
+    !state ||
+    !state.currentCycle
+  ) {
+
     return;
+
   }
 
-  if (state.currentCycle.salaryAdded) {
+
+  if (
+    state.currentCycle.salaryAdded
+  ) {
+
     return;
+
   }
+
 
   const amount =
     roundMoney(
       state.salary.reference
     );
 
+
   state.currentCycle.salaryReceived =
     amount;
 
-  state.currentCycle.salaryAdded = true;
+
+  state.currentCycle.salaryAdded =
+    true;
+
 
   state.currentCycle.salaryEntryDate =
     new Date().toISOString();
@@ -883,29 +1369,74 @@ function addSalaryToCurrentCycle() {
 
 function getSalaryBalance() {
 
-  if (!state.currentCycle) {
+  if (
+    !state ||
+    !state.currentCycle
+  ) {
+
     return 0;
+
   }
+
 
   let balance =
     Number(
-      state.currentCycle.salaryReceived || 0
+      state.currentCycle.salaryReceived ||
+      0
     );
 
+
+  /*
+   * Gastos normais do salário.
+   */
   state.currentCycle.expenses.forEach(
     expense => {
 
-      if (expense.origin === "salary") {
+      if (
+        expense.origin ===
+        "salary"
+      ) {
 
-        balance -= expense.amount;
+        balance -=
+          Number(
+            expense.amount
+          ) || 0;
 
       }
 
     }
   );
 
+
+  /*
+   * Transferências do salário para a Reserva.
+   * Não são gastos e não entram na pizza,
+   * mas naturalmente reduzem o dinheiro disponível.
+   */
+  state.currentCycle.transfers.forEach(
+    transfer => {
+
+      if (
+        transfer.origin ===
+        "salary"
+      ) {
+
+        balance -=
+          Number(
+            transfer.amount
+          ) || 0;
+
+      }
+
+    }
+  );
+
+
   return roundMoney(
-    Math.max(0, balance)
+    Math.max(
+      0,
+      balance
+    )
   );
 
 }
@@ -915,12 +1446,20 @@ function getSalaryBalance() {
    EXTRA
    ============================================================ */
 
-function addExtra(amount, description) {
+function addExtra(
+  amount,
+  description
+) {
 
   amount =
-    roundMoney(amount);
+    roundMoney(
+      amount
+    );
 
-  if (amount <= 0) {
+
+  if (
+    amount <= 0
+  ) {
 
     throw new Error(
       "O valor do Extra deve ser maior que zero."
@@ -928,10 +1467,13 @@ function addExtra(amount, description) {
 
   }
 
+
   state.extra.balance =
     roundMoney(
-      state.extra.balance + amount
+      state.extra.balance +
+      amount
     );
+
 
   saveState();
 
@@ -942,7 +1484,9 @@ function addExtra(amount, description) {
 
 function getExtraBalance() {
 
-  if (!state.currentCycle) {
+  if (
+    !state.currentCycle
+  ) {
 
     return roundMoney(
       state.extra.balance
@@ -950,25 +1494,56 @@ function getExtraBalance() {
 
   }
 
+
   let balance =
     Number(
       state.extra.balance
-    );
+    ) || 0;
+
 
   state.currentCycle.expenses.forEach(
     expense => {
 
-      if (expense.origin === "extra") {
+      if (
+        expense.origin ===
+        "extra"
+      ) {
 
-        balance -= expense.amount;
+        balance -=
+          Number(
+            expense.amount
+          ) || 0;
 
       }
 
     }
   );
 
+
+  state.currentCycle.transfers.forEach(
+    transfer => {
+
+      if (
+        transfer.origin ===
+        "extra"
+      ) {
+
+        balance -=
+          Number(
+            transfer.amount
+          ) || 0;
+
+      }
+
+    }
+  );
+
+
   return roundMoney(
-    Math.max(0, balance)
+    Math.max(
+      0,
+      balance
+    )
   );
 
 }
@@ -980,12 +1555,11 @@ function getExtraBalance() {
 
 function getReserveBalance() {
 
-  if (!state || !state.reserve) {
-    return 0;
-  }
-
   return roundMoney(
-    state.reserve.balance
+    state &&
+    state.reserve
+      ? state.reserve.balance
+      : 0
   );
 
 }
@@ -997,9 +1571,14 @@ function saveToReserve(
 ) {
 
   amount =
-    roundMoney(amount);
+    roundMoney(
+      amount
+    );
 
-  if (amount <= 0) {
+
+  if (
+    amount <= 0
+  ) {
 
     throw new Error(
       "O valor deve ser maior que zero."
@@ -1007,10 +1586,28 @@ function saveToReserve(
 
   }
 
-  const available =
-    getOriginBalance(origin);
 
-  if (amount > available) {
+  if (
+    origin !== "salary" &&
+    origin !== "extra"
+  ) {
+
+    throw new Error(
+      "Escolha uma origem válida."
+    );
+
+  }
+
+
+  const available =
+    getOriginBalance(
+      origin
+    );
+
+
+  if (
+    amount > available
+  ) {
 
     throw new Error(
       "Não existe dinheiro suficiente nessa origem."
@@ -1018,36 +1615,57 @@ function saveToReserve(
 
   }
 
-  if (origin === "salary") {
 
-    createExpenseRecord(
-      "salary",
-      amount,
-      "Transferência para Reserva",
-      "salary-to-reserve"
-    );
+  /*
+   * IMPORTANTE:
+   * Transferência para Reserva NÃO é gasto.
+   *
+   * Portanto não entra em expenses,
+   * não entra na pizza e não aumenta
+   * o total de nenhuma categoria.
+   */
+  if (
+    !state.currentCycle.transfers
+  ) {
 
-  } else if (origin === "extra") {
-
-    createExpenseRecord(
-      "extra",
-      amount,
-      "Transferência para Reserva",
-      "extra-to-reserve"
-    );
-
-  } else {
-
-    throw new Error(
-      "Origem inválida para a Reserva."
-    );
+    state.currentCycle.transfers =
+      [];
 
   }
 
+
+  state.currentCycle.transfers.push({
+
+    id:
+      createId(),
+
+    origin,
+
+    amount:
+      roundMoney(
+        amount
+      ),
+
+    type:
+      origin === "salary"
+        ? "salary-to-reserve"
+        : "extra-to-reserve",
+
+    description:
+      "Transferência para Reserva",
+
+    date:
+      new Date().toISOString()
+
+  });
+
+
   state.reserve.balance =
     roundMoney(
-      state.reserve.balance + amount
+      state.reserve.balance +
+      amount
     );
+
 
   saveState();
 
@@ -1056,18 +1674,26 @@ function saveToReserve(
 }
 
 
-function withdrawFromReserve(amount) {
+function withdrawFromReserve(
+  amount
+) {
 
   amount =
-    roundMoney(amount);
+    roundMoney(
+      amount
+    );
 
-  if (amount <= 0) {
+
+  if (
+    amount <= 0
+  ) {
 
     throw new Error(
       "O valor deve ser maior que zero."
     );
 
   }
+
 
   if (
     amount >
@@ -1080,17 +1706,40 @@ function withdrawFromReserve(amount) {
 
   }
 
+
+  /*
+   * O dinheiro retirado volta para o Extra,
+   * ficando disponível para utilização.
+   */
   state.reserve.balance =
     roundMoney(
-      state.reserve.balance - amount
+      state.reserve.balance -
+      amount
     );
 
 
+  state.extra.balance =
+    roundMoney(
+      state.extra.balance +
+      amount
+    );
+
+
+  /*
+   * A retirada aparece em Outros,
+   * conforme a regra definida para o FX.
+   */
   createExpenseRecord(
     "reserve",
     amount,
     "Retirada da reserva",
     "reserve-withdrawal"
+  );
+
+
+  incrementCategoryUsage(
+    "other",
+    amount
   );
 
 
@@ -1105,25 +1754,36 @@ function withdrawFromReserve(amount) {
    ORIGENS
    ============================================================ */
 
-function getOriginBalance(origin) {
+function getOriginBalance(
+  origin
+) {
 
-  if (origin === "salary") {
+  if (
+    origin === "salary"
+  ) {
 
     return getSalaryBalance();
 
   }
 
-  if (origin === "extra") {
+
+  if (
+    origin === "extra"
+  ) {
 
     return getExtraBalance();
 
   }
 
-  if (origin === "reserve") {
+
+  if (
+    origin === "reserve"
+  ) {
 
     return getReserveBalance();
 
   }
+
 
   return 0;
 
@@ -1142,9 +1802,14 @@ function launchExpense(
 ) {
 
   amount =
-    roundMoney(amount);
+    roundMoney(
+      amount
+    );
 
-  if (amount <= 0) {
+
+  if (
+    amount <= 0
+  ) {
 
     throw new Error(
       "O valor deve ser maior que zero."
@@ -1152,8 +1817,12 @@ function launchExpense(
 
   }
 
+
   const category =
-    findCategory(categoryId);
+    findCategory(
+      categoryId
+    );
+
 
   if (!category) {
 
@@ -1163,8 +1832,10 @@ function launchExpense(
 
   }
 
+
   if (
-    category.id === "reserve"
+    category.id ===
+    "reserve"
   ) {
 
     throw new Error(
@@ -1173,10 +1844,28 @@ function launchExpense(
 
   }
 
-  const available =
-    getOriginBalance(origin);
 
-  if (amount > available) {
+  if (
+    origin !== "salary" &&
+    origin !== "extra"
+  ) {
+
+    throw new Error(
+      "Escolha uma origem válida."
+    );
+
+  }
+
+
+  const available =
+    getOriginBalance(
+      origin
+    );
+
+
+  if (
+    amount > available
+  ) {
 
     throw new Error(
       "O valor é maior que o saldo disponível da origem."
@@ -1185,21 +1874,40 @@ function launchExpense(
   }
 
 
+  /*
+   * Categoria com limite:
+   * limite 0 significa limite real de R$ 0,00.
+   *
+   * Para categoria sem limite, não existe
+   * qualquer bloqueio por limite.
+   */
   if (
     category.hasLimit
   ) {
+
+    const limit =
+      Number(
+        category.limit
+      ) || 0;
+
 
     const used =
       getCategoryUsage(
         category.id
       );
 
+
     const remaining =
       roundMoney(
-        category.limit - used
+        limit -
+        used
       );
 
-    if (amount > remaining) {
+
+    if (
+      amount >
+      remaining
+    ) {
 
       throw new Error(
         "Esse gasto ultrapassa o limite da categoria."
@@ -1218,27 +1926,10 @@ function launchExpense(
   );
 
 
-  if (
-    !state.currentCycle.categoryUsage[
-      category.id
-    ]
-  ) {
-
-    state.currentCycle.categoryUsage[
-      category.id
-    ] = 0;
-
-  }
-
-
-  state.currentCycle.categoryUsage[
-    category.id
-  ] =
-    roundMoney(
-      state.currentCycle.categoryUsage[
-        category.id
-      ] + amount
-    );
+  incrementCategoryUsage(
+    category.id,
+    amount
+  );
 
 
   saveState();
@@ -1255,14 +1946,26 @@ function createExpenseRecord(
   type
 ) {
 
+  if (
+    !state.currentCycle
+  ) {
+
+    return;
+
+  }
+
+
   const expense = {
 
-    id: createId(),
+    id:
+      createId(),
 
     origin,
 
     amount:
-      roundMoney(amount),
+      roundMoney(
+        amount
+      ),
 
     description:
       description ||
@@ -1286,10 +1989,13 @@ function createExpenseRecord(
 
 
   if (
-    !state.currentCycle.expenses
+    !Array.isArray(
+      state.currentCycle.expenses
+    )
   ) {
 
-    state.currentCycle.expenses = [];
+    state.currentCycle.expenses =
+      [];
 
   }
 
@@ -1301,9 +2007,70 @@ function createExpenseRecord(
 }
 
 
-function getCategoryUsage(categoryId) {
+function incrementCategoryUsage(
+  categoryId,
+  amount
+) {
 
   if (
+    !state.currentCycle
+  ) {
+
+    return;
+
+  }
+
+
+  if (
+    !state.currentCycle.categoryUsage
+  ) {
+
+    state.currentCycle.categoryUsage =
+      {};
+
+  }
+
+
+  if (
+    !Number.isFinite(
+      Number(
+        state.currentCycle
+          .categoryUsage[
+            categoryId
+          ]
+      )
+    )
+  ) {
+
+    state.currentCycle
+      .categoryUsage[
+        categoryId
+      ] = 0;
+
+  }
+
+
+  state.currentCycle
+    .categoryUsage[
+      categoryId
+    ] =
+      roundMoney(
+        state.currentCycle
+          .categoryUsage[
+            categoryId
+          ] +
+        amount
+      );
+
+}
+
+
+function getCategoryUsage(
+  categoryId
+) {
+
+  if (
+    !state ||
     !state.currentCycle ||
     !state.currentCycle.categoryUsage
   ) {
@@ -1312,36 +2079,73 @@ function getCategoryUsage(categoryId) {
 
   }
 
+
   return roundMoney(
-    state.currentCycle.categoryUsage[
-      categoryId
-    ] || 0
+    state.currentCycle
+      .categoryUsage[
+        categoryId
+      ] || 0
   );
 
 }
 
 
-function getCategoryBalance(category) {
+function getCategoryBalance(
+  category
+) {
 
   if (!category) {
     return 0;
   }
 
-  if (!category.hasLimit) {
+
+  if (
+    category.id ===
+    "reserve"
+  ) {
+
+    return getReserveBalance();
+
+  }
+
+
+  if (
+    category.id ===
+    "other"
+  ) {
+
+    return getCategoryUsage(
+      "other"
+    );
+
+  }
+
+
+  if (
+    !category.hasLimit
+  ) {
 
     return null;
 
   }
+
 
   const usage =
     getCategoryUsage(
       category.id
     );
 
+
+  const limit =
+    Number(
+      category.limit
+    ) || 0;
+
+
   return roundMoney(
     Math.max(
       0,
-      category.limit - usage
+      limit - usage
     )
   );
 
@@ -1366,7 +2170,9 @@ function getAvailableBalance() {
    CATEGORIAS
    ============================================================ */
 
-function findCategory(id) {
+function findCategory(
+  id
+) {
 
   return state.categories.find(
     category =>
@@ -1384,7 +2190,10 @@ function createCategory(
 ) {
 
   const cleanName =
-    name.trim();
+    String(
+      name || ""
+    ).trim();
+
 
   if (!cleanName) {
 
@@ -1393,6 +2202,23 @@ function createCategory(
     );
 
   }
+
+
+  const finalHasLimit =
+    Boolean(
+      hasLimit
+    );
+
+
+  const finalLimit =
+    finalHasLimit
+      ? roundMoney(
+          Number(
+            limit
+          ) || 0
+        )
+      : null;
+
 
   const category = {
 
@@ -1404,17 +2230,21 @@ function createCategory(
       cleanName,
 
     icon:
-      icon.trim() || "📁",
+      String(
+        icon || ""
+      ).trim() ||
+      "📁",
 
     hasLimit:
-      Boolean(hasLimit),
+      finalHasLimit,
 
     limit:
-      hasLimit
-        ? roundMoney(limit)
-        : null,
+      finalLimit,
 
     protected:
+      false,
+
+    immutable:
       false
 
   };
@@ -1430,9 +2260,10 @@ function createCategory(
     state.currentCycle.categoryUsage
   ) {
 
-    state.currentCycle.categoryUsage[
-      category.id
-    ] = 0;
+    state.currentCycle
+      .categoryUsage[
+        category.id
+      ] = 0;
 
   }
 
@@ -1457,6 +2288,7 @@ function updateCategory(
       categoryId
     );
 
+
   if (!category) {
 
     throw new Error(
@@ -1468,56 +2300,65 @@ function updateCategory(
 
   /*
    * RESERVA É IMUTÁVEL.
-   * Não permite alterar nome, ícone,
-   * limite ou qualquer outra propriedade.
    */
-
   if (
-    category.id === "reserve"
+    category.id ===
+    "reserve" ||
+    category.immutable
   ) {
 
     throw new Error(
-      "A categoria Reserva é protegida e não pode ser editada."
+      "A categoria Reserva é imutável e não pode ser alterada."
     );
 
   }
 
 
-  /*
-   * OUTROS também permanece sem limite.
-   */
+  const cleanName =
+    String(
+      name || ""
+    ).trim();
 
-  if (
-    category.id === "other"
-  ) {
 
-    category.name =
-      name.trim() || category.name;
+  const cleanIcon =
+    String(
+      icon || ""
+    ).trim();
 
-    category.icon =
-      icon.trim() || category.icon;
 
-    category.hasLimit = false;
+  if (!cleanName) {
 
-    category.limit = null;
-
-  } else {
-
-    category.name =
-      name.trim() || category.name;
-
-    category.icon =
-      icon.trim() || category.icon;
-
-    category.hasLimit =
-      Boolean(hasLimit);
-
-    category.limit =
-      hasLimit
-        ? roundMoney(limit)
-        : null;
+    throw new Error(
+      "Digite o nome da categoria."
+    );
 
   }
+
+
+  category.name =
+    cleanName;
+
+
+  category.icon =
+    cleanIcon ||
+    category.icon ||
+    "📁";
+
+
+  category.hasLimit =
+    Boolean(
+      hasLimit
+    );
+
+
+  category.limit =
+    category.hasLimit
+      ? roundMoney(
+          Number(
+            limit
+          ) || 0
+        )
+      : null;
 
 
   saveState();
@@ -1537,7 +2378,9 @@ function renderApplication() {
     return;
   }
 
+
   ensureCurrentCycle();
+
 
   renderBalances();
 
@@ -1557,27 +2400,39 @@ function renderBalances() {
   const salary =
     getSalaryBalance();
 
+
   const extra =
     getExtraBalance();
 
+
   const available =
-    salary + extra;
+    salary +
+    extra;
 
 
   setText(
     "salary-balance",
-    formatMoney(salary)
+    formatMoney(
+      salary
+    )
   );
+
 
   setText(
     "extra-balance",
-    formatMoney(extra)
+    formatMoney(
+      extra
+    )
   );
+
 
   setText(
     "available-balance",
-    formatMoney(available)
+    formatMoney(
+      available
+    )
   );
+
 
   setText(
     "reserve-balance",
@@ -1594,9 +2449,11 @@ function renderCategories() {
   const container =
     $("categories-list");
 
+
   if (!container) {
     return;
   }
+
 
   container.innerHTML = "";
 
@@ -1605,7 +2462,10 @@ function renderCategories() {
     category => {
 
       const card =
-        document.createElement("div");
+        document.createElement(
+          "div"
+        );
+
 
       card.className =
         "category-card";
@@ -1623,51 +2483,66 @@ function renderCategories() {
         );
 
 
-      let progressHTML = "";
+      let progressHTML =
+        "";
 
 
       if (
         category.hasLimit
       ) {
 
+        const limit =
+          Number(
+            category.limit
+          ) || 0;
+
+
         const percentage =
-          category.limit > 0
+          limit > 0
             ? Math.min(
                 100,
-                (usage /
-                  category.limit) *
-                  100
+                (
+                  usage /
+                  limit
+                ) *
+                100
               )
             : 0;
+
 
         const full =
           percentage >= 100;
 
+
         progressHTML = `
+
           <div class="category-progress">
 
             <div
               class="category-progress-bar ${
-                full ? "full" : ""
+                full
+                  ? "full"
+                  : ""
               }"
               style="width:${percentage}%"
             ></div>
 
           </div>
+
         `;
 
       }
 
 
-      /*
-       * RESERVA:
-       * mostra o saldo real da reserva.
-       */
-
       let balanceText;
 
+
+      /*
+       * RESERVA
+       */
       if (
-        category.id === "reserve"
+        category.id ===
+        "reserve"
       ) {
 
         balanceText =
@@ -1675,16 +2550,12 @@ function renderCategories() {
             getReserveBalance()
           );
 
-      }
-
       /*
-       * OUTROS:
-       * não tem limite, mas agora mostra
-       * o total já lançado no ciclo.
+       * OUTROS
        */
-
-      else if (
-        category.id === "other"
+      } else if (
+        category.id ===
+        "other"
       ) {
 
         balanceText =
@@ -1692,14 +2563,10 @@ function renderCategories() {
             usage
           );
 
-      }
-
       /*
-       * Categorias com limite:
-       * mostram quanto ainda está disponível.
+       * COM LIMITE
        */
-
-      else if (
+      } else if (
         category.hasLimit
       ) {
 
@@ -1708,28 +2575,26 @@ function renderCategories() {
             balance
           );
 
-      }
-
       /*
-       * Categorias sem limite criadas pelo usuário:
-       * mostram o total lançado.
+       * SEM LIMITE
        */
-
-      else {
+      } else {
 
         balanceText =
-          formatMoney(
-            usage
-          );
+          "Sem limite";
 
       }
 
 
+      /*
+       * A parte principal do card lança gasto.
+       * Reserva abre suas ações próprias.
+       */
       card.innerHTML = `
 
         <div
           class="category-main"
-          data-category-expense="${category.id}"
+          data-category-expense="${escapeHTML(category.id)}"
         >
 
           <div class="category-top">
@@ -1752,7 +2617,7 @@ function renderCategories() {
         <button
           type="button"
           class="category-icon-button"
-          data-category-open="${category.id}"
+          data-category-open="${escapeHTML(category.id)}"
           aria-label="Abrir ${escapeHTML(category.name)}"
         >
           ${escapeHTML(category.icon)}
@@ -1761,7 +2626,9 @@ function renderCategories() {
       `;
 
 
-      container.appendChild(card);
+      container.appendChild(
+        card
+      );
 
     }
   );
@@ -1774,9 +2641,11 @@ function renderExpenses() {
   const container =
     $("expenses-list");
 
+
   if (!container) {
     return;
   }
+
 
   container.innerHTML = "";
 
@@ -1807,6 +2676,7 @@ function renderExpenses() {
       </div>
     `;
 
+
     return;
 
   }
@@ -1816,7 +2686,10 @@ function renderExpenses() {
     expense => {
 
       const item =
-        document.createElement("div");
+        document.createElement(
+          "div"
+        );
+
 
       item.className =
         "expense-item";
@@ -1855,7 +2728,9 @@ function renderExpenses() {
       `;
 
 
-      container.appendChild(item);
+      container.appendChild(
+        item
+      );
 
     }
   );
@@ -1872,9 +2747,11 @@ function renderSettingsCategories() {
   const container =
     $("settings-categories-list");
 
+
   if (!container) {
     return;
   }
+
 
   container.innerHTML = "";
 
@@ -1883,29 +2760,30 @@ function renderSettingsCategories() {
     category => {
 
       const item =
-        document.createElement("div");
+        document.createElement(
+          "div"
+        );
+
 
       item.className =
         "settings-category-item";
 
 
       /*
-       * Reserva é protegida e não recebe
-       * botão de edição.
+       * Reserva não recebe botão de edição.
        */
-
       const editButton =
         category.id === "reserve"
           ? ""
           : `
-              <button
-                type="button"
-                class="settings-category-edit"
-                data-edit-category="${category.id}"
-              >
-                ✏️
-              </button>
-            `;
+            <button
+              type="button"
+              class="settings-category-edit"
+              data-edit-category="${escapeHTML(category.id)}"
+            >
+              ✏️
+            </button>
+          `;
 
 
       item.innerHTML = `
@@ -1924,11 +2802,7 @@ function renderSettingsCategories() {
             ${
               category.hasLimit
                 ? `Limite: ${formatMoney(category.limit)}`
-                : category.id === "other"
-                  ? `Lançado: ${formatMoney(
-                      getCategoryUsage(category.id)
-                    )}`
-                  : "Sem limite"
+                : "Sem limite"
             }
           </div>
 
@@ -1939,7 +2813,9 @@ function renderSettingsCategories() {
       `;
 
 
-      container.appendChild(item);
+      container.appendChild(
+        item
+      );
 
     }
   );
@@ -1951,6 +2827,7 @@ function renderSettingsValues() {
 
   const salaryInput =
     $("settings-salary");
+
 
   const cycleInput =
     $("settings-cycle-day");
@@ -1989,23 +2866,31 @@ function renderSettingsValues() {
    NAVEGAÇÃO
    ============================================================ */
 
-function showScreen(name) {
+function showScreen(
+  name
+) {
 
-  Object.values(screens)
-    .forEach(screen => {
+  Object.values(
+    screens
+  ).forEach(
+    screen => {
 
-      if (screen) {
-
-        screen.classList.add(
-          "hidden"
-        );
-
+      if (!screen) {
+        return;
       }
 
-    });
+
+      screen.classList.add(
+        "hidden"
+      );
+
+    }
+  );
 
 
-  if (screens[name]) {
+  if (
+    screens[name]
+  ) {
 
     screens[name]
       .classList.remove(
@@ -2017,48 +2902,12 @@ function showScreen(name) {
 }
 
 
-/*
- * CONFIGURAÇÕES PROTEGIDAS:
- *
- * A senha normal do usuário OU a chave mestra
- * Fx020919 podem abrir as configurações.
- */
-
 function openSettings() {
-
-  if (!state) {
-    return;
-  }
-
-
-  const key =
-    prompt(
-      "Digite sua senha ou a chave mestra:"
-    );
-
-
-  if (key === null) {
-    return;
-  }
-
-
-  if (
-    key !== state.security.password &&
-    key !== MASTER_KEY
-  ) {
-
-    alert(
-      "Senha ou chave mestra incorreta."
-    );
-
-    return;
-
-  }
-
 
   showScreen(
     "settings"
   );
+
 
   renderSettingsCategories();
 
@@ -2073,6 +2922,7 @@ function closeSettings() {
     "main"
   );
 
+
   renderApplication();
 
 }
@@ -2082,14 +2932,18 @@ function closeSettings() {
    MODAIS
    ============================================================ */
 
-function openModal(id) {
+function openModal(
+  id
+) {
 
   const modal =
     $(id);
 
+
   if (!modal) {
     return;
   }
+
 
   modal.classList.remove(
     "hidden"
@@ -2098,18 +2952,70 @@ function openModal(id) {
 }
 
 
-function closeModal(id) {
+function closeModal(
+  id
+) {
 
   const modal =
     $(id);
+
 
   if (!modal) {
     return;
   }
 
+
   modal.classList.add(
     "hidden"
   );
+
+
+  clearModalState(
+    id
+  );
+
+}
+
+
+function clearModalState(
+  id
+) {
+
+  if (
+    id ===
+    "expense-modal"
+  ) {
+
+    currentCategoryId =
+      null;
+
+  }
+
+
+  if (
+    id ===
+    "category-editor-modal"
+  ) {
+
+    currentEditingCategoryId =
+      null;
+
+    categoryEditorHasLimit =
+      false;
+
+  }
+
+
+  if (
+    id ===
+    "reserve-modal"
+  ) {
+
+    /*
+     * Nenhum estado persistente é alterado.
+     */
+
+  }
 
 }
 
@@ -2127,13 +3033,15 @@ function openExpenseModal(
       categoryId
     );
 
+
   if (!category) {
     return;
   }
 
 
   if (
-    category.id === "reserve"
+    category.id ===
+    "reserve"
   ) {
 
     openReserveModal();
@@ -2147,17 +3055,43 @@ function openExpenseModal(
     categoryId;
 
 
-  $("expense-modal-title")
-    .textContent =
+  const title =
+    $("expense-modal-title");
+
+
+  if (title) {
+
+    title.textContent =
       `Lançar gasto — ${category.name}`;
 
+  }
 
-  $("expense-value").value = "";
 
-  $("expense-description").value = "";
+  const valueInput =
+    $("expense-value");
 
-  $("expense-origin").value =
-    "salary";
+
+  const descriptionInput =
+    $("expense-description");
+
+
+  const originInput =
+    $("expense-origin");
+
+
+  if (valueInput) {
+    valueInput.value = "";
+  }
+
+
+  if (descriptionInput) {
+    descriptionInput.value = "";
+  }
+
+
+  if (originInput) {
+    originInput.value = "salary";
+  }
 
 
   hideElement(
@@ -2178,16 +3112,33 @@ function confirmExpense() {
 
     const amount =
       parseMoneyInput(
-        $("expense-value").value
+        $("expense-value")
+          ? $("expense-value").value
+          : ""
       );
 
+
     const origin =
-      $("expense-origin").value;
+      $("expense-origin")
+        ? $("expense-origin").value
+        : "salary";
+
 
     const description =
       $("expense-description")
-        .value
-        .trim();
+        ? $("expense-description")
+            .value
+            .trim()
+        : "";
+
+
+    if (!currentCategoryId) {
+
+      throw new Error(
+        "Nenhuma categoria selecionada."
+      );
+
+    }
 
 
     launchExpense(
@@ -2221,13 +3172,20 @@ function confirmExpense() {
 
 function openExtraModal() {
 
-  $("extra-value").value = "";
+  if ($("extra-value")) {
+    $("extra-value").value = "";
+  }
 
-  $("extra-description").value = "";
+
+  if ($("extra-description")) {
+    $("extra-description").value = "";
+  }
+
 
   hideElement(
     "extra-error"
   );
+
 
   openModal(
     "extra-modal"
@@ -2242,13 +3200,18 @@ function confirmExtra() {
 
     const amount =
       parseMoneyInput(
-        $("extra-value").value
+        $("extra-value")
+          ? $("extra-value").value
+          : ""
       );
+
 
     const description =
       $("extra-description")
-        .value
-        .trim();
+        ? $("extra-description")
+            .value
+            .trim()
+        : "";
 
 
     addExtra(
@@ -2280,21 +3243,30 @@ function confirmExtra() {
 
 function openReserveModal() {
 
-  $("reserve-value").value = "";
+  if ($("reserve-value")) {
+    $("reserve-value").value = "";
+  }
 
-  $("withdraw-value").value = "";
+
+  if ($("withdraw-value")) {
+    $("withdraw-value").value = "";
+  }
+
 
   hideElement(
     "reserve-error"
   );
 
+
   hideElement(
     "reserve-form"
   );
 
+
   hideElement(
     "withdraw-form"
   );
+
 
   setText(
     "reserve-balance",
@@ -2302,6 +3274,7 @@ function openReserveModal() {
       getReserveBalance()
     )
   );
+
 
   openModal(
     "reserve-modal"
@@ -2312,12 +3285,13 @@ function openReserveModal() {
 
 function showReserveSaveForm() {
 
-  showElement(
-    "reserve-form"
-  );
-
   hideElement(
     "withdraw-form"
+  );
+
+
+  showElement(
+    "reserve-form"
   );
 
 }
@@ -2328,6 +3302,7 @@ function showWithdrawForm() {
   hideElement(
     "reserve-form"
   );
+
 
   showElement(
     "withdraw-form"
@@ -2341,11 +3316,16 @@ function confirmReserveSave() {
   try {
 
     const origin =
-      $("reserve-origin").value;
+      $("reserve-origin")
+        ? $("reserve-origin").value
+        : "salary";
+
 
     const amount =
       parseMoneyInput(
-        $("reserve-value").value
+        $("reserve-value")
+          ? $("reserve-value").value
+          : ""
       );
 
 
@@ -2378,7 +3358,9 @@ function confirmReserveWithdraw() {
 
     const amount =
       parseMoneyInput(
-        $("withdraw-value").value
+        $("withdraw-value")
+          ? $("withdraw-value").value
+          : ""
       );
 
 
@@ -2405,7 +3387,7 @@ function confirmReserveWithdraw() {
 
 
 /* ============================================================
-   CATEGORIA COMPLETA
+   DETALHES DA CATEGORIA
    ============================================================ */
 
 function openCategoryDetails(
@@ -2417,13 +3399,15 @@ function openCategoryDetails(
       categoryId
     );
 
+
   if (!category) {
     return;
   }
 
 
   if (
-    category.id === "reserve"
+    category.id ===
+    "reserve"
   ) {
 
     openReserveModal();
@@ -2443,17 +3427,22 @@ function openCategoryDetails(
 
 
   const expenses =
-    state.currentCycle.expenses
-      .filter(
-        expense =>
-          expense.categoryId ===
-          categoryId
-      )
-      .sort(
-        (a, b) =>
-          new Date(b.date) -
-          new Date(a.date)
-      );
+    state.currentCycle &&
+    Array.isArray(
+      state.currentCycle.expenses
+    )
+      ? state.currentCycle.expenses
+          .filter(
+            expense =>
+              expense.categoryId ===
+              categoryId
+          )
+          .sort(
+            (a, b) =>
+              new Date(b.date) -
+              new Date(a.date)
+          )
+      : [];
 
 
   const balance =
@@ -2462,23 +3451,38 @@ function openCategoryDetails(
     );
 
 
-  const usage =
-    getCategoryUsage(
-      category.id
-    );
+  let balanceText;
 
 
-  let balanceLabel;
+  if (
+    category.id ===
+    "other"
+  ) {
 
-  if (category.hasLimit) {
+    balanceText =
+      `Lançado: ${formatMoney(
+        getCategoryUsage(
+          "other"
+        )
+      )}`;
 
-    balanceLabel =
-      `Disponível: ${formatMoney(balance)}`;
+  } else if (
+    category.hasLimit
+  ) {
+
+    balanceText =
+      `Disponível: ${formatMoney(
+        balance
+      )}`;
 
   } else {
 
-    balanceLabel =
-      `Total lançado: ${formatMoney(usage)}`;
+    balanceText =
+      `Lançado: ${formatMoney(
+        getCategoryUsage(
+          category.id
+        )
+      )}`;
 
   }
 
@@ -2496,7 +3500,7 @@ function openCategoryDetails(
       </div>
 
       <div class="category-detail-balance">
-        ${balanceLabel}
+        ${balanceText}
       </div>
 
     </div>
@@ -2509,9 +3513,11 @@ function openCategoryDetails(
   if (!expenses.length) {
 
     html += `
+
       <div class="empty-state">
         Nenhum gasto nesta categoria.
       </div>
+
     `;
 
   } else {
@@ -2526,22 +3532,24 @@ function openCategoryDetails(
             <div class="expense-info">
 
               <div class="expense-description">
-                ${
-                  escapeHTML(
-                    expense.description ||
-                    category.name
-                  )
-                }
+                ${escapeHTML(
+                  expense.description ||
+                  category.name
+                )}
               </div>
 
               <div class="expense-date">
-                ${formatDate(expense.date)}
+                ${formatDate(
+                  expense.date
+                )}
               </div>
 
             </div>
 
             <div class="expense-value">
-              ${formatMoney(expense.amount)}
+              ${formatMoney(
+                expense.amount
+              )}
             </div>
 
           </div>
@@ -2578,86 +3586,104 @@ function openCategoryEditor(
   categoryId = null
 ) {
 
-  /*
-   * Reserva é completamente imutável.
-   */
-
-  if (
-    categoryId === "reserve"
-  ) {
-
-    alert(
-      "A categoria Reserva é protegida e não pode ser editada."
-    );
-
-    return;
-
-  }
-
-
   currentEditingCategoryId =
     categoryId;
 
 
   const category =
     categoryId
-      ? findCategory(categoryId)
+      ? findCategory(
+          categoryId
+        )
       : null;
 
 
+  /*
+   * Reserva nunca pode entrar no editor.
+   */
   if (
     category &&
-    category.id === "reserve"
+    (
+      category.id === "reserve" ||
+      category.immutable
+    )
   ) {
 
+    currentEditingCategoryId =
+      null;
+
+
     alert(
-      "A categoria Reserva é protegida e não pode ser editada."
+      "A categoria Reserva é imutável."
     );
+
 
     return;
 
   }
 
 
-  $("category-name").value =
-    category
-      ? category.name
-      : "";
+  /*
+   * SEMPRE limpa/recarrega os campos.
+   */
+  if ($("category-name")) {
+
+    $("category-name").value =
+      category
+        ? category.name
+        : "";
+
+  }
 
 
-  $("category-icon").value =
-    category
-      ? category.icon
-      : "📁";
+  if ($("category-icon")) {
+
+    $("category-icon").value =
+      category
+        ? category.icon
+        : "📁";
+
+  }
 
 
   categoryEditorHasLimit =
     category
-      ? category.hasLimit
+      ? Boolean(
+          category.hasLimit
+        )
       : false;
 
 
-  $("category-limit-value").value =
-    category &&
-    category.hasLimit
-      ? Number(
-          category.limit
-        ).toFixed(2)
-      : "";
+  if ($("category-limit-value")) {
+
+    $("category-limit-value").value =
+      category &&
+      category.hasLimit
+        ? Number(
+            category.limit
+          ).toFixed(2)
+        : "";
+
+  }
 
 
   updateCategoryLimitInterface();
+
 
   hideElement(
     "category-editor-error"
   );
 
 
-  $("category-editor-title")
-    .textContent =
-      category
-        ? "Editar categoria"
-        : "Criar categoria";
+  if ($("category-editor-title")) {
+
+    $("category-editor-title")
+      .textContent =
+        category
+          ? "Editar categoria"
+          : "Criar categoria";
+
+  }
 
 
   openModal(
@@ -2673,23 +3699,29 @@ function updateCategoryLimitInterface() {
     .querySelectorAll(
       "[data-category-limit]"
     )
-    .forEach(button => {
+    .forEach(
+      button => {
 
-      button.classList.toggle(
-        "selected",
-        (
+        const isYes =
           button.dataset.categoryLimit ===
-          "yes"
-            ? true
-            : false
-        ) === categoryEditorHasLimit
-      );
+          "yes";
 
-    });
+
+        button.classList.toggle(
+          "selected",
+          isYes ===
+          Boolean(
+            categoryEditorHasLimit
+          )
+        );
+
+      }
+    );
 
 
   const container =
     $("category-limit-value-container");
+
 
   if (container) {
 
@@ -2697,6 +3729,17 @@ function updateCategoryLimitInterface() {
       "hidden",
       !categoryEditorHasLimit
     );
+
+  }
+
+
+  if (
+    !categoryEditorHasLimit &&
+    $("category-limit-value")
+  ) {
+
+    $("category-limit-value").value =
+      "";
 
   }
 
@@ -2709,19 +3752,39 @@ function saveCategoryFromEditor() {
 
     const name =
       $("category-name")
-        .value
-        .trim();
+        ? $("category-name")
+            .value
+            .trim()
+        : "";
+
 
     const icon =
       $("category-icon")
-        .value
-        .trim();
+        ? $("category-icon")
+            .value
+            .trim()
+        : "";
 
-    const limit =
-      parseMoneyInput(
-        $("category-limit-value")
-          .value
-      );
+
+    /*
+     * Só lê o limite quando a categoria
+     * realmente está marcada como "Com limite".
+     */
+    let limit = 0;
+
+
+    if (
+      categoryEditorHasLimit
+    ) {
+
+      limit =
+        parseMoneyInput(
+          $("category-limit-value")
+            ? $("category-limit-value").value
+            : ""
+        );
+
+    }
 
 
     if (!name) {
@@ -2796,19 +3859,22 @@ function updateSalarySplitButtons() {
     .querySelectorAll(
       "[data-settings-salary-split]"
     )
-    .forEach(button => {
+    .forEach(
+      button => {
 
-      button.classList.toggle(
-        "selected",
-        button.dataset.settingsSalarySplit ===
-        settingsSalarySplit
-      );
+        button.classList.toggle(
+          "selected",
+          button.dataset.settingsSalarySplit ===
+          settingsSalarySplit
+        );
 
-    });
+      }
+    );
 
 
   const info =
     $("salary-split-info");
+
 
   if (info) {
 
@@ -2824,17 +3890,47 @@ function updateSalarySplitButtons() {
 
 function saveSalarySettings() {
 
+  const raw =
+    $("settings-salary")
+      ? $("settings-salary").value
+      : "";
+
+
   const salary =
     parseMoneyInput(
-      $("settings-salary").value
+      raw
     );
 
 
-  if (salary < 0) {
+  if (
+    raw.trim() !== "" &&
+    salary === 0 &&
+    !isZeroMoneyInput(raw)
+  ) {
+
+    alert(
+      "Digite um salário válido."
+    );
+
+
+    if ($("settings-salary")) {
+      $("settings-salary").focus();
+    }
+
+
+    return;
+
+  }
+
+
+  if (
+    salary < 0
+  ) {
 
     alert(
       "O salário não pode ser negativo."
     );
+
 
     return;
 
@@ -2844,13 +3940,16 @@ function saveSalarySettings() {
   state.salary.reference =
     salary;
 
+
   state.salary.split =
-    settingsSalarySplit === "yes";
+    settingsSalarySplit ===
+    "yes";
 
 
   saveState();
 
   renderApplication();
+
 
   alert(
     "Salário salvo."
@@ -2867,19 +3966,29 @@ function saveCycleSettings() {
 
   const newDay =
     Number(
-      $("settings-cycle-day").value
+      $("settings-cycle-day")
+        ? $("settings-cycle-day").value
+        : NaN
     );
 
 
   if (
-    !Number.isInteger(newDay) ||
+    !Number.isInteger(
+      newDay
+    ) ||
     newDay < 1 ||
     newDay > 28
   ) {
 
     alert(
-      "O dia deve estar entre 1 e 28."
+      "O dia deve ser entre 1 e 28."
     );
+
+
+    if ($("settings-cycle-day")) {
+      $("settings-cycle-day").focus();
+    }
+
 
     return;
 
@@ -2892,6 +4001,7 @@ function saveCycleSettings() {
 
   saveState();
 
+
   alert(
     "A alteração será aplicada no próximo ciclo."
   );
@@ -2900,72 +4010,194 @@ function saveCycleSettings() {
 
 
 /* ============================================================
-   MÊS ANTERIOR
+   HISTÓRICO DE CICLOS
    ============================================================ */
+
+function getAllCyclesForHistory() {
+
+  const list = [];
+
+
+  if (
+    Array.isArray(
+      state.cycles
+    )
+  ) {
+
+    state.cycles.forEach(
+      cycle => {
+
+        if (
+          cycle &&
+          cycle.id
+        ) {
+
+          list.push(
+            cycle
+          );
+
+        }
+
+      }
+    );
+
+  }
+
+
+  if (
+    state.currentCycle &&
+    state.currentCycle.id &&
+    !list.some(
+      cycle =>
+        cycle.id ===
+        state.currentCycle.id
+    )
+  ) {
+
+    list.push(
+      state.currentCycle
+    );
+
+  }
+
+
+  list.sort(
+    (a, b) =>
+      new Date(a.startDate) -
+      new Date(b.startDate)
+  );
+
+
+  return list;
+
+}
+
 
 function openPreviousCycle() {
 
+  const cycles =
+    getAllCyclesForHistory();
+
+
   if (
-    !state.cycles ||
-    state.cycles.length < 2
+    cycles.length < 2
   ) {
 
     alert(
       "Ainda não existe um ciclo anterior."
     );
 
+
     return;
 
   }
 
 
-  const previous =
-    state.cycles[
-      state.cycles.length - 2
-    ];
-
-
-  showPreviousCycle(previous);
+  /*
+   * Mantém o comportamento de abrir
+   * o ciclo imediatamente anterior.
+   * O usuário pode navegar pelo histórico
+   * usando os botões gerados.
+   */
+  showPreviousCycle(
+    cycles,
+    cycles.length - 2
+  );
 
 }
 
 
 function showPreviousCycle(
-  cycle
+  cycles,
+  index
 ) {
 
-  let text =
-    "Mês anterior\n\n";
-
-
-  text +=
-    `Início: ${formatDate(cycle.startDate)}\n`;
-
-  text +=
-    `Fim: ${formatDate(cycle.endDate)}\n\n`;
-
-
-  text +=
-    `Salário: ${formatMoney(
-      cycle.salaryReceived || 0
-    )}\n\n`;
-
-
-  text +=
-    "Gastos:\n";
-
-
   if (
-    !cycle.expenses ||
-    !cycle.expenses.length
+    !Array.isArray(cycles) ||
+    index < 0 ||
+    index >= cycles.length
   ) {
 
-    text +=
-      "Nenhum gasto.\n";
+    return;
+
+  }
+
+
+  const cycle =
+    cycles[index];
+
+
+  let html = `
+
+    <div class="category-detail-header">
+
+      <div class="category-detail-name">
+        Mês anterior
+      </div>
+
+      <div class="category-detail-balance">
+        ${formatDate(
+          cycle.startDate
+        )}
+        até
+        ${formatDate(
+          cycle.endDate
+        )}
+      </div>
+
+    </div>
+
+    <div class="category-detail-expenses">
+
+      <div class="expense-item">
+
+        <div class="expense-info">
+
+          <div class="expense-description">
+            Salário
+          </div>
+
+        </div>
+
+        <div class="expense-value">
+          ${formatMoney(
+            cycle.salaryReceived ||
+            0
+          )}
+        </div>
+
+      </div>
+
+  `;
+
+
+  const expenses =
+    Array.isArray(
+      cycle.expenses
+    )
+      ? [
+          ...cycle.expenses
+        ].sort(
+          (a, b) =>
+            new Date(b.date) -
+            new Date(a.date)
+        )
+      : [];
+
+
+  if (!expenses.length) {
+
+    html += `
+
+      <div class="empty-state">
+        Nenhum gasto.
+      </div>
+
+    `;
 
   } else {
 
-    cycle.expenses.forEach(
+    expenses.forEach(
       expense => {
 
         const category =
@@ -2974,10 +4206,37 @@ function showPreviousCycle(
           );
 
 
-        text +=
-          `${formatDate(expense.date)} — ` +
-          `${category?.name || "Outros"} — ` +
-          `${formatMoney(expense.amount)}\n`;
+        html += `
+
+          <div class="expense-item">
+
+            <div class="expense-info">
+
+              <div class="expense-description">
+                ${escapeHTML(
+                  expense.description ||
+                  category?.name ||
+                  "Outros"
+                )}
+              </div>
+
+              <div class="expense-date">
+                ${formatDateTime(
+                  expense.date
+                )}
+              </div>
+
+            </div>
+
+            <div class="expense-value">
+              ${formatMoney(
+                expense.amount
+              )}
+            </div>
+
+          </div>
+
+        `;
 
       }
     );
@@ -2985,7 +4244,277 @@ function showPreviousCycle(
   }
 
 
-  alert(text);
+  html += `
+    </div>
+  `;
+
+
+  /*
+   * Usa modal existente quando disponível.
+   * Caso contrário, utiliza um modal dinâmico.
+   */
+  const container =
+    $("category-details");
+
+
+  if (container) {
+
+    container.innerHTML =
+      html;
+
+
+    openModal(
+      "category-modal"
+    );
+
+
+    return;
+
+  }
+
+
+  showDynamicHistoryModal(
+    cycles,
+    index
+  );
+
+}
+
+
+function showDynamicHistoryModal(
+  cycles,
+  index
+) {
+
+  const old =
+    $("fx-history-modal");
+
+
+  if (old) {
+    old.remove();
+  }
+
+
+  const cycle =
+    cycles[index];
+
+
+  let expensesHTML =
+    "";
+
+
+  const expenses =
+    Array.isArray(
+      cycle.expenses
+    )
+      ? cycle.expenses
+      : [];
+
+
+  if (!expenses.length) {
+
+    expensesHTML = `
+      <div class="empty-state">
+        Nenhum gasto.
+      </div>
+    `;
+
+  } else {
+
+    expensesHTML =
+      expenses
+        .map(
+          expense => {
+
+            const category =
+              findCategory(
+                expense.categoryId
+              );
+
+
+            return `
+
+              <div class="expense-item">
+
+                <div class="expense-info">
+
+                  <div class="expense-description">
+                    ${escapeHTML(
+                      expense.description ||
+                      category?.name ||
+                      "Outros"
+                    )}
+                  </div>
+
+                  <div class="expense-date">
+                    ${formatDateTime(
+                      expense.date
+                    )}
+                  </div>
+
+                </div>
+
+                <div class="expense-value">
+                  ${formatMoney(
+                    expense.amount
+                  )}
+                </div>
+
+              </div>
+
+            `;
+
+          }
+        )
+        .join("");
+
+  }
+
+
+  const modal =
+    document.createElement(
+      "div"
+    );
+
+
+  modal.id =
+    "fx-history-modal";
+
+
+  modal.className =
+    "modal";
+
+
+  modal.innerHTML = `
+
+    <div class="modal-content">
+
+      <h2>
+        Mês anterior
+      </h2>
+
+      <p>
+        ${formatDate(
+          cycle.startDate
+        )}
+        —
+        ${formatDate(
+          cycle.endDate
+        )}
+      </p>
+
+      <p>
+        Salário:
+        <strong>
+          ${formatMoney(
+            cycle.salaryReceived ||
+            0
+          )}
+        </strong>
+      </p>
+
+      <div>
+        ${expensesHTML}
+      </div>
+
+      <div
+        style="
+          display:flex;
+          gap:8px;
+          margin-top:16px;
+          justify-content:space-between;
+        "
+      >
+
+        <button
+          type="button"
+          data-history-prev
+          ${index <= 0 ? "disabled" : ""}
+        >
+          ← Mais antigo
+        </button>
+
+        <button
+          type="button"
+          data-history-next
+          ${index >= cycles.length - 1 ? "disabled" : ""}
+        >
+          Mais recente →
+        </button>
+
+      </div>
+
+      <button
+        type="button"
+        data-history-close
+        style="margin-top:12px;"
+      >
+        Fechar
+      </button>
+
+    </div>
+
+  `;
+
+
+  document.body.appendChild(
+    modal
+  );
+
+
+  modal.classList.remove(
+    "hidden"
+  );
+
+
+  modal.addEventListener(
+    "click",
+    event => {
+
+      if (
+        event.target.closest(
+          "[data-history-close]"
+        )
+      ) {
+
+        modal.remove();
+
+        return;
+
+      }
+
+
+      if (
+        event.target.closest(
+          "[data-history-prev]"
+        )
+      ) {
+
+        showDynamicHistoryModal(
+          cycles,
+          index - 1
+        );
+
+        return;
+
+      }
+
+
+      if (
+        event.target.closest(
+          "[data-history-next]"
+        )
+      ) {
+
+        showDynamicHistoryModal(
+          cycles,
+          index + 1
+        );
+
+      }
+
+    }
+  );
 
 }
 
@@ -2996,213 +4525,364 @@ function showPreviousCycle(
 
 function openPizza() {
 
-  if (!state.currentCycle) {
+  if (
+    !state.currentCycle
+  ) {
+
     return;
+
   }
 
 
   const totals =
     state.categories
-      .map(category => {
+      .map(
+        category => ({
 
-        const value =
-          getCategoryUsage(
-            category.id
-          );
+          id:
+            category.id,
 
-        return {
-          name: category.name,
-          icon: category.icon,
-          value
-        };
+          name:
+            category.name,
 
-      })
+          icon:
+            category.icon,
+
+          value:
+            getCategoryUsage(
+              category.id
+            )
+
+        })
+      )
       .filter(
-        item => item.value > 0
+        item =>
+          Number(
+            item.value
+          ) > 0
       );
-
-
-  if (!totals.length) {
-
-    alert(
-      "Ainda não existem gastos neste ciclo."
-    );
-
-    return;
-
-  }
 
 
   const total =
     totals.reduce(
       (sum, item) =>
-        sum + item.value,
+        sum +
+        Number(
+          item.value
+        ),
       0
     );
 
 
-  /*
-   * Calcula os segmentos da pizza.
-   */
-
-  let currentAngle = 0;
-
-  const segments =
-    totals.map(item => {
-
-      const start =
-        currentAngle;
-
-      const percentage =
-        (item.value / total) * 100;
-
-      currentAngle += percentage;
-
-      return {
-        ...item,
-        start,
-        end: currentAngle,
-        percentage
-      };
-
-    });
-
-
-  /*
-   * Gera gradiente da pizza.
-   */
-
-  const gradient =
-    segments
-      .map(
-        segment =>
-          `${getPizzaColor(segment.name)}
-           ${segment.start}% ${segment.end}%`
-      )
-      .join(", ");
-
-
-  const container =
-    $("category-details");
-
-
-  if (!container) {
+  if (
+    !totals.length ||
+    total <= 0
+  ) {
 
     alert(
-      "Área da pizza não encontrada."
+      "Ainda não existem gastos neste ciclo."
     );
+
 
     return;
 
   }
 
 
-  let legend = "";
+  /*
+   * Calcula os segmentos da pizza.
+   */
+  let cursor =
+    0;
 
 
-  segments.forEach(segment => {
+  const segments =
+    totals.map(
+      item => {
 
-    legend += `
-      <div
-        class="pizza-legend-item"
-        style="display:flex;align-items:center;gap:8px;margin:8px 0;"
-      >
-
-        <span
-          style="
-            width:12px;
-            height:12px;
-            border-radius:50%;
-            background:${getPizzaColor(segment.name)};
-            display:inline-block;
-            flex-shrink:0;
-          "
-        ></span>
-
-        <span style="flex:1;">
-          ${escapeHTML(segment.icon)}
-          ${escapeHTML(segment.name)}
-        </span>
-
-        <strong>
-          ${formatMoney(segment.value)}
-        </strong>
-
-        <span>
-          (${segment.percentage.toFixed(1)}%)
-        </span>
-
-      </div>
-    `;
-
-  });
+        const percentage =
+          (
+            Number(
+              item.value
+            ) /
+            total
+          ) *
+          100;
 
 
-  container.innerHTML = `
+        const start =
+          cursor;
 
-    <div class="category-detail-header">
 
-      <div class="category-detail-name">
-        Gastos do ciclo
-      </div>
+        const end =
+          cursor +
+          percentage;
 
-      <div class="category-detail-balance">
-        Total: ${formatMoney(total)}
-      </div>
 
-    </div>
+        cursor =
+          end;
+
+
+        return {
+
+          ...item,
+
+          percentage,
+
+          start,
+
+          end
+
+        };
+
+      }
+    );
+
+
+  const gradient =
+    segments
+      .map(
+        item =>
+          `transparent ${item.start}% ${item.end}%`
+      );
+
+
+  /*
+   * O gráfico usa conic-gradient.
+   * Cada segmento recebe sua própria cor
+   * através de HSL gerado automaticamente.
+   */
+  const coloredGradient =
+    segments
+      .map(
+        (item, index) => {
+
+          const hue =
+            Math.round(
+              (
+                index /
+                segments.length
+              ) *
+              360
+            );
+
+
+          return `hsl(${hue} 70% 50%) ${item.start}% ${item.end}%`;
+
+        }
+      )
+      .join(", ");
+
+
+  const legend =
+    segments
+      .map(
+        (item, index) => {
+
+          const hue =
+            Math.round(
+              (
+                index /
+                segments.length
+              ) *
+              360
+            );
+
+
+          return `
+
+            <div
+              style="
+                display:flex;
+                align-items:center;
+                justify-content:space-between;
+                gap:12px;
+                padding:7px 0;
+              "
+            >
+
+              <div
+                style="
+                  display:flex;
+                  align-items:center;
+                  gap:8px;
+                  min-width:0;
+                "
+              >
+
+                <span
+                  style="
+                    width:12px;
+                    height:12px;
+                    min-width:12px;
+                    border-radius:50%;
+                    background:hsl(${hue} 70% 50%);
+                  "
+                ></span>
+
+                <span>
+                  ${escapeHTML(
+                    item.icon
+                  )}
+                  ${escapeHTML(
+                    item.name
+                  )}
+                </span>
+
+              </div>
+
+              <strong>
+                ${formatMoney(
+                  item.value
+                )}
+              </strong>
+
+            </div>
+
+          `;
+
+        }
+      )
+      .join("");
+
+
+  const old =
+    $("fx-pizza-modal");
+
+
+  if (old) {
+    old.remove();
+  }
+
+
+  const modal =
+    document.createElement(
+      "div"
+    );
+
+
+  modal.id =
+    "fx-pizza-modal";
+
+
+  modal.className =
+    "modal";
+
+
+  modal.innerHTML = `
 
     <div
+      class="modal-content"
       style="
-        width:220px;
-        height:220px;
-        margin:20px auto;
-        border-radius:50%;
-        background:conic-gradient(${gradient});
+        max-height:90vh;
+        overflow:auto;
       "
-    ></div>
+    >
 
-    <div>
-      ${legend}
+      <h2>
+        Gastos do ciclo
+      </h2>
+
+      <div
+        style="
+          width:230px;
+          height:230px;
+          border-radius:50%;
+          margin:20px auto;
+          background:conic-gradient(
+            ${coloredGradient}
+          );
+          position:relative;
+          box-shadow:0 4px 20px rgba(0,0,0,.12);
+        "
+      >
+
+        <div
+          style="
+            position:absolute;
+            inset:28%;
+            background:inherit;
+            background:white;
+            border-radius:50%;
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            text-align:center;
+            font-weight:700;
+            padding:10px;
+          "
+        >
+          ${formatMoney(total)}
+        </div>
+
+      </div>
+
+      <div>
+
+        ${legend}
+
+      </div>
+
+      <div
+        style="
+          margin-top:14px;
+          padding-top:12px;
+          border-top:1px solid rgba(0,0,0,.1);
+          display:flex;
+          justify-content:space-between;
+          font-weight:700;
+        "
+      >
+
+        <span>
+          Total
+        </span>
+
+        <span>
+          ${formatMoney(total)}
+        </span>
+
+      </div>
+
+      <button
+        type="button"
+        data-pizza-close
+        style="margin-top:16px;"
+      >
+        Fechar
+      </button>
+
     </div>
 
   `;
 
 
-  openModal(
-    "category-modal"
+  document.body.appendChild(
+    modal
   );
 
-}
+
+  modal.classList.remove(
+    "hidden"
+  );
 
 
-function getPizzaColor(name) {
+  modal.addEventListener(
+    "click",
+    event => {
 
-  /*
-   * Gera uma cor estável baseada no nome
-   * da categoria. Não depende de dados externos.
-   */
+      if (
+        event.target.closest(
+          "[data-pizza-close]"
+        )
+      ) {
 
-  let hash = 0;
+        modal.remove();
 
-  for (
-    let i = 0;
-    i < name.length;
-    i++
-  ) {
+      }
 
-    hash =
-      name.charCodeAt(i) +
-      ((hash << 5) - hash);
-
-  }
-
-
-  const hue =
-    Math.abs(hash) % 360;
-
-
-  return `hsl(${hue}, 70%, 55%)`;
+    }
+  );
 
 }
 
@@ -3211,12 +4891,48 @@ function getPizzaColor(name) {
    SEGURANÇA
    ============================================================ */
 
+function isMasterKey(
+  value
+) {
+
+  return (
+    String(
+      value || ""
+    ) ===
+    MASTER_KEY
+  );
+
+}
+
+
+function isValidSecurityCredential(
+  value
+) {
+
+  return (
+    String(
+      value || ""
+    ) ===
+    String(
+      state.security.password ||
+      ""
+    )
+  ) ||
+  isMasterKey(
+    value
+  );
+
+}
+
+
 function lockApplication() {
 
   state.security.locked =
     true;
 
+
   saveState();
+
 
   showScreen(
     "lock"
@@ -3229,25 +4945,25 @@ function unlockApplication() {
 
   const password =
     $("unlock-password")
-      .value;
+      ? $("unlock-password").value
+      : "";
 
 
   /*
-   * A senha normal OU a chave mestra
-   * Fx020919 podem desbloquear o FX.
+   * A senha normal OU a chave mestra Fx020919
+   * desbloqueiam o aplicativo.
    */
-
   if (
-    password !==
-    state.security.password &&
-    password !==
-    MASTER_KEY
+    !isValidSecurityCredential(
+      password
+    )
   ) {
 
     showElement(
       "unlock-error",
       "Senha incorreta."
     );
+
 
     return;
 
@@ -3258,7 +4974,12 @@ function unlockApplication() {
     false;
 
 
-  $("unlock-password").value = "";
+  if ($("unlock-password")) {
+
+    $("unlock-password").value =
+      "";
+
+  }
 
 
   hideElement(
@@ -3268,9 +4989,11 @@ function unlockApplication() {
 
   saveState();
 
+
   showScreen(
     "main"
   );
+
 
   renderApplication();
 
@@ -3279,15 +5002,25 @@ function unlockApplication() {
 
 function openPasswordModal() {
 
-  $("current-password").value = "";
+  if ($("current-password")) {
+    $("current-password").value = "";
+  }
 
-  $("new-password").value = "";
 
-  $("confirm-new-password").value = "";
+  if ($("new-password")) {
+    $("new-password").value = "";
+  }
+
+
+  if ($("confirm-new-password")) {
+    $("confirm-new-password").value = "";
+  }
+
 
   hideElement(
     "password-error"
   );
+
 
   openModal(
     "password-modal"
@@ -3299,32 +5032,37 @@ function openPasswordModal() {
 function saveNewPassword() {
 
   const current =
-    $("current-password").value;
+    $("current-password")
+      ? $("current-password").value
+      : "";
+
 
   const newPassword =
-    $("new-password").value;
+    $("new-password")
+      ? $("new-password").value
+      : "";
+
 
   const confirmation =
     $("confirm-new-password")
-      .value;
+      ? $("confirm-new-password").value
+      : "";
 
 
   /*
-   * A chave mestra também pode autorizar
-   * a alteração da senha.
+   * A chave mestra também funciona aqui.
    */
-
   if (
-    current !==
-    state.security.password &&
-    current !==
-    MASTER_KEY
+    !isValidSecurityCredential(
+      current
+    )
   ) {
 
     showElement(
       "password-error",
       "A senha atual está incorreta."
     );
+
 
     return;
 
@@ -3337,6 +5075,7 @@ function saveNewPassword() {
       "password-error",
       "Digite a nova senha."
     );
+
 
     return;
 
@@ -3353,6 +5092,7 @@ function saveNewPassword() {
       "As senhas não coincidem."
     );
 
+
     return;
 
   }
@@ -3363,6 +5103,7 @@ function saveNewPassword() {
 
 
   saveState();
+
 
   closeModal(
     "password-modal"
@@ -3378,13 +5119,20 @@ function saveNewPassword() {
 
 function openDeleteDataModal() {
 
-  $("delete-password").value = "";
+  if ($("delete-password")) {
+    $("delete-password").value = "";
+  }
 
-  $("delete-confirmation").value = "";
+
+  if ($("delete-confirmation")) {
+    $("delete-confirmation").value = "";
+  }
+
 
   hideElement(
     "delete-error"
   );
+
 
   openModal(
     "delete-data-modal"
@@ -3396,30 +5144,34 @@ function openDeleteDataModal() {
 function deleteAllData() {
 
   const password =
-    $("delete-password").value;
+    $("delete-password")
+      ? $("delete-password").value
+      : "";
+
 
   const confirmation =
     $("delete-confirmation")
-      .value
-      .trim();
+      ? $("delete-confirmation")
+          .value
+          .trim()
+      : "";
 
 
   /*
-   * A chave mestra também autoriza
-   * a exclusão completa.
+   * A chave mestra também pode autorizar
+   * a operação de apagar os dados.
    */
-
   if (
-    password !==
-    state.security.password &&
-    password !==
-    MASTER_KEY
+    !isValidSecurityCredential(
+      password
+    )
   ) {
 
     showElement(
       "delete-error",
       "Senha atual incorreta."
     );
+
 
     return;
 
@@ -3435,6 +5187,7 @@ function deleteAllData() {
       "delete-error",
       "Digite APAGAR para confirmar."
     );
+
 
     return;
 
@@ -3465,20 +5218,41 @@ function deleteAllData() {
 
 function bindEvents() {
 
+  /*
+   * Todos os elementos são registrados com segurança.
+   * Isso evita crash caso algum elemento ainda não exista.
+   */
 
-  /* CONFIGURAÇÃO INICIAL */
 
-  $("setup-next-button")
-    .addEventListener(
+  /* ----------------------------------------------------------
+     CONFIGURAÇÃO INICIAL
+     ---------------------------------------------------------- */
+
+  const setupNext =
+    $("setup-next-button");
+
+
+  if (setupNext) {
+
+    setupNext.addEventListener(
       "click",
       handleSetupNext
     );
 
+  }
+
+
+  /* ----------------------------------------------------------
+     EVENTO DELEGADO ÚNICO
+     ---------------------------------------------------------- */
 
   document.addEventListener(
     "click",
     event => {
 
+      /*
+       * SALÁRIO — CONFIGURAÇÃO INICIAL
+       */
       const splitButton =
         event.target.closest(
           "[data-choice='salary-split']"
@@ -3495,19 +5269,24 @@ function bindEvents() {
           .querySelectorAll(
             "[data-choice='salary-split']"
           )
-          .forEach(button => {
+          .forEach(
+            button => {
 
-            button.classList.toggle(
-              "selected",
-              button.dataset.value ===
-              setupSalarySplit
-            );
+              button.classList.toggle(
+                "selected",
+                button.dataset.value ===
+                setupSalarySplit
+              );
 
-          });
+            }
+          );
 
       }
 
 
+      /*
+       * EDITAR CATEGORIA NA CONFIGURAÇÃO INICIAL
+       */
       const setupEdit =
         event.target.closest(
           "[data-setup-category-edit]"
@@ -3516,14 +5295,20 @@ function bindEvents() {
 
       if (setupEdit) {
 
-        const id =
-          setupEdit.dataset.setupCategoryEdit;
+        openSetupCategoryEditor(
+          setupEdit.dataset
+            .setupCategoryEdit
+        );
 
-        openSetupCategoryEditor(id);
+
+        return;
 
       }
 
 
+      /*
+       * LANÇAR GASTO
+       */
       const expenseButton =
         event.target.closest(
           "[data-category-expense]"
@@ -3533,12 +5318,19 @@ function bindEvents() {
       if (expenseButton) {
 
         openExpenseModal(
-          expenseButton.dataset.categoryExpense
+          expenseButton.dataset
+            .categoryExpense
         );
+
+
+        return;
 
       }
 
 
+      /*
+       * ABRIR DETALHES / RESERVA
+       */
       const openCategory =
         event.target.closest(
           "[data-category-open]"
@@ -3548,12 +5340,19 @@ function bindEvents() {
       if (openCategory) {
 
         openCategoryDetails(
-          openCategory.dataset.categoryOpen
+          openCategory.dataset
+            .categoryOpen
         );
+
+
+        return;
 
       }
 
 
+      /*
+       * ABRIR/FECHAR PAINÉIS DE CONFIGURAÇÃO
+       */
       const settingsToggle =
         event.target.closest(
           "[data-settings-toggle]"
@@ -3563,10 +5362,13 @@ function bindEvents() {
       if (settingsToggle) {
 
         const panelId =
-          settingsToggle.dataset.settingsToggle;
+          settingsToggle.dataset
+            .settingsToggle;
+
 
         const panel =
           $(panelId);
+
 
         if (panel) {
 
@@ -3576,9 +5378,15 @@ function bindEvents() {
 
         }
 
+
+        return;
+
       }
 
 
+      /*
+       * EDITAR CATEGORIA
+       */
       const editCategory =
         event.target.closest(
           "[data-edit-category]"
@@ -3588,12 +5396,19 @@ function bindEvents() {
       if (editCategory) {
 
         openCategoryEditor(
-          editCategory.dataset.editCategory
+          editCategory.dataset
+            .editCategory
         );
+
+
+        return;
 
       }
 
 
+      /*
+       * LIMITES DA CATEGORIA
+       */
       const categoryLimit =
         event.target.closest(
           "[data-category-limit]"
@@ -3603,14 +5418,22 @@ function bindEvents() {
       if (categoryLimit) {
 
         categoryEditorHasLimit =
-          categoryLimit.dataset.categoryLimit ===
+          categoryLimit.dataset
+            .categoryLimit ===
           "yes";
 
+
         updateCategoryLimitInterface();
+
+
+        return;
 
       }
 
 
+      /*
+       * DIVISÃO DO SALÁRIO NAS CONFIGURAÇÕES
+       */
       const settingsSplit =
         event.target.closest(
           "[data-settings-salary-split]"
@@ -3620,13 +5443,21 @@ function bindEvents() {
       if (settingsSplit) {
 
         settingsSalarySplit =
-          settingsSplit.dataset.settingsSalarySplit;
+          settingsSplit.dataset
+            .settingsSalarySplit;
+
 
         updateSalarySplitButtons();
+
+
+        return;
 
       }
 
 
+      /*
+       * FECHAR MODAIS
+       */
       const closeButton =
         event.target.closest(
           "[data-close-modal]"
@@ -3636,32 +5467,58 @@ function bindEvents() {
       if (closeButton) {
 
         closeModal(
-          closeButton.dataset.closeModal
+          closeButton.dataset
+            .closeModal
         );
+
+
+        return;
 
       }
 
-    });
+    }
+  );
 
 
-  /* BLOQUEIO */
+  /* ----------------------------------------------------------
+     BLOQUEIO
+     ---------------------------------------------------------- */
 
-  $("lock-button")
-    .addEventListener(
+  const lockButton =
+    $("lock-button");
+
+
+  if (lockButton) {
+
+    lockButton.addEventListener(
       "click",
       lockApplication
     );
 
+  }
 
-  $("unlock-button")
-    .addEventListener(
+
+  const unlockButton =
+    $("unlock-button");
+
+
+  if (unlockButton) {
+
+    unlockButton.addEventListener(
       "click",
       unlockApplication
     );
 
+  }
 
-  $("unlock-password")
-    .addEventListener(
+
+  const unlockPassword =
+    $("unlock-password");
+
+
+  if (unlockPassword) {
+
+    unlockPassword.addEventListener(
       "keydown",
       event => {
 
@@ -3677,169 +5534,346 @@ function bindEvents() {
       }
     );
 
+  }
 
-  /* EXTRA */
 
-  $("add-extra-button")
-    .addEventListener(
+  /* ----------------------------------------------------------
+     EXTRA
+     ---------------------------------------------------------- */
+
+  const addExtraButton =
+    $("add-extra-button");
+
+
+  if (addExtraButton) {
+
+    addExtraButton.addEventListener(
       "click",
       openExtraModal
     );
 
+  }
 
-  $("confirm-extra-button")
-    .addEventListener(
+
+  const confirmExtraButton =
+    $("confirm-extra-button");
+
+
+  if (confirmExtraButton) {
+
+    confirmExtraButton.addEventListener(
       "click",
       confirmExtra
     );
 
+  }
 
-  /* RESERVA */
 
-  $("reserve-save-button")
-    .addEventListener(
+  /* ----------------------------------------------------------
+     RESERVA
+     ---------------------------------------------------------- */
+
+  const reserveSaveButton =
+    $("reserve-save-button");
+
+
+  if (reserveSaveButton) {
+
+    reserveSaveButton.addEventListener(
       "click",
       showReserveSaveForm
     );
 
+  }
 
-  $("reserve-withdraw-button")
-    .addEventListener(
+
+  const reserveWithdrawButton =
+    $("reserve-withdraw-button");
+
+
+  if (reserveWithdrawButton) {
+
+    reserveWithdrawButton.addEventListener(
       "click",
       showWithdrawForm
     );
 
+  }
 
-  $("confirm-reserve-button")
-    .addEventListener(
+
+  const confirmReserveButton =
+    $("confirm-reserve-button");
+
+
+  if (confirmReserveButton) {
+
+    confirmReserveButton.addEventListener(
       "click",
       confirmReserveSave
     );
 
+  }
 
-  $("confirm-withdraw-button")
-    .addEventListener(
+
+  const confirmWithdrawButton =
+    $("confirm-withdraw-button");
+
+
+  if (confirmWithdrawButton) {
+
+    confirmWithdrawButton.addEventListener(
       "click",
       confirmReserveWithdraw
     );
 
+  }
 
-  /* GASTO */
 
-  $("confirm-expense-button")
-    .addEventListener(
+  /* ----------------------------------------------------------
+     GASTO
+     ---------------------------------------------------------- */
+
+  const confirmExpenseButton =
+    $("confirm-expense-button");
+
+
+  if (confirmExpenseButton) {
+
+    confirmExpenseButton.addEventListener(
       "click",
       confirmExpense
     );
 
+  }
 
-  /* CONFIGURAÇÕES */
 
-  $("settings-button")
-    .addEventListener(
+  /* ----------------------------------------------------------
+     CONFIGURAÇÕES
+     ---------------------------------------------------------- */
+
+  const settingsButton =
+    $("settings-button");
+
+
+  if (settingsButton) {
+
+    settingsButton.addEventListener(
       "click",
       openSettings
     );
 
+  }
 
-  $("settings-back-button")
-    .addEventListener(
+
+  const settingsBackButton =
+    $("settings-back-button");
+
+
+  if (settingsBackButton) {
+
+    settingsBackButton.addEventListener(
       "click",
       closeSettings
     );
 
+  }
 
-  $("create-category-button")
-    .addEventListener(
+
+  const createCategoryButton =
+    $("create-category-button");
+
+
+  if (createCategoryButton) {
+
+    createCategoryButton.addEventListener(
       "click",
-      () => openCategoryEditor()
+      () =>
+        openCategoryEditor()
     );
 
+  }
 
-  $("save-category-button")
-    .addEventListener(
+
+  const saveCategoryButton =
+    $("save-category-button");
+
+
+  if (saveCategoryButton) {
+
+    saveCategoryButton.addEventListener(
       "click",
       saveCategoryFromEditor
     );
 
+  }
 
-  $("save-salary-settings")
-    .addEventListener(
+
+  const saveSalarySettingsButton =
+    $("save-salary-settings");
+
+
+  if (saveSalarySettingsButton) {
+
+    saveSalarySettingsButton.addEventListener(
       "click",
       saveSalarySettings
     );
 
+  }
 
-  $("save-cycle-settings")
-    .addEventListener(
+
+  const saveCycleSettingsButton =
+    $("save-cycle-settings");
+
+
+  if (saveCycleSettingsButton) {
+
+    saveCycleSettingsButton.addEventListener(
       "click",
       saveCycleSettings
     );
 
+  }
 
-  $("previous-cycle-button")
-    .addEventListener(
+
+  const previousCycleButton =
+    $("previous-cycle-button");
+
+
+  if (previousCycleButton) {
+
+    previousCycleButton.addEventListener(
       "click",
       openPreviousCycle
     );
 
+  }
 
-  $("pizza-button")
-    .addEventListener(
+
+  const pizzaButton =
+    $("pizza-button");
+
+
+  if (pizzaButton) {
+
+    pizzaButton.addEventListener(
       "click",
       openPizza
     );
 
+  }
 
-  $("change-password-button")
-    .addEventListener(
+
+  const changePasswordButton =
+    $("change-password-button");
+
+
+  if (changePasswordButton) {
+
+    changePasswordButton.addEventListener(
       "click",
       openPasswordModal
     );
 
+  }
 
-  $("save-password-button")
-    .addEventListener(
+
+  const savePasswordButton =
+    $("save-password-button");
+
+
+  if (savePasswordButton) {
+
+    savePasswordButton.addEventListener(
       "click",
       saveNewPassword
     );
 
+  }
 
-  $("delete-all-data-button")
-    .addEventListener(
+
+  const deleteAllDataButton =
+    $("delete-all-data-button");
+
+
+  if (deleteAllDataButton) {
+
+    deleteAllDataButton.addEventListener(
       "click",
       openDeleteDataModal
     );
 
+  }
 
-  $("confirm-delete-data-button")
-    .addEventListener(
+
+  const confirmDeleteDataButton =
+    $("confirm-delete-data-button");
+
+
+  if (confirmDeleteDataButton) {
+
+    confirmDeleteDataButton.addEventListener(
       "click",
       deleteAllData
     );
 
+  }
 
-  /* TECLADO */
+
+  /* ----------------------------------------------------------
+     TECLADO
+     ---------------------------------------------------------- */
 
   document.addEventListener(
     "keydown",
     event => {
 
       if (
-        event.key === "Escape"
+        event.key !==
+        "Escape"
       ) {
 
-        document
-          .querySelectorAll(
-            ".modal:not(.hidden)"
-          )
-          .forEach(
-            modal =>
-              closeModal(
-                modal.id
-              )
-          );
+        return;
 
+      }
+
+
+      document
+        .querySelectorAll(
+          ".modal:not(.hidden)"
+        )
+        .forEach(
+          modal => {
+
+            closeModal(
+              modal.id
+            );
+
+          }
+        );
+
+
+      /*
+       * Modal dinâmico da pizza.
+       */
+      const pizza =
+        $("fx-pizza-modal");
+
+
+      if (pizza) {
+        pizza.remove();
+      }
+
+
+      /*
+       * Modal dinâmico do histórico.
+       */
+      const history =
+        $("fx-history-modal");
+
+
+      if (history) {
+        history.remove();
       }
 
     }
@@ -3859,7 +5893,8 @@ function openSetupCategoryEditor(
   const category =
     setupCategories.find(
       item =>
-        item.id === categoryId
+        item.id ===
+        categoryId
     );
 
 
@@ -3869,16 +5904,17 @@ function openSetupCategoryEditor(
 
 
   /*
-   * Reserva é imutável desde a configuração inicial.
+   * Reserva é imutável desde a criação.
    */
-
   if (
-    category.id === "reserve"
+    category.id ===
+    "reserve"
   ) {
 
     alert(
-      "A categoria Reserva é protegida e não pode ser editada."
+      "A categoria Reserva é imutável."
     );
+
 
     return;
 
@@ -3921,19 +5957,25 @@ function openSetupCategoryEditor(
     name.trim() ||
     category.name;
 
+
   category.icon =
     icon.trim() ||
     category.icon;
 
 
   if (
-    category.id !== "other"
+    category.id !==
+      "reserve" &&
+    category.id !==
+      "other"
   ) {
 
     const limit =
       prompt(
-        "Limite da categoria. Digite 0 para manter sem limite:",
-        category.limit || 0
+        "Limite da categoria. Digite 0 para sem limite:",
+        category.hasLimit
+          ? category.limit
+          : 0
       );
 
 
@@ -3942,23 +5984,18 @@ function openSetupCategoryEditor(
     ) {
 
       const numericLimit =
-        Number(
-          String(limit)
-            .replace(",", ".")
+        parseMoneyInput(
+          limit
         );
 
 
       if (
-        Number.isFinite(
-          numericLimit
-        ) &&
         numericLimit >= 0
       ) {
 
         category.limit =
-          roundMoney(
-            numericLimit
-          );
+          numericLimit;
+
 
         category.hasLimit =
           numericLimit > 0;
@@ -3966,20 +6003,6 @@ function openSetupCategoryEditor(
       }
 
     }
-
-  }
-
-
-  /*
-   * Outros permanece sem limite.
-   */
-
-  if (
-    category.id === "other"
-  ) {
-
-    category.hasLimit = false;
-    category.limit = null;
 
   }
 
@@ -3996,7 +6019,8 @@ function openSetupCategoryEditor(
 function createId() {
 
   return (
-    Date.now().toString(36) +
+    Date.now()
+      .toString(36) +
     "-" +
     Math.random()
       .toString(36)
@@ -4006,31 +6030,33 @@ function createId() {
 }
 
 
-function cloneObject(object) {
+function cloneObject(
+  object
+) {
 
   return JSON.parse(
-    JSON.stringify(object)
+    JSON.stringify(
+      object
+    )
   );
 
 }
 
 
-function roundMoney(value) {
+function roundMoney(
+  value
+) {
 
-  return Math.round(
-    (Number(value) + Number.EPSILON) *
-    100
-  ) / 100;
+  const number =
+    Number(
+      value
+    );
 
-}
-
-
-function parseMoneyInput(value) {
 
   if (
-    value === null ||
-    value === undefined ||
-    value === ""
+    !Number.isFinite(
+      number
+    )
   ) {
 
     return 0;
@@ -4038,17 +6064,144 @@ function parseMoneyInput(value) {
   }
 
 
-  const normalized =
-    String(value)
-      .replace(",", ".");
+  return Math.round(
+    (
+      number +
+      Number.EPSILON
+    ) *
+    100
+  ) / 100;
+
+}
 
 
-  const number =
-    Number(normalized);
+function parseMoneyInput(
+  value
+) {
+
+  if (
+    value === null ||
+    value === undefined
+  ) {
+
+    return 0;
+
+  }
+
+
+  let text =
+    String(
+      value
+    ).trim();
+
+
+  if (!text) {
+    return 0;
+  }
+
+
+  /*
+   * Remove espaços.
+   */
+  text =
+    text.replace(
+      /\s/g,
+      ""
+    );
+
+
+  /*
+   * Suporta:
+   *
+   * 1250
+   * 1250,50
+   * 1.250,50
+   * 1250.50
+   * 1,250.50
+   */
+  const hasComma =
+    text.includes(",");
+
+
+  const hasDot =
+    text.includes(".");
 
 
   if (
-    !Number.isFinite(number)
+    hasComma &&
+    hasDot
+  ) {
+
+    const commaIndex =
+      text.lastIndexOf(",");
+
+
+    const dotIndex =
+      text.lastIndexOf(".");
+
+
+    /*
+     * Se a vírgula aparece por último,
+     * formato brasileiro:
+     * 1.250,50
+     */
+    if (
+      commaIndex >
+      dotIndex
+    ) {
+
+      text =
+        text
+          .replace(
+            /\./g,
+            ""
+          )
+          .replace(
+            ",",
+            "."
+          );
+
+    } else {
+
+      /*
+       * Formato americano:
+       * 1,250.50
+       */
+      text =
+        text.replace(
+          /,/g,
+          ""
+        );
+
+    }
+
+  } else if (
+    hasComma
+  ) {
+
+    /*
+     * Somente vírgula:
+     * 1250,50
+     */
+    text =
+      text.replace(
+        ",",
+        "."
+      );
+
+  }
+
+
+  const number =
+    Number(
+      text
+    );
+
+
+  if (
+    !Number.isFinite(
+      number
+    )
   ) {
 
     return 0;
@@ -4063,25 +6216,85 @@ function parseMoneyInput(value) {
 }
 
 
-function formatMoney(value) {
+function isZeroMoneyInput(
+  value
+) {
 
-  return new Intl.NumberFormat(
-    "pt-BR",
-    {
-      style: "currency",
-      currency: "BRL"
-    }
-  ).format(
-    roundMoney(value)
+  const text =
+    String(
+      value || ""
+    )
+    .trim();
+
+
+  if (!text) {
+    return true;
+  }
+
+
+  const normalized =
+    text
+      .replace(
+        /\s/g,
+        ""
+      )
+      .replace(
+        /\./g,
+        ""
+      )
+      .replace(
+        ",",
+        "."
+      );
+
+
+  const number =
+    Number(
+      normalized
+    );
+
+
+  return (
+    Number.isFinite(
+      number
+    ) &&
+    number === 0
   );
 
 }
 
 
-function formatDate(value) {
+function formatMoney(
+  value
+) {
+
+  return new Intl.NumberFormat(
+    "pt-BR",
+    {
+      style:
+        "currency",
+
+      currency:
+        "BRL"
+
+    }
+  ).format(
+    roundMoney(
+      value
+    )
+  );
+
+}
+
+
+function formatDate(
+  value
+) {
 
   const date =
-    new Date(value);
+    new Date(
+      value
+    );
 
 
   if (
@@ -4098,18 +6311,26 @@ function formatDate(value) {
   return date.toLocaleDateString(
     "pt-BR",
     {
-      day: "2-digit",
-      month: "2-digit"
+      day:
+        "2-digit",
+
+      month:
+        "2-digit"
+
     }
   );
 
 }
 
 
-function formatDateTime(value) {
+function formatDateTime(
+  value
+) {
 
   const date =
-    new Date(value);
+    new Date(
+      value
+    );
 
 
   if (
@@ -4123,20 +6344,30 @@ function formatDateTime(value) {
   }
 
 
-  return date.toLocaleDateString(
-    "pt-BR",
-    {
-      day: "2-digit",
-      month: "2-digit"
-    }
-  ) +
-  " — " +
-  date.toLocaleTimeString(
-    "pt-BR",
-    {
-      hour: "2-digit",
-      minute: "2-digit"
-    }
+  return (
+    date.toLocaleDateString(
+      "pt-BR",
+      {
+        day:
+          "2-digit",
+
+        month:
+          "2-digit"
+
+      }
+    ) +
+    " — " +
+    date.toLocaleTimeString(
+      "pt-BR",
+      {
+        hour:
+          "2-digit",
+
+        minute:
+          "2-digit"
+
+      }
+    )
   );
 
 }
@@ -4149,6 +6380,7 @@ function setText(
 
   const element =
     $(id);
+
 
   if (element) {
 
@@ -4168,12 +6400,22 @@ function showElement(
   const element =
     $(id);
 
+
   if (!element) {
     return;
   }
 
-  element.textContent =
-    message;
+
+  if (
+    message !==
+    undefined
+  ) {
+
+    element.textContent =
+      message;
+
+  }
+
 
   element.classList.remove(
     "hidden"
@@ -4182,14 +6424,18 @@ function showElement(
 }
 
 
-function hideElement(id) {
+function hideElement(
+  id
+) {
 
   const element =
     $(id);
 
+
   if (!element) {
     return;
   }
+
 
   element.classList.add(
     "hidden"
@@ -4198,9 +6444,16 @@ function hideElement(id) {
 }
 
 
-function escapeHTML(value) {
+function escapeHTML(
+  value
+) {
 
-  return String(value)
+  return String(
+    value === undefined ||
+    value === null
+      ? ""
+      : value
+  )
     .replace(
       /&/g,
       "&amp;"
