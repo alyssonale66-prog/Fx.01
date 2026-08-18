@@ -269,14 +269,29 @@
 
         <h1 id="main-title">FX</h1>
 
-        <button
-          id="lock-button"
-          type="button"
-          class="icon-button"
-          aria-label="Bloquear aplicativo"
-        >
-          🔒
-        </button>
+        <div class="main-header-actions">
+
+          <button
+            id="settings-button"
+            type="button"
+            class="icon-button"
+            aria-label="Abrir configurações"
+            title="Configurações"
+          >
+            ⚙
+          </button>
+
+          <button
+            id="lock-button"
+            type="button"
+            class="icon-button"
+            aria-label="Bloquear aplicativo"
+            title="Bloquear aplicativo"
+          >
+            🔒
+          </button>
+
+        </div>
 
       </header>
 
@@ -388,27 +403,6 @@
         </section>
 
       </main>
-
-
-      <!-- ==================================================
-           NAVEGAÇÃO INFERIOR
-           ================================================== -->
-
-      <nav
-        class="bottom-navigation"
-        aria-label="Navegação principal"
-      >
-
-        <button
-          id="settings-button"
-          type="button"
-          class="navigation-button"
-        >
-          <span>⚙️</span>
-          <span>Configurações</span>
-        </button>
-
-      </nav>
 
     </section>
 
@@ -929,29 +923,19 @@
           </div>
 
 
+          <!-- ==================================================
+               GUARDAR NA RESERVA
+               Primeiro informa o valor.
+               Depois escolhe a origem disponível.
+               ================================================== -->
+
           <div
             id="reserve-form"
             class="reserve-form hidden"
           >
 
-            <label for="reserve-origin">
-              Origem
-            </label>
-
-            <select id="reserve-origin">
-
-              <option value="salary">
-                Salário
-              </option>
-
-              <option value="extra">
-                Extra
-              </option>
-
-            </select>
-
             <label for="reserve-value">
-              Valor
+              Quanto deseja guardar?
             </label>
 
             <input
@@ -963,16 +947,83 @@
               placeholder="0,00"
             >
 
+            <div
+              id="reserve-origin-section"
+              class="reserve-origin-section hidden"
+            >
+
+              <p class="reserve-origin-title">
+                De onde retirar?
+              </p>
+
+              <div
+                id="reserve-origin-options"
+                class="reserve-origin-options"
+              >
+
+                <button
+                  type="button"
+                  class="reserve-origin-option"
+                  data-reserve-origin="salary"
+                >
+
+                  <span class="reserve-origin-name">
+                    Salário
+                  </span>
+
+                  <strong
+                    id="reserve-salary-available"
+                    class="reserve-origin-balance"
+                  >
+                    R$ 0,00
+                  </strong>
+
+                </button>
+
+
+                <button
+                  type="button"
+                  class="reserve-origin-option"
+                  data-reserve-origin="extra"
+                >
+
+                  <span class="reserve-origin-name">
+                    Extra
+                  </span>
+
+                  <strong
+                    id="reserve-extra-available"
+                    class="reserve-origin-balance"
+                  >
+                    R$ 0,00
+                  </strong>
+
+                </button>
+
+              </div>
+
+              <p
+                id="selected-reserve-origin"
+                class="selected-reserve-origin"
+              ></p>
+
+            </div>
+
+
             <button
               id="confirm-reserve-button"
               type="button"
               class="primary-button"
             >
-              Confirmar
+              Guardar na Reserva
             </button>
 
           </div>
 
+
+          <!-- ==================================================
+               RETIRAR DA RESERVA
+               ================================================== -->
 
           <div
             id="withdraw-form"
