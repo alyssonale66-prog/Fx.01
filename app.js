@@ -613,7 +613,6 @@ function withdrawFromReserve(amount) {
   }
 
   state.reserve.balance = roundMoney(state.reserve.balance - amount);
-  state.extra.balance = roundMoney(state.extra.balance + amount);
 
   createExpenseRecord("reserve", amount, "Retirada da reserva", "reserve-withdrawal");
   incrementCategoryUsage("other", amount);
