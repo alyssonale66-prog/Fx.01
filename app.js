@@ -1,6 +1,5 @@
 /* ============================================================
-   FX.01 — Versão Final Ajustada
-   Lógica principal, controle financeiro e regras de negócio
+   FX.01 — Versão Final Ajustada com Sistema de Abas
    ============================================================ */
 
 "use strict";
@@ -12,9 +11,6 @@
 const FX_VERSION = "FX.01";
 const STORAGE_KEY = "fx01_data";
 
-/*
- * Chave Mestra do FX para recuperação e autorização.
- */
 const MASTER_KEY = ["F", "x", "0", "2", "0", "9", "1", "9"].join("");
 
 const DEFAULT_CATEGORIES = [
@@ -612,10 +608,8 @@ function withdrawFromReserve(amount) {
     throw new Error("Não existe saldo suficiente na Reserva.");
   }
 
-  // Abate da reserva acumulada
   state.reserve.balance = roundMoney(state.reserve.balance - amount);
 
-  // Vira automaticamente um lançamento de gasto na categoria "Outros" (Extrato)
   createExpenseRecord("reserve", amount, "Retirada da reserva", "reserve-withdrawal");
   incrementCategoryUsage("other", amount);
 
@@ -796,6 +790,45 @@ function updateCategory(categoryId, name, icon, hasLimit, limit) {
 }
 
 /* ============================================================
+   SISTEMA DE NAVEGAÇÃO DE ABAS (INÍCIO / EXTRATO)
+   ============================================================ */
+
+function switchTab(tabName) {
+  const homeTab = $("tab-home");
+  const extratoTab = $("tab-extrato");
+  const btnHome = $("nav-home-button");
+  const btnExtrato = $("nav-extrato-button");
+
+  if (tabName === "extrato") {
+    if (homeTab) homeTab.classList.add("hidden");
+    if (extratoTab) extratoTab.classList.remove("hidden");
+
+    if (btnHome) {
+      btnHome.classList.remove("active");
+      btnHome.style.color = "#888888";
+    }
+    if (btnExtrato) {
+      btnExtrato.classList.add("active");
+      btnExtrato.style.color = "#ffffff";
+    }
+
+    renderExpenses();
+  } else {
+    if (homeTab) homeTab.classList.remove("hidden");
+    if (extratoTab) extratoTab.classList.add("hidden");
+
+    if (btnHome) {
+      btnHome.classList.add("active");
+      btnHome.style.color = "#ffffff";
+    }
+    if (btnExtrato) {
+      btnExtrato.classList.remove("active");
+      btnExtrato.style.color = "#888888";
+    }
+  }
+}
+
+/* ============================================================
    RENDERIZAÇÃO DA INTERFACE
    ============================================================ */
 
@@ -894,7 +927,6 @@ function renderExpenses() {
     ? [...state.currentCycle.expenses]
     : [];
 
-  // Ordena do mais recente para o mais antigo
   expenses.sort((a, b) => new Date(b.date) - new Date(a.date));
 
   if (!expenses.length) {
@@ -1672,6 +1704,10 @@ function bindEvents() {
   const setupNext = $("setup-next-button");
   if (setupNext) setupNext.addEventListener("click", handleSetupNext);
 
+  // EVENTOS DAS ABAS
+  $("nav-home-button")?.addEventListener("click", () => switchTab("home"));
+  $("nav-extrato-button")?.addEventListener("click", () => switchTab("extrato"));
+
   document.addEventListener("click", event => {
 
     const reserveOriginBtn = event.target.closest("[data-reserve-origin]");
@@ -1805,7 +1841,7 @@ function bindEvents() {
 }
 
 /* ============================================================
-   EDITOR DE CATEGORIAS NO SETUP (EXCLUSIVAMENTE LIMITE)
+   EDITOR DE CATEGORIAS NO SETUP
    ============================================================ */
 
 function openSetupCategoryEditor(categoryId) {
@@ -1822,7 +1858,6 @@ function openSetupCategoryEditor(categoryId) {
     return;
   }
 
-  // No cadastro inicial, solicita EXCLUSIVAMENTE o limite de gastos.
   const limitInput = prompt(
     `Defina o limite para a categoria "${category.name}" (digite 0 para sem limite):`,
     category.hasLimit && category.limit !== null ? category.limit : 0
