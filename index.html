@@ -18,7 +18,7 @@
     content="FX — Seu dinheiro. Suas regras."
   >
 
-  <title>FX</title>
+  <title>FX — Seu dinheiro. Suas regras.</title>
 
   <link rel="manifest" href="manifest.json">
   <link rel="stylesheet" href="style.css">
@@ -256,7 +256,7 @@
 
 
     <!-- ======================================================
-         TELA PRINCIPAL
+         TELA PRINCIPAL (Navegação por Abas)
          ====================================================== -->
 
     <section
@@ -265,7 +265,8 @@
       aria-labelledby="main-title"
     >
 
-      <header class="main-header">
+      <!-- Cabeçalho Alinhado: 🔒 Esquerda | FX Centro | ⚙️ Direita -->
+      <header class="main-header" style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
 
         <button
           id="lock-button"
@@ -277,7 +278,7 @@
           🔒
         </button>
 
-        <h1 id="main-title">FX</h1>
+        <h1 id="main-title" style="margin: 0; text-align: center;">FX</h1>
 
         <button
           id="settings-button"
@@ -292,113 +293,135 @@
       </header>
 
 
-      <main class="main-content">
+      <main class="main-content" style="padding-bottom: 70px;">
 
-        <!-- ================================================
-             SALDO PRINCIPAL
-             ================================================ -->
+        <!-- ABA 1: INÍCIO (Saldos + Categorias) -->
+        <div id="tab-home" class="tab-content">
 
-        <section
-          class="balance-card"
-          aria-label="Saldo disponível"
-        >
-
-          <span class="balance-label">
-            Valor que pode gastar
-          </span>
-
-          <strong
-            id="available-balance"
-            class="balance-value"
+          <!-- SALDO PRINCIPAL -->
+          <section
+            class="balance-card"
+            aria-label="Saldo disponível"
           >
-            R$ 0,00
-          </strong>
 
-          <div class="balance-sources">
+            <span class="balance-label">
+              Valor que pode gastar
+            </span>
 
-            <div class="balance-source">
+            <strong
+              id="available-balance"
+              class="balance-value"
+            >
+              R$ 0,00
+            </strong>
 
-              <span>Salário</span>
+            <div class="balance-sources">
 
-              <strong id="salary-balance">
-                R$ 0,00
-              </strong>
+              <div class="balance-source">
+
+                <span>Salário</span>
+
+                <strong id="salary-balance">
+                  R$ 0,00
+                </strong>
+
+              </div>
+
+              <div class="balance-source extra-source">
+
+                <span>Extra</span>
+
+                <button
+                  id="add-extra-button"
+                  type="button"
+                  class="extra-button"
+                >
+                  + Extra
+                </button>
+
+                <strong id="extra-balance">
+                  R$ 0,00
+                </strong>
+
+              </div>
 
             </div>
 
-            <div class="balance-source extra-source">
+          </section>
 
-              <span>Extra</span>
+          <!-- CATEGORIAS -->
+          <section
+            class="categories-section"
+            aria-labelledby="categories-title"
+          >
 
-              <button
-                id="add-extra-button"
-                type="button"
-                class="extra-button"
-              >
-                + Extra
-              </button>
+            <div class="section-heading">
 
-              <strong id="extra-balance">
-                R$ 0,00
-              </strong>
+              <h2 id="categories-title">
+                Categorias
+              </h2>
 
             </div>
 
-          </div>
+            <div
+              id="categories-list"
+              class="categories-list"
+            ></div>
 
-        </section>
+          </section>
 
-
-        <!-- ================================================
-             CATEGORIAS
-             ================================================ -->
-
-        <section
-          class="categories-section"
-          aria-labelledby="categories-title"
-        >
-
-          <div class="section-heading">
-
-            <h2 id="categories-title">
-              Categorias
-            </h2>
-
-          </div>
-
-          <div
-            id="categories-list"
-            class="categories-list"
-          ></div>
-
-        </section>
+        </div>
 
 
-        <!-- ================================================
-             GASTOS DO CICLO
-             ================================================ -->
+        <!-- ABA 2: EXTRATO (Histórico Detalhado) -->
+        <div id="tab-extrato" class="tab-content hidden">
 
-        <section
-          class="expenses-section"
-          aria-labelledby="expenses-title"
-        >
+          <section
+            class="expenses-section"
+            aria-labelledby="expenses-title"
+          >
 
-          <div class="section-heading">
+            <div class="section-heading">
 
-            <h2 id="expenses-title">
-              Gastos
-            </h2>
+              <h2 id="expenses-title">
+                Extrato de Gastos
+              </h2>
 
-          </div>
+            </div>
 
-          <div
-            id="expenses-list"
-            class="expenses-list"
-          ></div>
+            <div
+              id="expenses-list"
+              class="expenses-list"
+            ></div>
 
-        </section>
+          </section>
+
+        </div>
 
       </main>
+
+      <!-- BARRA DE NAVEGAÇÃO POR ABAS (RODAPÉ) -->
+      <nav class="bottom-nav" style="position: fixed; bottom: 0; left: 0; right: 0; display: flex; justify-content: space-around; background: #181818; border-top: 1px solid #282828; padding: 8px 0; z-index: 100;">
+        <button
+          type="button"
+          id="nav-home-button"
+          class="nav-button active"
+          style="background: transparent; border: none; color: #ffffff; display: flex; flex-direction: column; align-items: center; font-size: 12px; cursor: pointer;"
+        >
+          <span style="font-size: 20px;">🏠</span>
+          <span>Início</span>
+        </button>
+
+        <button
+          type="button"
+          id="nav-extrato-button"
+          class="nav-button"
+          style="background: transparent; border: none; color: #888888; display: flex; flex-direction: column; align-items: center; font-size: 12px; cursor: pointer;"
+        >
+          <span style="font-size: 20px;">📜</span>
+          <span>Extrato</span>
+        </button>
+      </nav>
 
     </section>
 
@@ -921,8 +944,6 @@
 
           <!-- ==================================================
                GUARDAR NA RESERVA
-               Primeiro informa o valor.
-               Depois escolhe a origem disponível.
                ================================================== -->
 
           <div
