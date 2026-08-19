@@ -612,8 +612,10 @@ function withdrawFromReserve(amount) {
     throw new Error("Não existe saldo suficiente na Reserva.");
   }
 
+  // Abate da reserva acumulada
   state.reserve.balance = roundMoney(state.reserve.balance - amount);
 
+  // Vira automaticamente um lançamento de gasto na categoria "Outros" (Extrato)
   createExpenseRecord("reserve", amount, "Retirada da reserva", "reserve-withdrawal");
   incrementCategoryUsage("other", amount);
 
@@ -892,10 +894,11 @@ function renderExpenses() {
     ? [...state.currentCycle.expenses]
     : [];
 
+  // Ordena do mais recente para o mais antigo
   expenses.sort((a, b) => new Date(b.date) - new Date(a.date));
 
   if (!expenses.length) {
-    container.innerHTML = `<div class="empty-state">Nenhum gasto neste ciclo.</div>`;
+    container.innerHTML = `<div class="empty-state">Nenhum gasto registrado neste ciclo.</div>`;
     return;
   }
 
@@ -904,14 +907,22 @@ function renderExpenses() {
     item.className = "expense-item";
 
     const category = findCategory(expense.categoryId);
-    const description = expense.description || category?.name || "Gasto";
+    const categoryIcon = category ? category.icon : "📦";
+    const categoryName = category ? category.name : "Outros";
+    const hasDescription = expense.description && expense.description.trim() !== "";
 
     item.innerHTML = `
       <div class="expense-info">
-        <div class="expense-description">${escapeHTML(description)}</div>
+        <div class="expense-category-tag">
+          <span class="expense-icon">${escapeHTML(categoryIcon)}</span>
+          <strong class="expense-category-name">${escapeHTML(categoryName)}</strong>
+        </div>
+        ${hasDescription ? `<div class="expense-description">${escapeHTML(expense.description)}</div>` : ""}
         <div class="expense-date">${formatDateTime(expense.date)}</div>
       </div>
-      <div class="expense-value">${formatMoney(expense.amount)}</div>
+      <div class="expense-value-container">
+        <span class="expense-value">${formatMoney(expense.amount)}</span>
+      </div>
     `;
 
     container.appendChild(item);
