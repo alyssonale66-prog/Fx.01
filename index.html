@@ -102,10 +102,8 @@
 
             <input
               id="setup-salary"
-              type="number"
+              type="text"
               inputmode="decimal"
-              min="0"
-              step="0.01"
               placeholder="0,00"
             >
 
@@ -516,10 +514,9 @@
 
             <input
               id="settings-salary"
-              type="number"
+              type="text"
               inputmode="decimal"
-              min="0"
-              step="0.01"
+              placeholder="0,00"
             >
 
             <p>Dividir salário</p>
@@ -732,10 +729,8 @@
 
           <input
             id="expense-value"
-            type="number"
+            type="text"
             inputmode="decimal"
-            min="0"
-            step="0.01"
             placeholder="0,00"
           >
 
@@ -834,10 +829,8 @@
 
           <input
             id="extra-value"
-            type="number"
+            type="text"
             inputmode="decimal"
-            min="0"
-            step="0.01"
             placeholder="0,00"
           >
 
@@ -957,10 +950,8 @@
 
             <input
               id="reserve-value"
-              type="number"
+              type="text"
               inputmode="decimal"
-              min="0"
-              step="0.01"
               placeholder="0,00"
             >
 
@@ -1053,10 +1044,8 @@
 
             <input
               id="withdraw-value"
-              type="number"
+              type="text"
               inputmode="decimal"
-              min="0"
-              step="0.01"
               placeholder="0,00"
             >
 
@@ -1214,10 +1203,8 @@
 
             <input
               id="category-limit-value"
-              type="number"
+              type="text"
               inputmode="decimal"
-              min="0"
-              step="0.01"
               placeholder="0,00"
             >
 
@@ -1424,6 +1411,15 @@
          ====================================================== -->
 
     <script src="app.js"></script>
+
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('./service-worker.js')
+            .catch(err => console.error('Erro ao registrar Service Worker:', err));
+        });
+      }
+    </script>
 
   </div>
 
