@@ -2,7 +2,7 @@
    FX.01
    Estilo visual completo
    Tema escuro fixo
-   Preto + dourado
+   Preto + dourado (Matte Dark)
    ============================================================ */
 
 :root {
@@ -88,6 +88,8 @@ button {
   border: 0;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 input,
@@ -112,6 +114,17 @@ textarea {
     background 0.15s ease;
 }
 
+/* Esconde setas padrão de inputs numéricos */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+
 input:focus,
 select:focus,
 textarea:focus {
@@ -125,6 +138,11 @@ input::placeholder {
 
 select {
   appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23aaa69d' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  padding-right: 40px;
 }
 
 label {
@@ -222,6 +240,9 @@ label {
   margin: 0 auto 30px;
 
   text-align: center;
+
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 .screen-header h1 {
@@ -248,6 +269,9 @@ label {
   display: flex;
   align-items: center;
   justify-content: space-between;
+
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 .main-header h1 {
@@ -314,6 +338,15 @@ label {
 
 .setup-step label + input {
   margin-bottom: 4px;
+}
+
+.setup-category-list {
+  display: flex;
+  flex-direction: column;
+
+  gap: 8px;
+
+  margin-top: 14px;
 }
 
 .choice-description {
@@ -603,6 +636,9 @@ label {
   justify-content: space-between;
 
   margin-bottom: 12px;
+
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 .section-heading h2 {
@@ -1064,6 +1100,9 @@ label {
   padding: 18px;
 
   border-bottom: 1px solid var(--border);
+
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 .modal-header h2 {
