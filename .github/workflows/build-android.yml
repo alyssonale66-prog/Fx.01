@@ -64,7 +64,9 @@ jobs:
         run: npm install
 
       - name: Criar Android
-        run: npx cap add android
+        run: |
+          rm -rf android
+          npx cap add android
 
       - name: Sincronizar projeto
         run: npx cap sync android
