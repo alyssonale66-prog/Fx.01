@@ -1,4 +1,4 @@
-name: Construir FX.01 Android
+name: Construir FX Android
 
 "on":
   workflow_dispatch:
@@ -8,7 +8,7 @@ name: Construir FX.01 Android
 
 jobs:
   build:
-    name: Gerar APK do FX.01
+    name: Gerar APK do FX
     runs-on: ubuntu-latest
 
     steps:
@@ -40,7 +40,7 @@ jobs:
 
           cat > package.json <<'EOF'
           {
-            "name": "fx01-android",
+            "name": "fx-android",
             "private": true,
             "version": "1.0.0",
             "dependencies": {
@@ -57,7 +57,7 @@ jobs:
           cat > capacitor.config.json <<'EOF'
           {
             "appId": "com.fx01.app",
-            "appName": "FX.01",
+            "appName": "FX",
             "webDir": "www",
             "android": {
               "backgroundColor": "#0a0a0a"
@@ -96,5 +96,5 @@ jobs:
       - name: Disponibilizar APK
         uses: actions/upload-artifact@v4
         with:
-          name: FX-01-APK
+          name: FX-APK
           path: android/app/build/outputs/apk/debug/app-debug.apk
