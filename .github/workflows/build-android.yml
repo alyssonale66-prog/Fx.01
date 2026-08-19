@@ -29,6 +29,7 @@ jobs:
       - name: Preparar projeto
         run: |
           mkdir -p www
+
           cp index.html www/
           cp style.css www/
           cp app.js www/
@@ -47,7 +48,8 @@ jobs:
               "@capacitor/android": "8.5.0"
             },
             "devDependencies": {
-              "@capacitor/cli": "8.5.0"
+              "@capacitor/cli": "8.5.0",
+              "@capacitor/assets": "3.0.5"
             }
           }
           EOF
@@ -56,17 +58,31 @@ jobs:
           {
             "appId": "com.fx01.app",
             "appName": "FX.01",
-            "webDir": "www"
+            "webDir": "www",
+            "android": {
+              "backgroundColor": "#0a0a0a"
+            }
           }
           EOF
 
       - name: Instalar dependências
         run: npm install
 
-      - name: Criar Android
+      - name: Criar projeto Android
         run: |
           rm -rf android
           npx cap add android
+
+      - name: Gerar ícones Android
+        run: |
+          mkdir -p resources
+
+          cp icon-512.png resources/icon.png
+
+          npx capacitor-assets generate \
+            --android \
+            --iconBackgroundColor "#0a0a0a" \
+            --iconBackgroundColorDark "#0a0a0a"
 
       - name: Sincronizar projeto
         run: npx cap sync android
