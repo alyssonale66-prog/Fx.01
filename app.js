@@ -1,5 +1,5 @@
 /* ============================================================
-   FX.01 — Versão Final Ajustada (Acúmulo de Salário)
+   FX.01 — Versão Final (Chave Mestra Oculta)
    ============================================================ */
 
 "use strict";
@@ -2530,12 +2530,6 @@ function bindEvents() {
   $("save-cycle-settings")?.addEventListener("click", saveCycleSettings);
   $("previous-cycle-button")?.addEventListener("click", openPreviousCycle);
   $("pizza-button")?.addEventListener("click", openPizza);
-
-  $("master-key-button")?.addEventListener("click", () => {
-    alert(
-      "A chave mestra (Fx020919) pode ser usada no lugar da sua senha a qualquer momento para desbloquear o app, alterar a senha ou autorizar a exclusão de dados."
-    );
-  });
 
   $("change-password-button")?.addEventListener("click", openPasswordModal);
   $("save-password-button")?.addEventListener("click", saveNewPassword);
