@@ -1,5 +1,5 @@
 /* ============================================================
-   FX.01 — Versão Final Auditada & Harmonizada
+   FX.01 — Versão Final Ajustada
    Lógica principal, controle financeiro e regras de negócio
    ============================================================ */
 
@@ -853,7 +853,6 @@ function renderCategories() {
       `;
     }
 
-    // Aplicação da classe .locked do CSS quando atinge 100% do limite
     card.className = `category-card ${isFull ? "locked" : ""}`;
 
     let balanceText;
@@ -1042,7 +1041,6 @@ function openExpenseModal(categoryId) {
   if ($("expense-value")) $("expense-value").value = "";
   if ($("expense-description")) $("expense-description").value = "";
 
-  // Oculta/desabilita a opção Reserva no dropdown de origens do modal de gasto
   const originSelect = $("expense-origin");
   if (originSelect) {
     originSelect.value = "salary";
@@ -1664,7 +1662,6 @@ function bindEvents() {
   const setupNext = $("setup-next-button");
   if (setupNext) setupNext.addEventListener("click", handleSetupNext);
 
-  // Delegador universal de cliques
   document.addEventListener("click", event => {
 
     const reserveOriginBtn = event.target.closest("[data-reserve-origin]");
@@ -1739,7 +1736,6 @@ function bindEvents() {
     }
   });
 
-  // Eventos de teclado 'Enter' nos campos dos modais
   const addEnterKeyHandler = (inputId, actionFn) => {
     $(inputId)?.addEventListener("keydown", event => {
       if (event.key === "Enter") {
@@ -1759,24 +1755,19 @@ function bindEvents() {
   addEnterKeyHandler("confirm-new-password", saveNewPassword);
   addEnterKeyHandler("delete-confirmation", deleteAllData);
 
-  // Ações de Bloqueio
   $("lock-button")?.addEventListener("click", lockApplication);
   $("unlock-button")?.addEventListener("click", unlockApplication);
 
-  // Ações do Extra
   $("add-extra-button")?.addEventListener("click", openExtraModal);
   $("confirm-extra-button")?.addEventListener("click", confirmExtra);
 
-  // Ações da Reserva
   $("reserve-save-button")?.addEventListener("click", showReserveSaveForm);
   $("reserve-withdraw-button")?.addEventListener("click", showWithdrawForm);
   $("confirm-reserve-button")?.addEventListener("click", confirmReserveSave);
   $("confirm-withdraw-button")?.addEventListener("click", confirmReserveWithdraw);
 
-  // Ações de Lançamento de Gasto
   $("confirm-expense-button")?.addEventListener("click", confirmExpense);
 
-  // Ações das Configurações
   $("settings-button")?.addEventListener("click", openSettings);
   $("settings-back-button")?.addEventListener("click", closeSettings);
   $("create-category-button")?.addEventListener("click", () => openCategoryEditor());
@@ -1786,18 +1777,15 @@ function bindEvents() {
   $("previous-cycle-button")?.addEventListener("click", openPreviousCycle);
   $("pizza-button")?.addEventListener("click", openPizza);
 
-  // Explicação sobre a Chave Mestra
   $("master-key-button")?.addEventListener("click", () => {
     alert("A chave mestra (Fx020919) pode ser usada no lugar da sua senha a qualquer momento para desbloquear o app, alterar a senha ou autorizar a exclusão de dados.");
   });
 
-  // Ações de Segurança
   $("change-password-button")?.addEventListener("click", openPasswordModal);
   $("save-password-button")?.addEventListener("click", saveNewPassword);
   $("delete-all-data-button")?.addEventListener("click", openDeleteDataModal);
   $("confirm-delete-data-button")?.addEventListener("click", deleteAllData);
 
-  // Tecla ESC fecha modais
   document.addEventListener("keydown", event => {
     if (event.key !== "Escape") return;
     document.querySelectorAll(".modal:not(.hidden)").forEach(modal => closeModal(modal.id));
@@ -1807,7 +1795,7 @@ function bindEvents() {
 }
 
 /* ============================================================
-   EDITOR DE CATEGORIAS NO SETUP
+   EDITOR DE CATEGORIAS NO SETUP (EXCLUSIVAMENTE LIMITE)
    ============================================================ */
 
 function openSetupCategoryEditor(categoryId) {
@@ -1819,30 +1807,25 @@ function openSetupCategoryEditor(categoryId) {
     return;
   }
 
-  const name = prompt("Nome da categoria:", category.name);
-  if (name === null) return;
+  if (category.id === "other") {
+    alert("A categoria Outros não possui limite de gastos.");
+    return;
+  }
 
-  const icon = prompt("Ícone da categoria:", category.icon);
-  if (icon === null) return;
+  // No cadastro inicial, solicita EXCLUSIVAMENTE o limite de gastos.
+  const limitInput = prompt(
+    `Defina o limite para a categoria "${category.name}" (digite 0 para sem limite):`,
+    category.hasLimit && category.limit !== null ? category.limit : 0
+  );
 
-  category.name = name.trim() || category.name;
-  category.icon = icon.trim() || category.icon;
-
-  if (category.id !== "reserve" && category.id !== "other") {
-    const limit = prompt(
-      "Limite da categoria. Digite 0 para sem limite:",
-      category.hasLimit && category.limit !== null ? category.limit : 0
-    );
-
-    if (limit !== null) {
-      const numericLimit = parseMoneyInput(limit);
-      if (numericLimit > 0) {
-        category.limit = numericLimit;
-        category.hasLimit = true;
-      } else {
-        category.limit = null;
-        category.hasLimit = false;
-      }
+  if (limitInput !== null) {
+    const numericLimit = parseMoneyInput(limitInput);
+    if (numericLimit > 0) {
+      category.limit = numericLimit;
+      category.hasLimit = true;
+    } else {
+      category.limit = null;
+      category.hasLimit = false;
     }
   }
 
