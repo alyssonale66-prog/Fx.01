@@ -1,5 +1,5 @@
 /* ============================================================
-   FX.01 — Versão Completa, Auditada e Corrigida
+   FX.01 — Versão Completa, Auditada e Sincronizada
    ============================================================ */
 
 "use strict";
@@ -16,6 +16,10 @@ const CATEGORY_ICONS = {
   phone: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="20" x="5" y="2" rx="2"/><line x1="12" x2="12.01" y1="18" y2="18"/></svg>`,
   other: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/></svg>`
 };
+
+/* ÍCONES VETORIAIS DA TELA DE BLOQUEIO */
+const SVG_EYE_OPEN = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>`;
+const SVG_EYE_SLASH = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.52 13.52 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" x2="22" y1="2" y2="22"/></svg>`;
 
 function getCategoryIconSvg(cat) {
   if (cat && CATEGORY_ICONS[cat.icon]) return CATEGORY_ICONS[cat.icon];
@@ -42,6 +46,17 @@ let setupCategories = [];
 let settingsSalarySplit = null;
 let categoryEditorHasLimit = false;
 let selectedReserveOrigin = null;
+
+/* ESTADOS DE FORMULÁRIOS COM SELECTOR CUSTOMIZADO */
+let selectedExpenseOrigin = "salary";
+let selectedEditExpenseOrigin = "salary";
+let selectedEditExpenseCategory = "fixed";
+let selectedCategoryIcon = "other";
+let editingSetupCategoryIndex = null;
+let setupLimitHasLimit = false;
+
+/* HANDLERS PARA MODAIS CUSTOMIZADOS DE ALERTA E CONFIRMAÇÃO */
+let customConfirmCallback = null;
 
 const $ = (id) => document.getElementById(id);
 
@@ -80,7 +95,7 @@ function loadApplication() {
     }
 
     if (state.security && state.security.locked) {
-      showScreen("lock");
+      lockApp();
       return;
     }
 
@@ -88,7 +103,7 @@ function loadApplication() {
     renderApplication();
   } catch (error) {
     console.error("Erro ao carregar os dados:", error);
-    alert("Ocorreu um erro ao ler os dados salvos. Seus dados foram preservados. Tente reiniciar o app ou importar um backup.");
+    customAlert("Ocorreu um erro ao ler os dados salvos. Seus dados foram preservados.");
   }
 }
 
@@ -153,7 +168,7 @@ function createEmptyState() {
   };
 }
 
-/* TRANSIÇÃO E FECHAMENTO AUTOMÁTICO DE MÊS / CICLO (BUG-01) */
+/* TRANSIÇÃO DE MÊS COM TRANSFERÊNCIA DO SALDO RESTANTE DO SALÁRIO PARA EXTRA */
 function checkCycleRollover() {
   if (!state || !state.currentCycle || !state.currentCycle.endDate) return;
 
@@ -161,15 +176,20 @@ function checkCycleRollover() {
   const endDate = new Date(state.currentCycle.endDate);
 
   if (now >= endDate) {
-    // 1. Arquiva o ciclo encerrado no array de histórico
+    // 1. Envia o saldo restante não gasto do salário para o saldo Extra
+    const leftoverSalary = getSalaryBalance();
+    if (leftoverSalary > 0) {
+      state.extra.balance = roundMoney(state.extra.balance + leftoverSalary);
+    }
+
+    // 2. Arquiva o ciclo encerrado
     state.cycles.push(JSON.parse(JSON.stringify(state.currentCycle)));
 
-    // 2. Calcula novo intervalo do ciclo
+    // 3. Inicializa novo ciclo limpo
     const cycleDay = state.settings.cycleDay || 5;
     const newStart = new Date(endDate);
     const newEnd = new Date(newStart.getFullYear(), newStart.getMonth() + 1, cycleDay);
 
-    // 3. Inicializa o novo ciclo limpo
     state.currentCycle = {
       id: createId(),
       startDate: newStart.toISOString(),
@@ -217,31 +237,82 @@ function renderSetupCategories() {
   if (!container) return;
   container.innerHTML = "";
 
-  setupCategories.forEach((cat) => {
+  setupCategories.forEach((cat, index) => {
     const item = document.createElement("div");
     item.className = "settings-category-item";
+    item.style.cursor = "pointer";
+    item.setAttribute("data-setup-cat-index", index);
+
+    const isBlocked = cat.id === "reserve" || cat.id === "other";
+    const limitLabel = isBlocked ? "Sem limite (fixo)" : (cat.hasLimit && cat.limit ? `Limite: ${formatMoney(cat.limit)}` : "Sem limite (Toque para ajustar)");
+
     item.innerHTML = `
       <div style="display:flex; align-items:center; gap:10px;">
         <div style="color:var(--accent); display:flex; align-items:center;">${getCategoryIconSvg(cat)}</div>
         <div class="settings-category-info">
           <div class="settings-category-name">${escapeHTML(cat.name)}</div>
-          <div class="settings-category-limit">${cat.hasLimit && cat.limit ? `Limite: ${formatMoney(cat.limit)}` : "Sem limite"}</div>
+          <div class="settings-category-limit" style="color:${isBlocked ? 'var(--text-muted)' : 'var(--accent)'}">${limitLabel}</div>
         </div>
       </div>
+      ${!isBlocked ? `<span style="color:var(--text-secondary); font-size:12px;">Editar</span>` : ``}
     `;
     container.appendChild(item);
   });
 }
 
+function openSetupLimitModal(index) {
+  const cat = setupCategories[index];
+  if (!cat) return;
+
+  if (cat.id === "reserve" || cat.id === "other") {
+    customAlert("As categorias Reserva e Outros funcionam sem limite de teto.");
+    return;
+  }
+
+  editingSetupCategoryIndex = index;
+  $("setup-limit-title").textContent = `Limite: ${cat.name}`;
+
+  setupLimitHasLimit = !!cat.hasLimit;
+  $("setup-limit-val").value = cat.limit ? cat.limit.toFixed(2) : "";
+
+  updateSetupLimitButtons();
+  openModal("setup-limit-modal");
+}
+
+function updateSetupLimitButtons() {
+  $("setup-limit-yes")?.classList.toggle("selected", setupLimitHasLimit);
+  $("setup-limit-no")?.classList.toggle("selected", !setupLimitHasLimit);
+  $("setup-limit-input-container")?.classList.toggle("hidden", !setupLimitHasLimit);
+}
+
+function saveSetupLimit() {
+  if (editingSetupCategoryIndex === null) return;
+  const cat = setupCategories[editingSetupCategoryIndex];
+  if (!cat) return;
+
+  if (setupLimitHasLimit) {
+    const val = parseMoneyInput($("setup-limit-val").value);
+    if (val <= 0) return customAlert("Informe um valor de limite válido.");
+    cat.hasLimit = true;
+    cat.limit = val;
+  } else {
+    cat.hasLimit = false;
+    cat.limit = null;
+  }
+
+  closeModal("setup-limit-modal");
+  renderSetupCategories();
+}
+
 function handleSetupNext() {
   if (currentSetupStep === 1) {
     const val = $("setup-username")?.value.trim();
-    if (!val) return alert("Digite seu nome de usuário.");
+    if (!val) return customAlert("Digite seu nome de usuário.");
     state.user.name = val;
   }
   if (currentSetupStep === 2) {
     const val = $("setup-password")?.value;
-    if (!val) return alert("Crie uma senha.");
+    if (!val) return customAlert("Crie uma senha.");
     state.security.password = val;
   }
   if (currentSetupStep === 3) {
@@ -249,12 +320,12 @@ function handleSetupNext() {
     state.salary.reference = val;
   }
   if (currentSetupStep === 4) {
-    if (!setupSalarySplit) return alert("Escolha uma opção.");
+    if (!setupSalarySplit) return customAlert("Escolha uma opção.");
     state.salary.split = setupSalarySplit === "yes";
   }
   if (currentSetupStep === 5) {
     const day = Number($("setup-cycle-day")?.value);
-    if (!day || day < 1 || day > 28) return alert("Dia entre 1 e 28.");
+    if (!day || day < 1 || day > 28) return customAlert("Dia entre 1 e 28.");
     state.settings.cycleDay = day;
   }
 
@@ -297,7 +368,7 @@ function createInitialCycle() {
   normalizeCycle(state.currentCycle);
 }
 
-/* LÓGICA DE SALDO E DIVISÃO 40%/60% CORRIGIDA (BUG-04) */
+/* CALCULO DA LIBERAÇÃO SALARIAL (40% / 60%) */
 function getCalculatedSalaryReceived() {
   if (!state || !state.salary) return 0;
   const ref = Number(state.salary.reference) || 0;
@@ -307,11 +378,11 @@ function getCalculatedSalaryReceived() {
   const cycleDay = state.settings.cycleDay || 5;
 
   if (todayDay >= 20) {
-    return ref; // 100% liberado (60% do dia 5 + 40% do dia 20)
+    return ref;
   } else if (todayDay >= cycleDay) {
-    return roundMoney(ref * 0.60); // 60% liberado no dia 5
+    return roundMoney(ref * 0.60);
   } else {
-    return roundMoney(ref * 0.40); // 40% adiantamento do dia 20 para os dias 1 a 4
+    return roundMoney(ref * 0.40);
   }
 }
 
@@ -389,28 +460,10 @@ function openEditExpenseModal(expenseId) {
   $("edit-expense-value").value = expense.amount.toFixed(2);
   $("edit-expense-description").value = expense.description || "";
 
-  const originSelect = $("edit-expense-origin");
-  if (originSelect) {
-    originSelect.innerHTML = `
-      <option value="salary">Salário</option>
-      <option value="extra">Extra</option>
-      ${expense.origin === "reserve" ? '<option value="reserve">Reserva</option>' : ''}
-    `;
-    originSelect.value = expense.origin;
-  }
+  selectedEditExpenseOrigin = expense.origin;
+  selectedEditExpenseCategory = expense.categoryId;
 
-  const catSelect = $("edit-expense-category");
-  catSelect.innerHTML = "";
-  state.categories.forEach((cat) => {
-    if (cat.id !== "reserve") {
-      const opt = document.createElement("option");
-      opt.value = cat.id;
-      opt.textContent = cat.name;
-      if (cat.id === expense.categoryId) opt.selected = true;
-      catSelect.appendChild(opt);
-    }
-  });
-
+  updateCustomSelectTriggers();
   hideElement("edit-expense-error");
   openModal("expense-edit-modal");
 }
@@ -421,8 +474,8 @@ function saveExpenseEdit() {
     if (!expense) throw new Error("Gasto não encontrado.");
 
     const newAmount = parseMoneyInput($("edit-expense-value").value);
-    const newOrigin = $("edit-expense-origin").value;
-    const newCategory = $("edit-expense-category").value;
+    const newOrigin = selectedEditExpenseOrigin;
+    const newCategory = selectedEditExpenseCategory;
     const newDesc = $("edit-expense-description").value.trim();
 
     if (newAmount <= 0) throw new Error("O valor deve ser maior que zero.");
@@ -486,26 +539,26 @@ function saveExpenseEdit() {
 function deleteExpense() {
   if (!currentEditingExpenseId) return;
 
-  if (!confirm("Tem certeza que deseja excluir este gasto?")) return;
+  customConfirm("Tem certeza que deseja excluir este gasto?", () => {
+    const index = state.currentCycle.expenses.findIndex((e) => e.id === currentEditingExpenseId);
+    if (index === -1) return;
 
-  const index = state.currentCycle.expenses.findIndex((e) => e.id === currentEditingExpenseId);
-  if (index === -1) return;
+    const expense = state.currentCycle.expenses[index];
 
-  const expense = state.currentCycle.expenses[index];
+    if (expense.origin === "extra") {
+      state.extra.balance = roundMoney(state.extra.balance + expense.amount);
+    } else if (expense.origin === "reserve") {
+      state.reserve.balance = roundMoney(state.reserve.balance + expense.amount);
+    }
 
-  if (expense.origin === "extra") {
-    state.extra.balance = roundMoney(state.extra.balance + expense.amount);
-  } else if (expense.origin === "reserve") {
-    state.reserve.balance = roundMoney(state.reserve.balance + expense.amount);
-  }
+    state.currentCycle.expenses.splice(index, 1);
+    normalizeCycle(state.currentCycle);
 
-  state.currentCycle.expenses.splice(index, 1);
-  normalizeCycle(state.currentCycle);
-
-  saveState();
-  closeModal("expense-edit-modal");
-  if (document.activeElement) document.activeElement.blur();
-  renderApplication();
+    saveState();
+    closeModal("expense-edit-modal");
+    if (document.activeElement) document.activeElement.blur();
+    renderApplication();
+  });
 }
 
 function openCategoryDetails(categoryId) {
@@ -562,7 +615,6 @@ function openCategoryDetails(categoryId) {
   openModal("category-modal");
 }
 
-/* VISUALIZAÇÃO DE HISTÓRICO DE MESES ANTERIORES (BUG-06) */
 function openHistoryModal() {
   const container = $("history-container");
   if (!container) return;
@@ -600,7 +652,7 @@ function openHistoryModal() {
   openModal("history-modal");
 }
 
-/* OPERAÇÕES DE RESERVA */
+/* OPERAÇÕES DA RESERVA: RESGATE VAI DIRETO PARA A CATEGORIA 'OUTROS' */
 function openReserveModal() {
   if ($("reserve-value")) $("reserve-value").value = "";
   if ($("withdraw-value")) $("withdraw-value").value = "";
@@ -674,7 +726,7 @@ function confirmReserveWithdraw() {
       id: createId(),
       origin: "reserve",
       amount: amount,
-      description: "Resgate da Reserva",
+      description: "Retirada da Reserva",
       categoryId: "other",
       date: new Date().toISOString()
     };
@@ -691,7 +743,7 @@ function confirmReserveWithdraw() {
   }
 }
 
-/* BACKUP E RESTAURAÇÃO DE DADOS (BUG-02) */
+/* BACKUP E RESTAURAÇÃO DE DADOS */
 function exportBackup() {
   try {
     const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(state, null, 2));
@@ -703,7 +755,7 @@ function exportBackup() {
     downloadAnchor.click();
     downloadAnchor.remove();
   } catch (err) {
-    alert("Erro ao exportar backup: " + err.message);
+    customAlert("Erro ao exportar backup: " + err.message);
   }
 }
 
@@ -723,15 +775,68 @@ function importBackup(event) {
       normalizeState();
       saveState();
       renderApplication();
-      alert("Backup importado com sucesso!");
+      customAlert("Backup importado com sucesso!");
     } catch (err) {
-      alert("Erro ao importar backup: " + err.message);
+      customAlert("Erro ao importar backup: " + err.message);
     }
   };
   reader.readAsText(file);
 }
 
-/* GERENCIADOR DE CATEGORIAS (CONFIGURAÇÕES) */
+/* COMPONENTES DE SELEÇÃO CUSTOMIZADOS (SUBSTITUEM <select> NATIVOS) */
+function updateCustomSelectTriggers() {
+  const expOriginBtn = $("expense-origin-trigger");
+  if (expOriginBtn) expOriginBtn.textContent = selectedExpenseOrigin === "salary" ? "Salário" : "Extra";
+
+  const editExpOriginBtn = $("edit-expense-origin-trigger");
+  if (editExpOriginBtn) {
+    if (selectedEditExpenseOrigin === "salary") editExpOriginBtn.textContent = "Salário";
+    else if (selectedEditExpenseOrigin === "extra") editExpOriginBtn.textContent = "Extra";
+    else editExpOriginBtn.textContent = "Reserva";
+  }
+
+  const editExpCatBtn = $("edit-expense-category-trigger");
+  if (editExpCatBtn) {
+    const cat = state.categories.find(c => c.id === selectedEditExpenseCategory);
+    editExpCatBtn.textContent = cat ? cat.name : "Selecione";
+  }
+
+  const catIconBtn = $("category-icon-trigger");
+  if (catIconBtn) {
+    const labels = {
+      fixed: "Gasto Fixo (Casa)",
+      reserve: "Reserva (Cofre)",
+      medicine: "Medicamentos (Remédio)",
+      leisure: "Lazer (Controle)",
+      phone: "Celular (Smartphone)",
+      other: "Outros (Caixa)"
+    };
+    catIconBtn.textContent = labels[selectedCategoryIcon] || "Outros";
+  }
+}
+
+function openCustomPicker(title, options, onSelect) {
+  $("picker-title").textContent = title;
+  const container = $("picker-options");
+  container.innerHTML = "";
+
+  options.forEach((opt) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "picker-option-button";
+    btn.innerHTML = `<span>${escapeHTML(opt.label)}</span>${opt.selected ? '<span style="color:var(--accent)">✓</span>' : ''}`;
+    btn.onclick = () => {
+      onSelect(opt.value);
+      closeModal("picker-modal");
+      updateCustomSelectTriggers();
+    };
+    container.appendChild(btn);
+  });
+
+  openModal("picker-modal");
+}
+
+/* GERENCIADOR DE CATEGORIAS */
 function renderSettingsCategories() {
   const container = $("settings-categories-list");
   if (!container) return;
@@ -767,14 +872,14 @@ function openCategoryEditorModal(catId = null) {
 
     if ($("category-editor-title")) $("category-editor-title").textContent = "Editar Categoria";
     $("category-name").value = cat.name;
-    $("category-icon").value = cat.icon || "other";
+    selectedCategoryIcon = cat.icon || "other";
 
     categoryEditorHasLimit = !!cat.hasLimit;
     $("category-limit-value").value = cat.limit ? cat.limit.toFixed(2) : "";
   } else {
     if ($("category-editor-title")) $("category-editor-title").textContent = "Criar Categoria";
     $("category-name").value = "";
-    $("category-icon").value = "other";
+    selectedCategoryIcon = "other";
     categoryEditorHasLimit = false;
     $("category-limit-value").value = "";
   }
@@ -784,13 +889,14 @@ function openCategoryEditorModal(catId = null) {
   });
   $("category-limit-value-container")?.classList.toggle("hidden", !categoryEditorHasLimit);
 
+  updateCustomSelectTriggers();
   openModal("category-editor-modal");
 }
 
 function saveCategory() {
   try {
     const name = $("category-name").value.trim();
-    const icon = $("category-icon").value.trim() || "other";
+    const icon = selectedCategoryIcon || "other";
     const limitVal = parseMoneyInput($("category-limit-value").value);
 
     if (!name) throw new Error("Digite o nome da categoria.");
@@ -838,7 +944,7 @@ function openChartModal() {
   const totalSum = totals.reduce((acc, curr) => acc + curr.value, 0);
 
   if (!totals.length || totalSum <= 0) {
-    return alert("Ainda não existem gastos lançados no ciclo.");
+    return customAlert("Ainda não existem gastos lançados no ciclo.");
   }
 
   let cursor = 0;
@@ -878,12 +984,12 @@ function openChartModal() {
   openModal("chart-modal");
 }
 
-/* CONFIGURAÇÕES DE SALÁRIO E SEGURANÇA */
+/* CONFIGURAÇÕES E SEGURANÇA */
 function saveSalarySettings() {
   const raw = $("settings-salary")?.value;
   const salary = parseMoneyInput(raw);
 
-  if (salary < 0) return alert("Salário não pode ser negativo.");
+  if (salary < 0) return customAlert("Salário não pode ser negativo.");
 
   state.salary.reference = salary;
   state.salary.split = settingsSalarySplit === "yes";
@@ -895,19 +1001,18 @@ function saveSalarySettings() {
 
   saveState();
   renderApplication();
-  alert("Salário salvo com sucesso.");
+  customAlert("Salário salvo com sucesso.");
 }
 
 function saveCycleSettings() {
   const newDay = Number($("settings-cycle-day")?.value);
-  if (!Number.isInteger(newDay) || newDay < 1 || newDay > 28) return alert("Dia entre 1 e 28.");
+  if (!Number.isInteger(newDay) || newDay < 1 || newDay > 28) return customAlert("Dia entre 1 e 28.");
 
   state.settings.cycleDay = newDay;
   saveState();
-  alert("Alteração será aplicada no próximo ciclo.");
+  customAlert("Alteração será aplicada no próximo ciclo.");
 }
 
-/* ALTERAÇÃO DE SENHA SEM CHAVE MESTRE (BUG-03) */
 function saveNewPassword() {
   const current = $("current-password")?.value;
   const newPass = $("new-password")?.value;
@@ -922,7 +1027,7 @@ function saveNewPassword() {
   state.security.password = newPass;
   saveState();
   closeModal("password-modal");
-  alert("Senha alterada com sucesso.");
+  customAlert("Senha alterada com sucesso.");
 }
 
 function deleteAllData() {
@@ -940,6 +1045,38 @@ function deleteAllData() {
   state = null;
   closeModal("delete-data-modal");
   startInitialSetup();
+}
+
+/* BLOQUEIO DO APP COM RESET DE ESTADO DO FORMULÁRIO DE SEGURANÇA */
+function lockApp() {
+  if (state) state.security.locked = true;
+  if ($("unlock-password")) {
+    $("unlock-password").value = "";
+    $("unlock-password").type = "password";
+  }
+  renderLockPasswordIcon();
+  hideElement("unlock-error");
+  saveState();
+  showScreen("lock");
+}
+
+function renderLockPasswordIcon() {
+  const container = $("eye-icon-container");
+  if (!container) return;
+  const isText = $("unlock-password")?.type === "text";
+  container.innerHTML = isText ? SVG_EYE_SLASH : SVG_EYE_OPEN;
+}
+
+/* MODAIS DE ALERTA E CONFIRMAÇÃO CUSTOMIZADOS */
+function customAlert(message) {
+  setText("custom-alert-message", message);
+  openModal("custom-alert-modal");
+}
+
+function customConfirm(message, onConfirm) {
+  setText("custom-confirm-message", message);
+  customConfirmCallback = onConfirm;
+  openModal("custom-confirm-modal");
 }
 
 /* RENDERIZAÇÃO */
@@ -1088,7 +1225,7 @@ function updateSalarySplitButtons() {
   $("salary-split-info")?.classList.toggle("hidden", settingsSalarySplit !== "yes");
 }
 
-/* PARSER DE VALORES */
+/* PARSER DE VALORES NUMÉRICOS */
 function parseMoneyInput(value) {
   if (value === null || value === undefined) return 0;
   let text = String(value).trim();
@@ -1114,6 +1251,10 @@ function parseMoneyInput(value) {
 /* DELEGAÇÃO COMPLETA DE EVENTOS */
 function bindEvents() {
   $("setup-next-button")?.addEventListener("click", handleSetupNext);
+  $("setup-limit-yes")?.addEventListener("click", () => { setupLimitHasLimit = true; updateSetupLimitButtons(); });
+  $("setup-limit-no")?.addEventListener("click", () => { setupLimitHasLimit = false; updateSetupLimitButtons(); });
+  $("save-setup-limit-button")?.addEventListener("click", saveSetupLimit);
+
   $("nav-home-button")?.addEventListener("click", () => switchTab("home"));
   $("nav-extrato-button")?.addEventListener("click", () => switchTab("extrato"));
   $("previous-cycle-button")?.addEventListener("click", openHistoryModal);
@@ -1122,19 +1263,66 @@ function bindEvents() {
   $("import-backup-button")?.addEventListener("click", () => $("import-backup-file")?.click());
   $("import-backup-file")?.addEventListener("change", importBackup);
 
+  $("custom-alert-ok")?.addEventListener("click", () => closeModal("custom-alert-modal"));
+  $("custom-confirm-cancel")?.addEventListener("click", () => closeModal("custom-confirm-modal"));
+  $("custom-confirm-ok")?.addEventListener("click", () => {
+    closeModal("custom-confirm-modal");
+    if (typeof customConfirmCallback === "function") customConfirmCallback();
+  });
+
   $("toggle-lock-password")?.addEventListener("click", () => {
     const input = $("unlock-password");
-    if (input.type === "password") {
-      input.type = "text";
-      $("eye-icon").textContent = "🙈";
-    } else {
-      input.type = "password";
-      $("eye-icon").textContent = "👁️";
+    if (!input) return;
+    input.type = input.type === "password" ? "text" : "password";
+    renderLockPasswordIcon();
+  });
+
+  /* PICKERS DE SELEÇÃO CUSTOMIZADOS */
+  $("expense-origin-trigger")?.addEventListener("click", () => {
+    openCustomPicker("Origem do Gasto", [
+      { label: "Salário", value: "salary", selected: selectedExpenseOrigin === "salary" },
+      { label: "Extra", value: "extra", selected: selectedExpenseOrigin === "extra" }
+    ], (val) => { selectedExpenseOrigin = val; });
+  });
+
+  $("edit-expense-origin-trigger")?.addEventListener("click", () => {
+    const opts = [
+      { label: "Salário", value: "salary", selected: selectedEditExpenseOrigin === "salary" },
+      { label: "Extra", value: "extra", selected: selectedEditExpenseOrigin === "extra" }
+    ];
+    if (selectedEditExpenseOrigin === "reserve") {
+      opts.push({ label: "Reserva", value: "reserve", selected: true });
     }
+    openCustomPicker("Origem do Gasto", opts, (val) => { selectedEditExpenseOrigin = val; });
+  });
+
+  $("edit-expense-category-trigger")?.addEventListener("click", () => {
+    const opts = state.categories
+      .filter((c) => c.id !== "reserve")
+      .map((c) => ({ label: c.name, value: c.id, selected: c.id === selectedEditExpenseCategory }));
+    openCustomPicker("Categoria do Gasto", opts, (val) => { selectedEditExpenseCategory = val; });
+  });
+
+  $("category-icon-trigger")?.addEventListener("click", () => {
+    openCustomPicker("Ícone da Categoria", [
+      { label: "Gasto Fixo (Casa)", value: "fixed", selected: selectedCategoryIcon === "fixed" },
+      { label: "Reserva (Cofre)", value: "reserve", selected: selectedCategoryIcon === "reserve" },
+      { label: "Medicamentos (Remédio)", value: "medicine", selected: selectedCategoryIcon === "medicine" },
+      { label: "Lazer (Controle)", value: "leisure", selected: selectedCategoryIcon === "leisure" },
+      { label: "Celular (Smartphone)", value: "phone", selected: selectedCategoryIcon === "phone" },
+      { label: "Outros (Caixa)", value: "other", selected: selectedCategoryIcon === "other" }
+    ], (val) => { selectedCategoryIcon = val; });
   });
 
   document.addEventListener("click", (e) => {
-    // 1. SIM / NÃO DO SETUP (DIVISÃO DO SALÁRIO)
+    // 1. CLIQUE NAS CATEGORIAS DO SETUP (ETAPA 6)
+    const setupCatItem = e.target.closest("[data-setup-cat-index]");
+    if (setupCatItem) {
+      openSetupLimitModal(Number(setupCatItem.dataset.setupCatIndex));
+      return;
+    }
+
+    // 2. OPÇÕES SIM / NÃO
     const setupSplitBtn = e.target.closest("[data-choice='salary-split']");
     if (setupSplitBtn) {
       setupSalarySplit = setupSplitBtn.dataset.value;
@@ -1144,7 +1332,6 @@ function bindEvents() {
       return;
     }
 
-    // 2. SIM / NÃO DO EDITOR DE CATEGORIA (LIMITE)
     const categoryLimitBtn = e.target.closest("[data-category-limit]");
     if (categoryLimitBtn) {
       categoryEditorHasLimit = categoryLimitBtn.dataset.categoryLimit === "yes";
@@ -1155,7 +1342,7 @@ function bindEvents() {
       return;
     }
 
-    // 3. ACCORDION DAS CONFIGURAÇÕES
+    // 3. ACCORDION CONFIGURAÇÕES
     const settingsToggle = e.target.closest("[data-settings-toggle]");
     if (settingsToggle) {
       const panel = $(settingsToggle.dataset.settingsToggle);
@@ -1185,7 +1372,7 @@ function bindEvents() {
       return;
     }
 
-    // 6. DIVISÃO DO SALÁRIO NAS CONFIGURAÇÕES
+    // 6. DIVISÃO SALARIAL CONFIG
     const settingsSplit = e.target.closest("[data-settings-salary-split]");
     if (settingsSplit) {
       settingsSalarySplit = settingsSplit.dataset.settingsSalarySplit;
@@ -1193,14 +1380,14 @@ function bindEvents() {
       return;
     }
 
-    // 7. ABRIR DETALHES DE CATEGORIA
+    // 7. ABRIR CATEGORIA
     const openCatBtn = e.target.closest("[data-category-open]");
     if (openCatBtn) {
       openCategoryDetails(openCatBtn.dataset.categoryOpen);
       return;
     }
 
-    // 8. ABRIR EDIÇÃO DE GASTO
+    // 8. EDIÇÃO DE GASTO
     const editItem = e.target.closest("[data-edit-expense-id]");
     if (editItem) {
       closeModal("category-modal");
@@ -1208,7 +1395,7 @@ function bindEvents() {
       return;
     }
 
-    // 9. LANÇAR GASTO OU ABRIR RESERVA
+    // 9. LANÇAR GASTO
     const catExpense = e.target.closest("[data-category-expense]");
     if (catExpense) {
       const catId = catExpense.dataset.categoryExpense;
@@ -1240,11 +1427,10 @@ function bindEvents() {
     }
   });
 
-  // Eventos de Gerenciamento de Categoria
+  // Ações Principais
   $("create-category-button")?.addEventListener("click", () => openCategoryEditorModal());
   $("save-category-button")?.addEventListener("click", saveCategory);
 
-  // Eventos de Ação nos Modais
   $("add-extra-button")?.addEventListener("click", () => openModal("extra-modal"));
   $("confirm-extra-button")?.addEventListener("click", () => {
     const val = parseMoneyInput($("extra-value")?.value);
@@ -1260,7 +1446,7 @@ function bindEvents() {
   $("confirm-expense-button")?.addEventListener("click", () => {
     try {
       const val = parseMoneyInput($("expense-value").value);
-      const origin = $("expense-origin").value;
+      const origin = selectedExpenseOrigin;
       const desc = $("expense-description").value;
       launchExpense(currentCategoryId, val, origin, desc);
       closeModal("expense-modal");
@@ -1272,13 +1458,11 @@ function bindEvents() {
   $("save-expense-edit-button")?.addEventListener("click", saveExpenseEdit);
   $("delete-expense-button")?.addEventListener("click", deleteExpense);
 
-  // Eventos da Reserva
   $("reserve-save-button")?.addEventListener("click", showReserveSaveForm);
   $("reserve-withdraw-button")?.addEventListener("click", showWithdrawForm);
   $("confirm-reserve-button")?.addEventListener("click", confirmReserveSave);
   $("confirm-withdraw-button")?.addEventListener("click", confirmReserveWithdraw);
 
-  // Eventos de Configuração
   $("save-salary-settings")?.addEventListener("click", saveSalarySettings);
   $("save-cycle-settings")?.addEventListener("click", saveCycleSettings);
   $("change-password-button")?.addEventListener("click", () => openModal("password-modal"));
@@ -1286,15 +1470,10 @@ function bindEvents() {
   $("delete-all-data-button")?.addEventListener("click", () => openModal("delete-data-modal"));
   $("confirm-delete-data-button")?.addEventListener("click", deleteAllData);
 
-  // Navegação
   $("chart-button")?.addEventListener("click", openChartModal);
   $("settings-button")?.addEventListener("click", () => showScreen("settings"));
   $("settings-back-button")?.addEventListener("click", () => showScreen("main"));
-  $("lock-button")?.addEventListener("click", () => {
-    state.security.locked = true;
-    saveState();
-    showScreen("lock");
-  });
+  $("lock-button")?.addEventListener("click", lockApp);
 }
 
 function switchTab(tab) {
@@ -1310,6 +1489,9 @@ function openExpenseModal(catId) {
     return;
   }
   currentCategoryId = catId;
+  selectedExpenseOrigin = "salary";
+  updateCustomSelectTriggers();
+
   const cat = state.categories.find((c) => c.id === catId);
   if ($("expense-modal-title")) $("expense-modal-title").textContent = `Lançar em ${cat?.name || ""}`;
   $("expense-value").value = "";
