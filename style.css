@@ -1025,3 +1025,10 @@ label {
   border-radius: var(--radius-small);
   border: 1px solid var(--border);
 }
+
+/* ELEVAÇÃO DE CAMADA PARA SELETORES E ALERTAS */
+#picker-modal, 
+#custom-alert-modal, 
+#custom-confirm-modal {
+  z-index: 200;
+}
