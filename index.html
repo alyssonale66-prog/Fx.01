@@ -24,14 +24,14 @@
 
         <main>
           <div class="setup-step" data-step="1">
-            <h2>Usuário</h2>
-            <label for="setup-username">Nome de usuário</label>
-            <input id="setup-username" type="text" autocomplete="username" maxlength="30" placeholder="Digite seu nome">
+            <h2>Seu Nome</h2>
+            <label for="setup-username">Como você gostaria de ser chamado?</label>
+            <input id="setup-username" type="text" autocomplete="name" maxlength="30" placeholder="Ex: Alisson">
           </div>
 
           <div class="setup-step" data-step="2">
             <h2>Senha</h2>
-            <label for="setup-password">Crie sua senha</label>
+            <label for="setup-password">Crie sua senha de acesso</label>
             <input id="setup-password" type="password" autocomplete="new-password" maxlength="100" placeholder="Digite sua senha">
           </div>
 
@@ -119,6 +119,12 @@
 
         <!-- ABA 1: INÍCIO -->
         <div id="tab-home" class="tab-content">
+          
+          <div class="welcome-header">
+            <span class="welcome-subtitle">Que bom te ver de novo,</span>
+            <h2 class="welcome-title">Olá, <span id="user-display-name">Usuário</span> 👋</h2>
+          </div>
+
           <section class="balance-card glass-panel" aria-label="Saldo disponível">
             <span class="balance-label">Valor disponível</span>
             <strong id="available-balance" class="balance-value">R$ 0,00</strong>
@@ -184,6 +190,18 @@
       </header>
 
       <main class="settings-content">
+        <section class="settings-section">
+          <button type="button" class="settings-item" data-settings-toggle="profile-settings">
+            <span>Perfil</span>
+            <span>⌄</span>
+          </button>
+          <div id="profile-settings" class="settings-panel hidden">
+            <label for="settings-username">Seu Nome</label>
+            <input id="settings-username" type="text" maxlength="30" placeholder="Seu nome">
+            <button id="save-profile-settings" type="button" class="primary-button">Salvar Nome</button>
+          </div>
+        </section>
+
         <section class="settings-section">
           <button type="button" class="settings-item" data-settings-toggle="categories-settings">
             <span>Categorias</span>
@@ -253,6 +271,13 @@
             <input type="file" id="import-backup-file" accept=".json" class="hidden">
             <button id="delete-all-data-button" type="button" class="danger-button">Apagar todos os dados</button>
           </div>
+        </section>
+
+        <section class="settings-section">
+          <button id="logout-button" type="button" class="settings-item" style="color:var(--danger);">
+            <span>Sair / Bloquear Aplicativo</span>
+            <span>🔒</span>
+          </button>
         </section>
       </main>
     </section>
