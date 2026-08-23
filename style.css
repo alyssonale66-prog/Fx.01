@@ -110,6 +110,25 @@ label {
   display: none !important;
 }
 
+/* SAUDAÇÃO INICIAL */
+.welcome-header {
+  margin-bottom: 16px;
+}
+
+.welcome-subtitle {
+  font-size: 13px;
+  color: var(--text-secondary);
+  font-weight: 500;
+  display: block;
+}
+
+.welcome-title {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--text);
+  margin-top: 2px;
+}
+
 /* ALINHAMENTO NUMÉRICO FIXO */
 .balance-value, 
 .category-balance, 
