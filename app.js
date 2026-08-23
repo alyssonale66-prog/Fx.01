@@ -47,7 +47,6 @@ let settingsSalarySplit = null;
 let categoryEditorHasLimit = false;
 let selectedReserveOrigin = null;
 
-/* ESTADOS DE FORMULÁRIOS COM SELECTOR CUSTOMIZADO */
 let selectedExpenseOrigin = "salary";
 let selectedEditExpenseOrigin = "salary";
 let selectedEditExpenseCategory = "fixed";
@@ -55,7 +54,6 @@ let selectedCategoryIcon = "other";
 let editingSetupCategoryIndex = null;
 let setupLimitHasLimit = false;
 
-/* HANDLERS PARA MODAIS CUSTOMIZADOS DE ALERTA E CONFIRMAÇÃO */
 let customConfirmCallback = null;
 
 const $ = (id) => document.getElementById(id);
@@ -88,6 +86,7 @@ function loadApplication() {
     state = JSON.parse(stored);
     normalizeState();
     checkCycleRollover();
+    checkCycleNotification();
 
     if (!state.setupCompleted) {
       startInitialSetup();
@@ -125,7 +124,7 @@ function normalizeState() {
   if (!state.extra) state.extra = { balance: 0 };
   state.extra.balance = roundMoney(state.extra.balance);
 
-  if (!state.security) state.security = { password: "", locked: false };
+  if (!state.security) state.security = { password: "", locked: false, lastCycleNotificationDate: "" };
   if (!state.settings) state.settings = { cycleDay: 5 };
 
   normalizeCycle(state.currentCycle);
@@ -157,7 +156,7 @@ function createEmptyState() {
     version: FX_VERSION,
     setupCompleted: false,
     user: { name: "" },
-    security: { password: "", locked: false },
+    security: { password: "", locked: false, lastCycleNotificationDate: "" },
     salary: { reference: 0, split: false },
     extra: { balance: 0 },
     reserve: { balance: 0 },
@@ -168,6 +167,40 @@ function createEmptyState() {
   };
 }
 
+/* SISTEMA DE NOTIFICAÇÃO 3 DIAS ANTES DO TÉRMINO DO CICLO (1 POR DIA) */
+function checkCycleNotification() {
+  if (!state || !state.currentCycle || !state.currentCycle.endDate) return;
+  if (!("Notification" in window)) return;
+
+  const now = new Date();
+  const endDate = new Date(state.currentCycle.endDate);
+  const diffTime = endDate - now;
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+  if (diffDays > 0 && diffDays <= 3) {
+    const todayStr = now.toISOString().slice(0, 10);
+    if (state.security.lastCycleNotificationDate !== todayStr) {
+      if (Notification.permission === "granted") {
+        new Notification("FX — Aviso de Fechamento de Ciclo", {
+          body: `Seu ciclo financeiro encerra em ${diffDays} ${diffDays === 1 ? 'dia' : 'dias'}. Prepare-se!`
+        });
+        state.security.lastCycleNotificationDate = todayStr;
+        saveState();
+      } else if (Notification.permission !== "denied") {
+        Notification.requestPermission().then(permission => {
+          if (permission === "granted") {
+            new Notification("FX — Aviso de Fechamento de Ciclo", {
+              body: `Seu ciclo financeiro encerra em ${diffDays} ${diffDays === 1 ? 'dia' : 'dias'}. Prepare-se!`
+            });
+            state.security.lastCycleNotificationDate = todayStr;
+            saveState();
+          }
+        });
+      }
+    }
+  }
+}
+
 /* TRANSIÇÃO DE MÊS COM TRANSFERÊNCIA DO SALDO RESTANTE DO SALÁRIO PARA EXTRA */
 function checkCycleRollover() {
   if (!state || !state.currentCycle || !state.currentCycle.endDate) return;
@@ -176,16 +209,13 @@ function checkCycleRollover() {
   const endDate = new Date(state.currentCycle.endDate);
 
   if (now >= endDate) {
-    // 1. Envia o saldo restante não gasto do salário para o saldo Extra
     const leftoverSalary = getSalaryBalance();
     if (leftoverSalary > 0) {
       state.extra.balance = roundMoney(state.extra.balance + leftoverSalary);
     }
 
-    // 2. Arquiva o ciclo encerrado
     state.cycles.push(JSON.parse(JSON.stringify(state.currentCycle)));
 
-    // 3. Inicializa novo ciclo limpo
     const cycleDay = state.settings.cycleDay || 5;
     const newStart = new Date(endDate);
     const newEnd = new Date(newStart.getFullYear(), newStart.getMonth() + 1, cycleDay);
@@ -368,7 +398,6 @@ function createInitialCycle() {
   normalizeCycle(state.currentCycle);
 }
 
-/* CALCULO DA LIBERAÇÃO SALARIAL (40% / 60%) */
 function getCalculatedSalaryReceived() {
   if (!state || !state.salary) return 0;
   const ref = Number(state.salary.reference) || 0;
@@ -450,7 +479,6 @@ function launchExpense(categoryId, amount, origin, description) {
   renderApplication();
 }
 
-/* EDITAR E EXCLUIR GASTOS */
 function openEditExpenseModal(expenseId) {
   const expense = state.currentCycle.expenses.find((e) => e.id === expenseId);
   if (!expense) return;
@@ -615,12 +643,54 @@ function openCategoryDetails(categoryId) {
   openModal("category-modal");
 }
 
-function openHistoryModal() {
+/* HISTÓRICO DE MESES ANTERIORES DETALHADO */
+function openHistoryModal(cycleId = null) {
   const container = $("history-container");
   if (!container) return;
 
   if (!state.cycles || !state.cycles.length) {
     container.innerHTML = `<div style="text-align:center; padding:20px; color:var(--text-muted);">Nenhum histórico de ciclo anterior encontrado.</div>`;
+    openModal("history-modal");
+    return;
+  }
+
+  if (cycleId) {
+    const cycle = state.cycles.find(c => c.id === cycleId);
+    if (!cycle) return;
+    const startStr = new Date(cycle.startDate).toLocaleDateString("pt-BR");
+    const endStr = new Date(cycle.endDate).toLocaleDateString("pt-BR");
+    const totalSpent = (cycle.expenses || []).reduce((acc, exp) => acc + (Number(exp.amount) || 0), 0);
+
+    let expensesHtml = "";
+    if (!cycle.expenses || !cycle.expenses.length) {
+      expensesHtml = `<div style="padding:15px; text-align:center; color:var(--text-muted);">Nenhum gasto registrado neste ciclo.</div>`;
+    } else {
+      cycle.expenses.forEach(exp => {
+        const cat = state.categories.find(c => c.id === exp.categoryId);
+        const catName = cat ? cat.name : "Outros";
+        expensesHtml += `
+          <div class="expense-item-card" style="cursor:default;">
+            <div class="expense-item-left">
+              <div class="expense-item-details">
+                <span class="expense-item-title">${escapeHTML(exp.description || catName)}</span>
+                <div class="expense-item-sub">
+                  <span class="expense-origin-badge badge-reserve">${exp.origin}</span>
+                  <span class="expense-item-time">${new Date(exp.date).toLocaleDateString("pt-BR")}</span>
+                </div>
+              </div>
+            </div>
+            <span class="expense-item-amount">${formatMoney(exp.amount)}</span>
+          </div>
+        `;
+      });
+    }
+
+    container.innerHTML = `
+      <button type="button" class="secondary-button" style="margin-bottom:12px; min-height:36px;" data-back-to-history="true">← Voltar à lista de ciclos</button>
+      <div style="font-weight:700; font-size:16px; color:var(--accent); margin-bottom:4px;">Ciclo (${startStr} até ${endStr})</div>
+      <p style="font-size:13px; color:var(--text-secondary); margin-bottom:12px;">Total Gasto: <strong>${formatMoney(totalSpent)}</strong></p>
+      <div class="expense-group-items">${expensesHtml}</div>
+    `;
     openModal("history-modal");
     return;
   }
@@ -633,7 +703,7 @@ function openHistoryModal() {
     const totalSpent = (cycle.expenses || []).reduce((acc, exp) => acc + (Number(exp.amount) || 0), 0);
 
     html += `
-      <div style="padding:14px; background:var(--surface-2); border:1px solid var(--border); border-radius:var(--radius-small);">
+      <div style="padding:14px; background:var(--surface-2); border:1px solid var(--border); border-radius:var(--radius-small); cursor:pointer;" data-history-cycle-id="${cycle.id}">
         <div style="font-weight:700; font-size:14px; color:var(--accent);">Ciclo ${state.cycles.length - idx} (${startStr} até ${endStr})</div>
         <div style="display:flex; justify-content:space-between; margin-top:6px; font-size:13px; color:var(--text-secondary);">
           <span>Gastos Totais:</span>
@@ -641,7 +711,7 @@ function openHistoryModal() {
         </div>
         <div style="display:flex; justify-content:space-between; margin-top:2px; font-size:13px; color:var(--text-secondary);">
           <span>Lançamentos:</span>
-          <strong>${(cycle.expenses || []).length} itens</strong>
+          <strong>${(cycle.expenses || []).length} itens (Toque para ver detalhes)</strong>
         </div>
       </div>
     `;
@@ -652,7 +722,6 @@ function openHistoryModal() {
   openModal("history-modal");
 }
 
-/* OPERAÇÕES DA RESERVA: RESGATE VAI DIRETO PARA A CATEGORIA 'OUTROS' */
 function openReserveModal() {
   if ($("reserve-value")) $("reserve-value").value = "";
   if ($("withdraw-value")) $("withdraw-value").value = "";
@@ -743,7 +812,6 @@ function confirmReserveWithdraw() {
   }
 }
 
-/* BACKUP E RESTAURAÇÃO DE DADOS */
 function exportBackup() {
   try {
     const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(state, null, 2));
@@ -783,7 +851,6 @@ function importBackup(event) {
   reader.readAsText(file);
 }
 
-/* COMPONENTES DE SELEÇÃO CUSTOMIZADOS (SUBSTITUEM <select> NATIVOS) */
 function updateCustomSelectTriggers() {
   const expOriginBtn = $("expense-origin-trigger");
   if (expOriginBtn) expOriginBtn.textContent = selectedExpenseOrigin === "salary" ? "Salário" : "Extra";
@@ -836,7 +903,6 @@ function openCustomPicker(title, options, onSelect) {
   openModal("picker-modal");
 }
 
-/* GERENCIADOR DE CATEGORIAS */
 function renderSettingsCategories() {
   const container = $("settings-categories-list");
   if (!container) return;
@@ -932,7 +998,6 @@ function saveCategory() {
   }
 }
 
-/* GRÁFICO DO MÊS */
 function openChartModal() {
   const container = $("chart-container");
   if (!container) return;
@@ -984,7 +1049,6 @@ function openChartModal() {
   openModal("chart-modal");
 }
 
-/* CONFIGURAÇÕES E SEGURANÇA */
 function saveSalarySettings() {
   const raw = $("settings-salary")?.value;
   const salary = parseMoneyInput(raw);
@@ -1047,7 +1111,6 @@ function deleteAllData() {
   startInitialSetup();
 }
 
-/* BLOQUEIO DO APP COM RESET DE ESTADO DO FORMULÁRIO DE SEGURANÇA */
 function lockApp() {
   if (state) state.security.locked = true;
   if ($("unlock-password")) {
@@ -1067,7 +1130,6 @@ function renderLockPasswordIcon() {
   container.innerHTML = isText ? SVG_EYE_SLASH : SVG_EYE_OPEN;
 }
 
-/* MODAIS DE ALERTA E CONFIRMAÇÃO CUSTOMIZADOS */
 function customAlert(message) {
   setText("custom-alert-message", message);
   openModal("custom-alert-modal");
@@ -1079,7 +1141,6 @@ function customConfirm(message, onConfirm) {
   openModal("custom-confirm-modal");
 }
 
-/* RENDERIZAÇÃO */
 function renderApplication() {
   if (!state) return;
   renderBalances();
@@ -1225,7 +1286,6 @@ function updateSalarySplitButtons() {
   $("salary-split-info")?.classList.toggle("hidden", settingsSalarySplit !== "yes");
 }
 
-/* PARSER DE VALORES NUMÉRICOS */
 function parseMoneyInput(value) {
   if (value === null || value === undefined) return 0;
   let text = String(value).trim();
@@ -1248,7 +1308,6 @@ function parseMoneyInput(value) {
   return Number.isFinite(number) ? roundMoney(number) : 0;
 }
 
-/* DELEGAÇÃO COMPLETA DE EVENTOS */
 function bindEvents() {
   $("setup-next-button")?.addEventListener("click", handleSetupNext);
   $("setup-limit-yes")?.addEventListener("click", () => { setupLimitHasLimit = true; updateSetupLimitButtons(); });
@@ -1257,7 +1316,7 @@ function bindEvents() {
 
   $("nav-home-button")?.addEventListener("click", () => switchTab("home"));
   $("nav-extrato-button")?.addEventListener("click", () => switchTab("extrato"));
-  $("previous-cycle-button")?.addEventListener("click", openHistoryModal);
+  $("previous-cycle-button")?.addEventListener("click", () => openHistoryModal());
 
   $("export-backup-button")?.addEventListener("click", exportBackup);
   $("import-backup-button")?.addEventListener("click", () => $("import-backup-file")?.click());
@@ -1277,7 +1336,6 @@ function bindEvents() {
     renderLockPasswordIcon();
   });
 
-  /* PICKERS DE SELEÇÃO CUSTOMIZADOS */
   $("expense-origin-trigger")?.addEventListener("click", () => {
     openCustomPicker("Origem do Gasto", [
       { label: "Salário", value: "salary", selected: selectedExpenseOrigin === "salary" },
@@ -1315,14 +1373,24 @@ function bindEvents() {
   });
 
   document.addEventListener("click", (e) => {
-    // 1. CLIQUE NAS CATEGORIAS DO SETUP (ETAPA 6)
+    const historyItem = e.target.closest("[data-history-cycle-id]");
+    if (historyItem) {
+      openHistoryModal(historyItem.dataset.historyCycleId);
+      return;
+    }
+
+    const backHistoryBtn = e.target.closest("[data-back-to-history]");
+    if (backHistoryBtn) {
+      openHistoryModal();
+      return;
+    }
+
     const setupCatItem = e.target.closest("[data-setup-cat-index]");
     if (setupCatItem) {
       openSetupLimitModal(Number(setupCatItem.dataset.setupCatIndex));
       return;
     }
 
-    // 2. OPÇÕES SIM / NÃO
     const setupSplitBtn = e.target.closest("[data-choice='salary-split']");
     if (setupSplitBtn) {
       setupSalarySplit = setupSplitBtn.dataset.value;
@@ -1342,7 +1410,6 @@ function bindEvents() {
       return;
     }
 
-    // 3. ACCORDION CONFIGURAÇÕES
     const settingsToggle = e.target.closest("[data-settings-toggle]");
     if (settingsToggle) {
       const panel = $(settingsToggle.dataset.settingsToggle);
@@ -1354,14 +1421,12 @@ function bindEvents() {
       return;
     }
 
-    // 4. EDITAR CATEGORIA NAS CONFIGURAÇÕES
     const editCatBtn = e.target.closest("[data-edit-category-id]");
     if (editCatBtn) {
       openCategoryEditorModal(editCatBtn.dataset.editCategoryId);
       return;
     }
 
-    // 5. ORIGEM DA RESERVA
     const reserveOriginBtn = e.target.closest("[data-reserve-origin]");
     if (reserveOriginBtn) {
       selectedReserveOrigin = reserveOriginBtn.dataset.reserveOrigin;
@@ -1372,7 +1437,6 @@ function bindEvents() {
       return;
     }
 
-    // 6. DIVISÃO SALARIAL CONFIG
     const settingsSplit = e.target.closest("[data-settings-salary-split]");
     if (settingsSplit) {
       settingsSalarySplit = settingsSplit.dataset.settingsSalarySplit;
@@ -1380,14 +1444,12 @@ function bindEvents() {
       return;
     }
 
-    // 7. ABRIR CATEGORIA
     const openCatBtn = e.target.closest("[data-category-open]");
     if (openCatBtn) {
       openCategoryDetails(openCatBtn.dataset.categoryOpen);
       return;
     }
 
-    // 8. EDIÇÃO DE GASTO
     const editItem = e.target.closest("[data-edit-expense-id]");
     if (editItem) {
       closeModal("category-modal");
@@ -1395,7 +1457,6 @@ function bindEvents() {
       return;
     }
 
-    // 9. LANÇAR GASTO
     const catExpense = e.target.closest("[data-category-expense]");
     if (catExpense) {
       const catId = catExpense.dataset.categoryExpense;
@@ -1407,7 +1468,6 @@ function bindEvents() {
       return;
     }
 
-    // 10. FECHAR MODAIS
     const closeBtn = e.target.closest("[data-close-modal]");
     if (closeBtn) {
       closeModal(closeBtn.dataset.closeModal);
@@ -1427,7 +1487,6 @@ function bindEvents() {
     }
   });
 
-  // Ações Principais
   $("create-category-button")?.addEventListener("click", () => openCategoryEditorModal());
   $("save-category-button")?.addEventListener("click", saveCategory);
 
