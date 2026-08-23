@@ -17,7 +17,7 @@ const CATEGORY_ICONS = {
   other: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/></svg>`
 };
 
-/* ÍCONES VETORIAIS DA TELA DE BLOQUEIO */
+/* ÍCONES VETORIAIS DE VISIBILIDADE E SEGURANÇA */
 const SVG_EYE_OPEN = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>`;
 const SVG_EYE_SLASH = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.52 13.52 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" x2="22" y1="2" y2="22"/></svg>`;
 
@@ -125,8 +125,10 @@ function normalizeState() {
   if (!state.extra) state.extra = { balance: 0 };
   state.extra.balance = roundMoney(state.extra.balance);
 
-  if (!state.security) state.security = { password: "", locked: false, lastCycleNotificationDate: "" };
-  if (!state.settings) state.settings = { cycleDay: 5 };
+  if (!state.security) state.security = { password: "", locked: false, lastCycleNotificationDate: "", biometricId: null };
+  if (!state.settings) state.settings = { cycleDay: 5, hideBalances: false };
+
+  if (typeof state.settings.hideBalances !== "boolean") state.settings.hideBalances = false;
 
   normalizeCycle(state.currentCycle);
   state.cycles.forEach(normalizeCycle);
@@ -157,11 +159,11 @@ function createEmptyState() {
     version: FX_VERSION,
     setupCompleted: false,
     user: { name: "" },
-    security: { password: "", locked: false, lastCycleNotificationDate: "" },
+    security: { password: "", locked: false, lastCycleNotificationDate: "", biometricId: null },
     salary: { reference: 0, split: false },
     extra: { balance: 0 },
     reserve: { balance: 0 },
-    settings: { cycleDay: 5 },
+    settings: { cycleDay: 5, hideBalances: false },
     categories: [],
     cycles: [],
     currentCycle: null
@@ -615,7 +617,7 @@ function openCategoryDetails(categoryId) {
       </div>
       <h3 style="font-size:20px; font-weight:800;">${escapeHTML(category.name)}</h3>
       <p style="color:var(--text-secondary); font-size:14px; margin-top:4px;">
-        Total Lançado: <strong>${formatMoney(usage)}</strong>
+        Total Lançado: <strong>${formatMoneyOrMask(usage)}</strong>
       </p>
     </div>
     <div class="expense-group-items">
@@ -633,7 +635,7 @@ function openCategoryDetails(categoryId) {
               <span class="expense-item-time">${new Date(exp.date).toLocaleDateString("pt-BR")}</span>
             </div>
           </div>
-          <span class="expense-item-amount">${formatMoney(exp.amount)}</span>
+          <span class="expense-item-amount">${formatMoneyOrMask(exp.amount)}</span>
         </div>
       `;
     });
@@ -680,7 +682,7 @@ function openHistoryModal(cycleId = null) {
                 </div>
               </div>
             </div>
-            <span class="expense-item-amount">${formatMoney(exp.amount)}</span>
+            <span class="expense-item-amount">${formatMoneyOrMask(exp.amount)}</span>
           </div>
         `;
       });
@@ -689,7 +691,7 @@ function openHistoryModal(cycleId = null) {
     container.innerHTML = `
       <button type="button" class="secondary-button" style="margin-bottom:12px; min-height:36px;" data-back-to-history="true">← Voltar à lista de ciclos</button>
       <div style="font-weight:700; font-size:16px; color:var(--accent); margin-bottom:4px;">Ciclo (${startStr} até ${endStr})</div>
-      <p style="font-size:13px; color:var(--text-secondary); margin-bottom:12px;">Total Gasto: <strong>${formatMoney(totalSpent)}</strong></p>
+      <p style="font-size:13px; color:var(--text-secondary); margin-bottom:12px;">Total Gasto: <strong>${formatMoneyOrMask(totalSpent)}</strong></p>
       <div class="expense-group-items">${expensesHtml}</div>
     `;
     openModal("history-modal");
@@ -708,7 +710,7 @@ function openHistoryModal(cycleId = null) {
         <div style="font-weight:700; font-size:14px; color:var(--accent);">Ciclo ${state.cycles.length - idx} (${startStr} até ${endStr})</div>
         <div style="display:flex; justify-content:space-between; margin-top:6px; font-size:13px; color:var(--text-secondary);">
           <span>Gastos Totais:</span>
-          <strong style="color:var(--text);">${formatMoney(totalSpent)}</strong>
+          <strong style="color:var(--text);">${formatMoneyOrMask(totalSpent)}</strong>
         </div>
         <div style="display:flex; justify-content:space-between; margin-top:2px; font-size:13px; color:var(--text-secondary);">
           <span>Lançamentos:</span>
@@ -735,7 +737,7 @@ function openReserveModal() {
 
   document.querySelectorAll("[data-reserve-origin]").forEach((btn) => btn.classList.remove("selected"));
   setText("selected-reserve-origin", "");
-  setText("reserve-balance", formatMoney(getReserveBalance()));
+  setText("reserve-balance", formatMoneyOrMask(getReserveBalance()));
 
   openModal("reserve-modal");
 }
@@ -744,8 +746,8 @@ function showReserveSaveForm() {
   hideElement("withdraw-form");
   showElement("reserve-form");
   showElement("reserve-origin-section");
-  setText("reserve-salary-available", formatMoney(getSalaryBalance()));
-  setText("reserve-extra-available", formatMoney(getExtraBalance()));
+  setText("reserve-salary-available", formatMoneyOrMask(getSalaryBalance()));
+  setText("reserve-extra-available", formatMoneyOrMask(getExtraBalance()));
 }
 
 function showWithdrawForm() {
@@ -828,6 +830,41 @@ function exportBackup() {
   }
 }
 
+function exportCSV() {
+  try {
+    const expenses = state.currentCycle?.expenses || [];
+    if (!expenses.length) {
+      return customAlert("Não há lançamentos no ciclo ativo para exportar.");
+    }
+
+    let csvContent = "\uFEFFData;Categoria;Origem;Descrição;Valor (R$)\n";
+
+    expenses.forEach((exp) => {
+      const cat = state.categories.find((c) => c.id === exp.categoryId);
+      const catName = cat ? cat.name : "Outros";
+      const dateStr = new Date(exp.date).toLocaleDateString("pt-BR");
+      const originStr = exp.origin === "salary" ? "Salário" : exp.origin === "extra" ? "Extra" : "Reserva";
+      const descStr = (exp.description || catName).replace(/;/g, ",");
+      const valStr = exp.amount.toFixed(2).replace(".", ",");
+
+      csvContent += `${dateStr};"${catName}";${originStr};"${descStr}";${valStr}\n`;
+    });
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const downloadAnchor = document.createElement("a");
+    const dateStr = new Date().toISOString().slice(0, 10);
+    downloadAnchor.setAttribute("href", url);
+    downloadAnchor.setAttribute("download", `fx_extrato_${dateStr}.csv`);
+    document.body.appendChild(downloadAnchor);
+    downloadAnchor.click();
+    downloadAnchor.remove();
+    URL.revokeObjectURL(url);
+  } catch (err) {
+    customAlert("Erro ao exportar planilha CSV: " + err.message);
+  }
+}
+
 function importBackup(event) {
   const file = event.target.files[0];
   if (!file) return;
@@ -850,6 +887,79 @@ function importBackup(event) {
     }
   };
   reader.readAsText(file);
+}
+
+/* SISTEMA BIOMÉTRICO (WEBAUTHN) */
+async function registerBiometrics() {
+  if (!window.PublicKeyCredential) {
+    return customAlert("Seu dispositivo ou navegador não suporta validação biométrica.");
+  }
+
+  try {
+    const available = await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
+    if (!available) {
+      return customAlert("Biometria não disponível ou não configurada no dispositivo.");
+    }
+
+    const challenge = new Uint8Array(32);
+    window.crypto.getRandomValues(challenge);
+
+    const userId = new Uint8Array(16);
+    window.crypto.getRandomValues(userId);
+
+    const publicKeyCredentialCreationOptions = {
+      challenge,
+      rp: { name: "FX App" },
+      user: {
+        id: userId,
+        name: state.user?.name || "usuario",
+        displayName: state.user?.name || "Usuário FX"
+      },
+      pubKeyCredParams: [{ alg: -7, type: "public-key" }],
+      authenticatorSelection: { authenticatorAttachment: "platform", userVerification: "required" },
+      timeout: 60000
+    };
+
+    const credential = await navigator.credentials.create({ publicKey: publicKeyCredentialCreationOptions });
+    if (credential) {
+      state.security.biometricId = credential.id;
+      saveState();
+      customAlert("Biometria cadastrada com sucesso!");
+    }
+  } catch (err) {
+    console.error("Erro ao cadastrar biometria:", err);
+    customAlert("Não foi possível cadastrar a biometria: " + err.message);
+  }
+}
+
+async function authenticateBiometric() {
+  if (!state.security.biometricId || !window.PublicKeyCredential) return;
+
+  try {
+    const challenge = new Uint8Array(32);
+    window.crypto.getRandomValues(challenge);
+
+    const publicKeyCredentialRequestOptions = {
+      challenge,
+      allowCredentials: [{
+        id: Uint8Array.from(atob(state.security.biometricId.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0)),
+        type: 'public-key'
+      }],
+      userVerification: "required",
+      timeout: 60000
+    };
+
+    const assertion = await navigator.credentials.get({ publicKey: publicKeyCredentialRequestOptions });
+    if (assertion) {
+      state.security.locked = false;
+      saveState();
+      showScreen("main");
+      renderApplication();
+    }
+  } catch (err) {
+    console.error("Autenticação biométrica falhou:", err);
+    showElement("unlock-error", "Falha na autenticação biométrica. Use sua senha.");
+  }
 }
 
 function updateCustomSelectTriggers() {
@@ -918,7 +1028,7 @@ function renderSettingsCategories() {
         <div style="color:var(--accent); display:flex; align-items:center;">${getCategoryIconSvg(cat)}</div>
         <div class="settings-category-info">
           <div class="settings-category-name">${escapeHTML(cat.name)}</div>
-          <div class="settings-category-limit">${cat.hasLimit && cat.limit ? `Limite: ${formatMoney(cat.limit)}` : "Sem limite"}</div>
+          <div class="settings-category-limit">${cat.hasLimit && cat.limit ? `Limite: ${formatMoneyOrMask(cat.limit)}` : "Sem limite"}</div>
         </div>
       </div>
       <button type="button" class="secondary-button" style="width:auto; padding:6px 14px; min-height:34px; font-size:12px;" data-edit-category-id="${cat.id}">
@@ -1032,7 +1142,7 @@ function openChartModal() {
         <span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:${s.color};"></span>
         ${escapeHTML(s.name)}
       </span>
-      <strong>${formatMoney(s.value)} (${s.pct.toFixed(1)}%)</strong>
+      <strong>${formatMoneyOrMask(s.value)} (${s.pct.toFixed(1)}%)</strong>
     </div>
   `
     )
@@ -1041,7 +1151,7 @@ function openChartModal() {
   container.innerHTML = `
     <div class="pizza-chart" style="background: conic-gradient(${gradient}); position:relative; margin: 0 auto;">
       <div style="position:absolute; inset:25%; background:var(--surface); border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:800;">
-        ${formatMoney(totalSum)}
+        ${formatMoneyOrMask(totalSum)}
       </div>
     </div>
     <div class="pizza-legend">${legendHTML}</div>
@@ -1129,6 +1239,13 @@ function lockApp() {
   }
   renderLockPasswordIcon();
   hideElement("unlock-error");
+  
+  if (state && state.security && state.security.biometricId) {
+    showElement("biometric-unlock-button");
+  } else {
+    hideElement("biometric-unlock-button");
+  }
+
   saveState();
   showScreen("lock");
 }
@@ -1138,6 +1255,19 @@ function renderLockPasswordIcon() {
   if (!container) return;
   const isText = $("unlock-password")?.type === "text";
   container.innerHTML = isText ? SVG_EYE_SLASH : SVG_EYE_OPEN;
+}
+
+function renderHideBalancesIcon() {
+  const container = $("hide-balances-icon-container");
+  if (!container) return;
+  container.innerHTML = state.settings.hideBalances ? SVG_EYE_SLASH : SVG_EYE_OPEN;
+}
+
+function toggleHideBalances() {
+  if (!state) return;
+  state.settings.hideBalances = !state.settings.hideBalances;
+  saveState();
+  renderApplication();
 }
 
 function customAlert(message) {
@@ -1154,6 +1284,7 @@ function customConfirm(message, onConfirm) {
 function renderApplication() {
   if (!state) return;
   setText("user-display-name", state.user?.name || "Usuário");
+  renderHideBalancesIcon();
   renderBalances();
   renderCategories();
   renderExpensesGrouped();
@@ -1166,10 +1297,10 @@ function renderBalances() {
   const extra = getExtraBalance();
   const available = roundMoney(salary + extra);
 
-  setText("salary-balance", formatMoney(salary));
-  setText("extra-balance", formatMoney(extra));
-  setText("available-balance", formatMoney(available));
-  setText("reserve-balance", formatMoney(getReserveBalance()));
+  setText("salary-balance", formatMoneyOrMask(salary));
+  setText("extra-balance", formatMoneyOrMask(extra));
+  setText("available-balance", formatMoneyOrMask(available));
+  setText("reserve-balance", formatMoneyOrMask(getReserveBalance()));
 }
 
 function renderCategories() {
@@ -1186,18 +1317,18 @@ function renderCategories() {
     let progressHtml = "";
 
     if (cat.id === "reserve") {
-      spentText = `Saldo: ${formatMoney(getReserveBalance())}`;
+      spentText = `Saldo: ${formatMoneyOrMask(getReserveBalance())}`;
     } else if (cat.hasLimit && cat.limit && cat.limit > 0) {
       const pct = Math.min(100, (usage / cat.limit) * 100);
       const isFull = usage >= cat.limit;
-      spentText = `${formatMoney(usage)} / ${formatMoney(cat.limit)}`;
+      spentText = `${formatMoneyOrMask(usage)} / ${formatMoneyOrMask(cat.limit)}`;
       progressHtml = `
         <div class="category-progress">
           <div class="category-progress-bar ${isFull ? "full" : ""}" style="width: ${pct}%"></div>
         </div>
       `;
     } else {
-      spentText = `Consumido: ${formatMoney(usage)}`;
+      spentText = `Consumido: ${formatMoneyOrMask(usage)}`;
     }
 
     card.innerHTML = `
@@ -1269,7 +1400,7 @@ function renderExpensesGrouped() {
               </div>
             </div>
           </div>
-          <span class="expense-item-amount">${formatMoney(exp.amount)}</span>
+          <span class="expense-item-amount">${formatMoneyOrMask(exp.amount)}</span>
         </div>
       `;
     });
@@ -1331,6 +1462,7 @@ function bindEvents() {
   $("previous-cycle-button")?.addEventListener("click", () => openHistoryModal());
 
   $("export-backup-button")?.addEventListener("click", exportBackup);
+  $("export-csv-button")?.addEventListener("click", exportCSV);
   $("import-backup-button")?.addEventListener("click", () => $("import-backup-file")?.click());
   $("import-backup-file")?.addEventListener("change", importBackup);
 
@@ -1347,6 +1479,11 @@ function bindEvents() {
     input.type = input.type === "password" ? "text" : "password";
     renderLockPasswordIcon();
   });
+
+  $("toggle-hide-balances-button")?.addEventListener("click", toggleHideBalances);
+
+  $("biometric-unlock-button")?.addEventListener("click", authenticateBiometric);
+  $("register-biometrics-button")?.addEventListener("click", registerBiometrics);
 
   $("expense-origin-trigger")?.addEventListener("click", () => {
     openCustomPicker("Origem do Gasto", [
@@ -1584,6 +1721,7 @@ function closeModal(id) { $(id)?.classList.add("hidden"); }
 
 function roundMoney(v) { return Math.round((Number(v) + Number.EPSILON) * 100) / 100; }
 function formatMoney(v) { return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v); }
+function formatMoneyOrMask(v) { return state && state.settings && state.settings.hideBalances ? "R$ •••••" : formatMoney(v); }
 function setText(id, txt) { if ($(id)) $(id).textContent = txt; }
 function showElement(id, msg) { const el = $(id); if (el) { if (msg) el.textContent = msg; el.classList.remove("hidden"); } }
 function hideElement(id) { $(id)?.classList.add("hidden"); }
