@@ -1,5 +1,5 @@
 /* ============================================================
-   FX.01 — Versão Final Auditada (Matte Flow + Correções)
+   FX.01 — Versão Completa e Corrigida (Matte Flow)
    ============================================================ */
 
 "use strict";
@@ -813,7 +813,28 @@ function bindEvents() {
   });
 
   document.addEventListener("click", (e) => {
-    // Accordion das configurações
+    // 1. SIM / NÃO DO SETUP (DIVISÃO DO SALÁRIO)
+    const setupSplitBtn = e.target.closest("[data-choice='salary-split']");
+    if (setupSplitBtn) {
+      setupSalarySplit = setupSplitBtn.dataset.value;
+      document.querySelectorAll("[data-choice='salary-split']").forEach((btn) => {
+        btn.classList.toggle("selected", btn.dataset.value === setupSalarySplit);
+      });
+      return;
+    }
+
+    // 2. SIM / NÃO DO EDITOR DE CATEGORIA (LIMITE)
+    const categoryLimitBtn = e.target.closest("[data-category-limit]");
+    if (categoryLimitBtn) {
+      categoryEditorHasLimit = categoryLimitBtn.dataset.categoryLimit === "yes";
+      document.querySelectorAll("[data-category-limit]").forEach((btn) => {
+        btn.classList.toggle("selected", btn.dataset.categoryLimit === (categoryEditorHasLimit ? "yes" : "no"));
+      });
+      $("category-limit-value-container")?.classList.toggle("hidden", !categoryEditorHasLimit);
+      return;
+    }
+
+    // 3. ACCORDION DAS CONFIGURAÇÕES
     const settingsToggle = e.target.closest("[data-settings-toggle]");
     if (settingsToggle) {
       const panel = $(settingsToggle.dataset.settingsToggle);
@@ -821,7 +842,7 @@ function bindEvents() {
       return;
     }
 
-    // Origem da Reserva
+    // 4. ORIGEM DA RESERVA
     const reserveOriginBtn = e.target.closest("[data-reserve-origin]");
     if (reserveOriginBtn) {
       selectedReserveOrigin = reserveOriginBtn.dataset.reserveOrigin;
@@ -832,7 +853,7 @@ function bindEvents() {
       return;
     }
 
-    // Divisão do Salário nas Configurações
+    // 5. DIVISÃO DO SALÁRIO NAS CONFIGURAÇÕES
     const settingsSplit = e.target.closest("[data-settings-salary-split]");
     if (settingsSplit) {
       settingsSalarySplit = settingsSplit.dataset.settingsSalarySplit;
@@ -840,14 +861,14 @@ function bindEvents() {
       return;
     }
 
-    // Abrir detalhes de Categoria
+    // 6. ABRIR DETALHES DE CATEGORIA
     const openCatBtn = e.target.closest("[data-category-open]");
     if (openCatBtn) {
       openCategoryDetails(openCatBtn.dataset.categoryOpen);
       return;
     }
 
-    // Abrir edição de Gasto
+    // 7. ABRIR EDIÇÃO DE GASTO
     const editItem = e.target.closest("[data-edit-expense-id]");
     if (editItem) {
       closeModal("category-modal");
@@ -855,14 +876,14 @@ function bindEvents() {
       return;
     }
 
-    // Lançar Gasto na Categoria
+    // 8. LANÇAR GASTO NA CATEGORIA
     const catExpense = e.target.closest("[data-category-expense]");
     if (catExpense) {
       openExpenseModal(catExpense.dataset.categoryExpense);
       return;
     }
 
-    // Fechar Modal
+    // 9. FECHAR MODAIS
     const closeBtn = e.target.closest("[data-close-modal]");
     if (closeBtn) {
       closeModal(closeBtn.dataset.closeModal);
