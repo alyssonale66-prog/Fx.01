@@ -111,6 +111,7 @@ function normalizeState() {
     state = createEmptyState();
     return;
   }
+  if (!state.user) state.user = { name: "" };
   if (!Array.isArray(state.categories)) state.categories = [];
   if (!Array.isArray(state.cycles)) state.cycles = [];
   if (!state.currentCycle) state.currentCycle = null;
@@ -337,7 +338,7 @@ function saveSetupLimit() {
 function handleSetupNext() {
   if (currentSetupStep === 1) {
     const val = $("setup-username")?.value.trim();
-    if (!val) return customAlert("Digite seu nome de usuário.");
+    if (!val) return customAlert("Digite seu nome.");
     state.user.name = val;
   }
   if (currentSetupStep === 2) {
@@ -1049,6 +1050,15 @@ function openChartModal() {
   openModal("chart-modal");
 }
 
+function saveProfileSettings() {
+  const name = $("settings-username")?.value.trim();
+  if (!name) return customAlert("Digite seu nome.");
+  state.user.name = name;
+  saveState();
+  renderApplication();
+  customAlert("Nome salvo com sucesso.");
+}
+
 function saveSalarySettings() {
   const raw = $("settings-salary")?.value;
   const salary = parseMoneyInput(raw);
@@ -1143,6 +1153,7 @@ function customConfirm(message, onConfirm) {
 
 function renderApplication() {
   if (!state) return;
+  setText("user-display-name", state.user?.name || "Usuário");
   renderBalances();
   renderCategories();
   renderExpensesGrouped();
@@ -1273,6 +1284,7 @@ function renderExpensesGrouped() {
 }
 
 function renderSettingsValues() {
+  if ($("settings-username")) $("settings-username").value = state.user?.name || "";
   if ($("settings-salary")) $("settings-salary").value = Number(state.salary.reference).toFixed(2);
   if ($("settings-cycle-day")) $("settings-cycle-day").value = state.settings.cycleDay;
   settingsSalarySplit = state.salary.split ? "yes" : "no";
@@ -1486,6 +1498,9 @@ function bindEvents() {
       showElement("unlock-error", "Senha incorreta.");
     }
   });
+
+  $("save-profile-settings")?.addEventListener("click", saveProfileSettings);
+  $("logout-button")?.addEventListener("click", lockApp);
 
   $("create-category-button")?.addEventListener("click", () => openCategoryEditorModal());
   $("save-category-button")?.addEventListener("click", saveCategory);
