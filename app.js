@@ -1,5 +1,5 @@
 /* ============================================================
-   FX.01 — Versão Final Definitiva (Código Completo)
+   FX.01 — Código Completo Auditado e Corrigido
    ============================================================ */
 
 "use strict";
@@ -342,6 +342,7 @@ function launchExpense(categoryId, amount, origin, description) {
   normalizeCycle(state.currentCycle);
 
   saveState();
+  if (document.activeElement) document.activeElement.blur();
   renderApplication();
 }
 
@@ -354,7 +355,16 @@ function openEditExpenseModal(expenseId) {
 
   $("edit-expense-value").value = expense.amount.toFixed(2);
   $("edit-expense-description").value = expense.description || "";
-  $("edit-expense-origin").value = expense.origin;
+
+  const originSelect = $("edit-expense-origin");
+  if (originSelect) {
+    originSelect.innerHTML = `
+      <option value="salary">Salário</option>
+      <option value="extra">Extra</option>
+      ${expense.origin === "reserve" ? '<option value="reserve">Reserva</option>' : ''}
+    `;
+    originSelect.value = expense.origin;
+  }
 
   const catSelect = $("edit-expense-category");
   catSelect.innerHTML = "";
@@ -384,23 +394,48 @@ function saveExpenseEdit() {
 
     if (newAmount <= 0) throw new Error("O valor deve ser maior que zero.");
 
-    let virtualSalaryBal = getSalaryBalance();
-    let virtualExtraBal = getExtraBalance();
-
-    if (expense.origin === "salary") virtualSalaryBal += expense.amount;
-    else if (expense.origin === "extra") virtualExtraBal += expense.amount;
-
-    const availableForTarget = newOrigin === "salary" ? virtualSalaryBal : virtualExtraBal;
-
-    if (newAmount > availableForTarget) {
-      throw new Error("Saldo insuficiente para esta alteração.");
+    // 1. Validação de teto da categoria
+    const targetCat = state.categories.find((c) => c.id === newCategory);
+    if (targetCat && targetCat.hasLimit && targetCat.limit && targetCat.limit > 0) {
+      let currentUsage = state.currentCycle.categoryUsage[newCategory] || 0;
+      if (expense.categoryId === newCategory) {
+        currentUsage -= expense.amount;
+      }
+      if (roundMoney(currentUsage + newAmount) > targetCat.limit) {
+        throw new Error(`Este valor excede o limite da categoria (${formatMoney(targetCat.limit)}).`);
+      }
     }
 
-    if (expense.origin === "extra") {
-      state.extra.balance = roundMoney(state.extra.balance + expense.amount);
-    }
+    // 2. Reverte temporariamente o valor antigo para testar novo saldo
+    const oldAmount = expense.amount;
+    const oldOrigin = expense.origin;
+
+    if (oldOrigin === "extra") state.extra.balance = roundMoney(state.extra.balance + oldAmount);
+    if (oldOrigin === "reserve") state.reserve.balance = roundMoney(state.reserve.balance + oldAmount);
+
+    // 3. Valida e debita da nova origem
     if (newOrigin === "extra") {
+      if (newAmount > getExtraBalance()) {
+        if (oldOrigin === "extra") state.extra.balance = roundMoney(state.extra.balance - oldAmount);
+        if (oldOrigin === "reserve") state.reserve.balance = roundMoney(state.reserve.balance - oldAmount);
+        throw new Error("Saldo insuficiente no Extra.");
+      }
       state.extra.balance = roundMoney(state.extra.balance - newAmount);
+    } else if (newOrigin === "reserve") {
+      if (newAmount > getReserveBalance()) {
+        if (oldOrigin === "extra") state.extra.balance = roundMoney(state.extra.balance - oldAmount);
+        if (oldOrigin === "reserve") state.reserve.balance = roundMoney(state.reserve.balance - oldAmount);
+        throw new Error("Saldo insuficiente na Reserva.");
+      }
+      state.reserve.balance = roundMoney(state.reserve.balance - newAmount);
+    } else if (newOrigin === "salary") {
+      expense.amount = 0;
+      if (newAmount > getSalaryBalance()) {
+        expense.amount = oldAmount;
+        if (oldOrigin === "extra") state.extra.balance = roundMoney(state.extra.balance - oldAmount);
+        if (oldOrigin === "reserve") state.reserve.balance = roundMoney(state.reserve.balance - oldAmount);
+        throw new Error("Saldo insuficiente no Salário.");
+      }
     }
 
     expense.amount = newAmount;
@@ -411,6 +446,7 @@ function saveExpenseEdit() {
     normalizeCycle(state.currentCycle);
     saveState();
     closeModal("expense-edit-modal");
+    if (document.activeElement) document.activeElement.blur();
     renderApplication();
   } catch (err) {
     showElement("edit-expense-error", err.message);
@@ -427,8 +463,11 @@ function deleteExpense() {
 
   const expense = state.currentCycle.expenses[index];
 
+  // Restaura o saldo para a origem exata
   if (expense.origin === "extra") {
     state.extra.balance = roundMoney(state.extra.balance + expense.amount);
+  } else if (expense.origin === "reserve") {
+    state.reserve.balance = roundMoney(state.reserve.balance + expense.amount);
   }
 
   state.currentCycle.expenses.splice(index, 1);
@@ -436,6 +475,7 @@ function deleteExpense() {
 
   saveState();
   closeModal("expense-edit-modal");
+  if (document.activeElement) document.activeElement.blur();
   renderApplication();
 }
 
@@ -548,6 +588,7 @@ function confirmReserveSave() {
     state.reserve.balance = roundMoney(state.reserve.balance + amount);
     saveState();
     closeModal("reserve-modal");
+    if (document.activeElement) document.activeElement.blur();
     renderApplication();
   } catch (err) {
     showElement("reserve-error", err.message);
@@ -563,7 +604,7 @@ function confirmReserveWithdraw() {
     // 1. Subtrai da Reserva
     state.reserve.balance = roundMoney(state.reserve.balance - amount);
 
-    // 2. Lança automaticamente o gasto consumido na categoria "Outros"
+    // 2. Lança o gasto consumido na categoria "Outros"
     const expense = {
       id: createId(),
       origin: "reserve",
@@ -578,6 +619,7 @@ function confirmReserveWithdraw() {
 
     saveState();
     closeModal("reserve-modal");
+    if (document.activeElement) document.activeElement.blur();
     renderApplication();
   } catch (err) {
     showElement("reserve-error", err.message);
@@ -672,6 +714,7 @@ function saveCategory() {
     normalizeCycle(state.currentCycle);
     saveState();
     closeModal("category-editor-modal");
+    if (document.activeElement) document.activeElement.blur();
     renderApplication();
   } catch (err) {
     showElement("category-editor-error", err.message);
@@ -967,6 +1010,7 @@ function bindEvents() {
   $("setup-next-button")?.addEventListener("click", handleSetupNext);
   $("nav-home-button")?.addEventListener("click", () => switchTab("home"));
   $("nav-extrato-button")?.addEventListener("click", () => switchTab("extrato"));
+  $("previous-cycle-button")?.addEventListener("click", () => alert("Nenhum histórico de ciclo anterior encontrado."));
 
   $("toggle-lock-password")?.addEventListener("click", () => {
     const input = $("unlock-password");
@@ -1099,6 +1143,7 @@ function bindEvents() {
     state.extra.balance = roundMoney(state.extra.balance + val);
     saveState();
     closeModal("extra-modal");
+    if (document.activeElement) document.activeElement.blur();
     renderApplication();
   });
 
