@@ -1,5 +1,5 @@
 /* ============================================================
-   FX.01 — Versão Completa e Corrigida (Matte Flow)
+   FX.01 — Versão Final Definitiva (Código Completo)
    ============================================================ */
 
 "use strict";
@@ -19,6 +19,7 @@ const CATEGORY_ICONS = {
 };
 
 function getCategoryIconSvg(cat) {
+  if (cat && CATEGORY_ICONS[cat.icon]) return CATEGORY_ICONS[cat.icon];
   if (cat && CATEGORY_ICONS[cat.id]) return CATEGORY_ICONS[cat.id];
   return CATEGORY_ICONS.other;
 }
@@ -188,10 +189,12 @@ function renderSetupCategories() {
     const item = document.createElement("div");
     item.className = "settings-category-item";
     item.innerHTML = `
-      <div class="settings-category-icon" style="color:var(--accent);">${getCategoryIconSvg(cat)}</div>
-      <div class="settings-category-info">
-        <div class="settings-category-name">${escapeHTML(cat.name)}</div>
-        <div class="settings-category-limit">${cat.hasLimit && cat.limit ? `Limite: ${formatMoney(cat.limit)}` : "Sem limite"}</div>
+      <div style="display:flex; align-items:center; gap:10px;">
+        <div style="color:var(--accent); display:flex; align-items:center;">${getCategoryIconSvg(cat)}</div>
+        <div class="settings-category-info">
+          <div class="settings-category-name">${escapeHTML(cat.name)}</div>
+          <div class="settings-category-limit">${cat.hasLimit && cat.limit ? `Limite: ${formatMoney(cat.limit)}` : "Sem limite"}</div>
+        </div>
       </div>
     `;
     container.appendChild(item);
@@ -262,9 +265,25 @@ function createInitialCycle() {
   normalizeCycle(state.currentCycle);
 }
 
+/* LÓGICA DE SALDO E DIVISÃO 40%/60% */
+function getCalculatedSalaryReceived() {
+  if (!state || !state.salary) return 0;
+  const ref = Number(state.salary.reference) || 0;
+  if (!state.salary.split) return ref;
+
+  const todayDay = new Date().getDate();
+  const cycleDay = state.settings.cycleDay || 5;
+
+  if (todayDay >= 20 || todayDay < cycleDay) {
+    return ref;
+  } else {
+    return roundMoney(ref * 0.60);
+  }
+}
+
 function getSalaryBalance() {
   if (!state || !state.currentCycle) return 0;
-  let balance = Number(state.currentCycle.salaryReceived) || 0;
+  let balance = getCalculatedSalaryReceived();
 
   state.currentCycle.expenses.forEach((exp) => {
     if (exp.origin === "salary") balance -= Number(exp.amount) || 0;
@@ -286,8 +305,22 @@ function getReserveBalance() {
 }
 
 function launchExpense(categoryId, amount, origin, description) {
+  if (categoryId === "reserve") {
+    openReserveModal();
+    return;
+  }
+
   amount = roundMoney(amount);
   if (amount <= 0) throw new Error("O valor deve ser maior que zero.");
+
+  // Trava de limite de categoria
+  const cat = state.categories.find((c) => c.id === categoryId);
+  if (cat && cat.hasLimit && cat.limit && cat.limit > 0) {
+    const currentUsage = state.currentCycle.categoryUsage[categoryId] || 0;
+    if (roundMoney(currentUsage + amount) > cat.limit) {
+      throw new Error(`Este valor excede o limite da categoria (${formatMoney(cat.limit)}).`);
+    }
+  }
 
   const available = origin === "salary" ? getSalaryBalance() : getExtraBalance();
   if (amount > available) throw new Error("Saldo insuficiente na origem selecionada.");
@@ -460,7 +493,7 @@ function openCategoryDetails(categoryId) {
   openModal("category-modal");
 }
 
-/* RESERVA */
+/* OPERAÇÕES DE RESERVA */
 function openReserveModal() {
   if ($("reserve-value")) $("reserve-value").value = "";
   if ($("withdraw-value")) $("withdraw-value").value = "";
@@ -527,12 +560,121 @@ function confirmReserveWithdraw() {
     if (amount <= 0) throw new Error("Valor deve ser maior que zero.");
     if (amount > getReserveBalance()) throw new Error("Saldo insuficiente na Reserva.");
 
+    // 1. Subtrai da Reserva
     state.reserve.balance = roundMoney(state.reserve.balance - amount);
+
+    // 2. Lança automaticamente o gasto consumido na categoria "Outros"
+    const expense = {
+      id: createId(),
+      origin: "reserve",
+      amount: amount,
+      description: "Resgate da Reserva",
+      categoryId: "other",
+      date: new Date().toISOString()
+    };
+
+    state.currentCycle.expenses.push(expense);
+    normalizeCycle(state.currentCycle);
+
     saveState();
     closeModal("reserve-modal");
     renderApplication();
   } catch (err) {
     showElement("reserve-error", err.message);
+  }
+}
+
+/* GERENCIADOR DE CATEGORIAS (CONFIGURAÇÕES) */
+function renderSettingsCategories() {
+  const container = $("settings-categories-list");
+  if (!container) return;
+  container.innerHTML = "";
+
+  state.categories.forEach((cat) => {
+    const item = document.createElement("div");
+    item.className = "settings-category-item";
+
+    item.innerHTML = `
+      <div style="display:flex; align-items:center; gap:10px;">
+        <div style="color:var(--accent); display:flex; align-items:center;">${getCategoryIconSvg(cat)}</div>
+        <div class="settings-category-info">
+          <div class="settings-category-name">${escapeHTML(cat.name)}</div>
+          <div class="settings-category-limit">${cat.hasLimit && cat.limit ? `Limite: ${formatMoney(cat.limit)}` : "Sem limite"}</div>
+        </div>
+      </div>
+      <button type="button" class="secondary-button" style="width:auto; padding:6px 14px; min-height:34px; font-size:12px;" data-edit-category-id="${cat.id}">
+        Editar
+      </button>
+    `;
+    container.appendChild(item);
+  });
+}
+
+function openCategoryEditorModal(catId = null) {
+  currentEditingCategoryId = catId;
+  hideElement("category-editor-error");
+
+  if (catId) {
+    const cat = state.categories.find((c) => c.id === catId);
+    if (!cat) return;
+
+    if ($("category-editor-title")) $("category-editor-title").textContent = "Editar Categoria";
+    $("category-name").value = cat.name;
+    $("category-icon").value = cat.icon || "other";
+
+    categoryEditorHasLimit = !!cat.hasLimit;
+    $("category-limit-value").value = cat.limit ? cat.limit.toFixed(2) : "";
+  } else {
+    if ($("category-editor-title")) $("category-editor-title").textContent = "Criar Categoria";
+    $("category-name").value = "";
+    $("category-icon").value = "other";
+    categoryEditorHasLimit = false;
+    $("category-limit-value").value = "";
+  }
+
+  document.querySelectorAll("[data-category-limit]").forEach((btn) => {
+    btn.classList.toggle("selected", btn.dataset.categoryLimit === (categoryEditorHasLimit ? "yes" : "no"));
+  });
+  $("category-limit-value-container")?.classList.toggle("hidden", !categoryEditorHasLimit);
+
+  openModal("category-editor-modal");
+}
+
+function saveCategory() {
+  try {
+    const name = $("category-name").value.trim();
+    const icon = $("category-icon").value.trim() || "other";
+    const limitVal = parseMoneyInput($("category-limit-value").value);
+
+    if (!name) throw new Error("Digite o nome da categoria.");
+    if (categoryEditorHasLimit && limitVal <= 0) throw new Error("Informe um valor de limite válido.");
+
+    if (currentEditingCategoryId) {
+      const cat = state.categories.find((c) => c.id === currentEditingCategoryId);
+      if (cat) {
+        cat.name = name;
+        cat.icon = icon;
+        cat.hasLimit = categoryEditorHasLimit;
+        cat.limit = categoryEditorHasLimit ? limitVal : null;
+      }
+    } else {
+      const newCat = {
+        id: createId(),
+        name,
+        icon,
+        hasLimit: categoryEditorHasLimit,
+        limit: categoryEditorHasLimit ? limitVal : null,
+        protected: false
+      };
+      state.categories.push(newCat);
+    }
+
+    normalizeCycle(state.currentCycle);
+    saveState();
+    closeModal("category-editor-modal");
+    renderApplication();
+  } catch (err) {
+    showElement("category-editor-error", err.message);
   }
 }
 
@@ -657,6 +799,7 @@ function renderApplication() {
   renderBalances();
   renderCategories();
   renderExpensesGrouped();
+  renderSettingsCategories();
   renderSettingsValues();
 }
 
@@ -680,12 +823,24 @@ function renderCategories() {
     const card = document.createElement("div");
     card.className = "category-card";
 
-    const usage = state.currentCycle.categoryUsage[cat.id] || 0;
-    let balanceText = "Sem limite";
+    const usage = state.currentCycle?.categoryUsage[cat.id] || 0;
+    let spentText = "";
+    let progressHtml = "";
 
-    if (cat.id === "reserve") balanceText = formatMoney(getReserveBalance());
-    else if (cat.hasLimit && cat.limit !== null) balanceText = formatMoney(Math.max(0, cat.limit - usage));
-    else if (cat.id === "other") balanceText = formatMoney(usage);
+    if (cat.id === "reserve") {
+      spentText = `Saldo: ${formatMoney(getReserveBalance())}`;
+    } else if (cat.hasLimit && cat.limit && cat.limit > 0) {
+      const pct = Math.min(100, (usage / cat.limit) * 100);
+      const isFull = usage >= cat.limit;
+      spentText = `${formatMoney(usage)} / ${formatMoney(cat.limit)}`;
+      progressHtml = `
+        <div class="category-progress">
+          <div class="category-progress-bar ${isFull ? "full" : ""}" style="width: ${pct}%"></div>
+        </div>
+      `;
+    } else {
+      spentText = `Consumido: ${formatMoney(usage)}`;
+    }
 
     card.innerHTML = `
       <div class="category-main" data-category-expense="${cat.id}">
@@ -694,8 +849,9 @@ function renderCategories() {
             ${getCategoryIconSvg(cat)}
             ${escapeHTML(cat.name)}
           </span>
-          <span class="category-balance">${balanceText}</span>
+          <span class="category-balance">${spentText}</span>
         </div>
+        ${progressHtml}
       </div>
       <button type="button" class="category-icon-button" data-category-open="${cat.id}" aria-label="Detalhes de ${cat.name}">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg>
@@ -732,6 +888,17 @@ function renderExpensesGrouped() {
       const cat = state.categories.find((c) => c.id === exp.categoryId);
       const catName = cat ? cat.name : "Outros";
 
+      let badgeClass = "badge-extra";
+      let badgeLabel = "Extra";
+
+      if (exp.origin === "salary") {
+        badgeClass = "badge-salary";
+        badgeLabel = "Salário";
+      } else if (exp.origin === "reserve") {
+        badgeClass = "badge-salary";
+        badgeLabel = "Reserva";
+      }
+
       itemsHTML += `
         <div class="expense-item-card" data-edit-expense-id="${exp.id}">
           <div class="expense-item-left">
@@ -739,7 +906,7 @@ function renderExpensesGrouped() {
             <div class="expense-item-details">
               <span class="expense-item-title">${escapeHTML(exp.description || catName)}</span>
               <div class="expense-item-sub">
-                <span class="expense-origin-badge ${exp.origin === "salary" ? "badge-salary" : "badge-extra"}">${exp.origin === "salary" ? "Salário" : "Extra"}</span>
+                <span class="expense-origin-badge ${badgeClass}">${badgeLabel}</span>
                 <span class="expense-item-time">${new Date(exp.date).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</span>
               </div>
             </div>
@@ -838,22 +1005,33 @@ function bindEvents() {
     const settingsToggle = e.target.closest("[data-settings-toggle]");
     if (settingsToggle) {
       const panel = $(settingsToggle.dataset.settingsToggle);
-      if (panel) panel.classList.toggle("hidden");
+      if (panel) {
+        const isHidden = panel.classList.toggle("hidden");
+        const chevron = settingsToggle.querySelector(".chevron");
+        if (chevron) chevron.style.transform = isHidden ? "rotate(0deg)" : "rotate(180deg)";
+      }
       return;
     }
 
-    // 4. ORIGEM DA RESERVA
+    // 4. EDITAR CATEGORIA NAS CONFIGURAÇÕES
+    const editCatBtn = e.target.closest("[data-edit-category-id]");
+    if (editCatBtn) {
+      openCategoryEditorModal(editCatBtn.dataset.editCategoryId);
+      return;
+    }
+
+    // 5. ORIGEM DA RESERVA
     const reserveOriginBtn = e.target.closest("[data-reserve-origin]");
     if (reserveOriginBtn) {
       selectedReserveOrigin = reserveOriginBtn.dataset.reserveOrigin;
       document.querySelectorAll("[data-reserve-origin]").forEach((btn) => {
         btn.classList.toggle("selected", btn.dataset.reserveOrigin === selectedReserveOrigin);
       });
-      setText("selected-reserve-origin", `Origem: ${selectedReserveOrigin === "salary" ? "Salário" : "Extra"}`);
+      setText("selected-reserve-origin", `Origem selecionada: ${selectedReserveOrigin === "salary" ? "Salário" : "Extra"}`);
       return;
     }
 
-    // 5. DIVISÃO DO SALÁRIO NAS CONFIGURAÇÕES
+    // 6. DIVISÃO DO SALÁRIO NAS CONFIGURAÇÕES
     const settingsSplit = e.target.closest("[data-settings-salary-split]");
     if (settingsSplit) {
       settingsSalarySplit = settingsSplit.dataset.settingsSalarySplit;
@@ -861,14 +1039,14 @@ function bindEvents() {
       return;
     }
 
-    // 6. ABRIR DETALHES DE CATEGORIA
+    // 7. ABRIR DETALHES DE CATEGORIA
     const openCatBtn = e.target.closest("[data-category-open]");
     if (openCatBtn) {
       openCategoryDetails(openCatBtn.dataset.categoryOpen);
       return;
     }
 
-    // 7. ABRIR EDIÇÃO DE GASTO
+    // 8. ABRIR EDIÇÃO DE GASTO
     const editItem = e.target.closest("[data-edit-expense-id]");
     if (editItem) {
       closeModal("category-modal");
@@ -876,14 +1054,19 @@ function bindEvents() {
       return;
     }
 
-    // 8. LANÇAR GASTO NA CATEGORIA
+    // 9. LANÇAR GASTO OU ABRIR RESERVA
     const catExpense = e.target.closest("[data-category-expense]");
     if (catExpense) {
-      openExpenseModal(catExpense.dataset.categoryExpense);
+      const catId = catExpense.dataset.categoryExpense;
+      if (catId === "reserve") {
+        openReserveModal();
+      } else {
+        openExpenseModal(catId);
+      }
       return;
     }
 
-    // 9. FECHAR MODAIS
+    // 10. FECHAR MODAIS
     const closeBtn = e.target.closest("[data-close-modal]");
     if (closeBtn) {
       closeModal(closeBtn.dataset.closeModal);
@@ -902,6 +1085,10 @@ function bindEvents() {
       showElement("unlock-error", "Senha incorreta.");
     }
   });
+
+  // Eventos de Gerenciamento de Categoria
+  $("create-category-button")?.addEventListener("click", () => openCategoryEditorModal());
+  $("save-category-button")?.addEventListener("click", saveCategory);
 
   // Eventos de Ação nos Modais
   $("add-extra-button")?.addEventListener("click", () => openModal("extra-modal"));
@@ -963,6 +1150,10 @@ function switchTab(tab) {
 }
 
 function openExpenseModal(catId) {
+  if (catId === "reserve") {
+    openReserveModal();
+    return;
+  }
   currentCategoryId = catId;
   const cat = state.categories.find((c) => c.id === catId);
   if ($("expense-modal-title")) $("expense-modal-title").textContent = `Lançar em ${cat?.name || ""}`;
