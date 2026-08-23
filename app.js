@@ -1,12 +1,11 @@
 /* ============================================================
-   FX.01 — Código Completo Auditado e Corrigido
+   FX.01 — Versão Completa, Auditada e Corrigida
    ============================================================ */
 
 "use strict";
 
 const FX_VERSION = "FX.01";
 const STORAGE_KEY = "fx01_data";
-const MASTER_KEY = ["F", "x", "0", "2", "0", "9", "1", "9"].join("");
 
 /* MAPA DE ÍCONES SVG PADRONIZADOS */
 const CATEGORY_ICONS = {
@@ -73,6 +72,7 @@ function loadApplication() {
   try {
     state = JSON.parse(stored);
     normalizeState();
+    checkCycleRollover();
 
     if (!state.setupCompleted) {
       startInitialSetup();
@@ -88,8 +88,7 @@ function loadApplication() {
     renderApplication();
   } catch (error) {
     console.error("Erro ao carregar os dados:", error);
-    localStorage.removeItem(STORAGE_KEY);
-    startInitialSetup();
+    alert("Ocorreu um erro ao ler os dados salvos. Seus dados foram preservados. Tente reiniciar o app ou importar um backup.");
   }
 }
 
@@ -152,6 +151,39 @@ function createEmptyState() {
     cycles: [],
     currentCycle: null
   };
+}
+
+/* TRANSIÇÃO E FECHAMENTO AUTOMÁTICO DE MÊS / CICLO (BUG-01) */
+function checkCycleRollover() {
+  if (!state || !state.currentCycle || !state.currentCycle.endDate) return;
+
+  const now = new Date();
+  const endDate = new Date(state.currentCycle.endDate);
+
+  if (now >= endDate) {
+    // 1. Arquiva o ciclo encerrado no array de histórico
+    state.cycles.push(JSON.parse(JSON.stringify(state.currentCycle)));
+
+    // 2. Calcula novo intervalo do ciclo
+    const cycleDay = state.settings.cycleDay || 5;
+    const newStart = new Date(endDate);
+    const newEnd = new Date(newStart.getFullYear(), newStart.getMonth() + 1, cycleDay);
+
+    // 3. Inicializa o novo ciclo limpo
+    state.currentCycle = {
+      id: createId(),
+      startDate: newStart.toISOString(),
+      endDate: newEnd.toISOString(),
+      salaryReceived: roundMoney(state.salary.reference),
+      leftoverSalary: 0,
+      expenses: [],
+      transfers: [],
+      categoryUsage: {}
+    };
+
+    normalizeCycle(state.currentCycle);
+    saveState();
+  }
 }
 
 function startInitialSetup() {
@@ -265,7 +297,7 @@ function createInitialCycle() {
   normalizeCycle(state.currentCycle);
 }
 
-/* LÓGICA DE SALDO E DIVISÃO 40%/60% */
+/* LÓGICA DE SALDO E DIVISÃO 40%/60% CORRIGIDA (BUG-04) */
 function getCalculatedSalaryReceived() {
   if (!state || !state.salary) return 0;
   const ref = Number(state.salary.reference) || 0;
@@ -274,10 +306,12 @@ function getCalculatedSalaryReceived() {
   const todayDay = new Date().getDate();
   const cycleDay = state.settings.cycleDay || 5;
 
-  if (todayDay >= 20 || todayDay < cycleDay) {
-    return ref;
+  if (todayDay >= 20) {
+    return ref; // 100% liberado (60% do dia 5 + 40% do dia 20)
+  } else if (todayDay >= cycleDay) {
+    return roundMoney(ref * 0.60); // 60% liberado no dia 5
   } else {
-    return roundMoney(ref * 0.60);
+    return roundMoney(ref * 0.40); // 40% adiantamento do dia 20 para os dias 1 a 4
   }
 }
 
@@ -313,7 +347,6 @@ function launchExpense(categoryId, amount, origin, description) {
   amount = roundMoney(amount);
   if (amount <= 0) throw new Error("O valor deve ser maior que zero.");
 
-  // Trava de limite de categoria
   const cat = state.categories.find((c) => c.id === categoryId);
   if (cat && cat.hasLimit && cat.limit && cat.limit > 0) {
     const currentUsage = state.currentCycle.categoryUsage[categoryId] || 0;
@@ -394,7 +427,6 @@ function saveExpenseEdit() {
 
     if (newAmount <= 0) throw new Error("O valor deve ser maior que zero.");
 
-    // 1. Validação de teto da categoria
     const targetCat = state.categories.find((c) => c.id === newCategory);
     if (targetCat && targetCat.hasLimit && targetCat.limit && targetCat.limit > 0) {
       let currentUsage = state.currentCycle.categoryUsage[newCategory] || 0;
@@ -406,14 +438,12 @@ function saveExpenseEdit() {
       }
     }
 
-    // 2. Reverte temporariamente o valor antigo para testar novo saldo
     const oldAmount = expense.amount;
     const oldOrigin = expense.origin;
 
     if (oldOrigin === "extra") state.extra.balance = roundMoney(state.extra.balance + oldAmount);
     if (oldOrigin === "reserve") state.reserve.balance = roundMoney(state.reserve.balance + oldAmount);
 
-    // 3. Valida e debita da nova origem
     if (newOrigin === "extra") {
       if (newAmount > getExtraBalance()) {
         if (oldOrigin === "extra") state.extra.balance = roundMoney(state.extra.balance - oldAmount);
@@ -463,7 +493,6 @@ function deleteExpense() {
 
   const expense = state.currentCycle.expenses[index];
 
-  // Restaura o saldo para a origem exata
   if (expense.origin === "extra") {
     state.extra.balance = roundMoney(state.extra.balance + expense.amount);
   } else if (expense.origin === "reserve") {
@@ -531,6 +560,44 @@ function openCategoryDetails(categoryId) {
   html += `</div>`;
   container.innerHTML = html;
   openModal("category-modal");
+}
+
+/* VISUALIZAÇÃO DE HISTÓRICO DE MESES ANTERIORES (BUG-06) */
+function openHistoryModal() {
+  const container = $("history-container");
+  if (!container) return;
+
+  if (!state.cycles || !state.cycles.length) {
+    container.innerHTML = `<div style="text-align:center; padding:20px; color:var(--text-muted);">Nenhum histórico de ciclo anterior encontrado.</div>`;
+    openModal("history-modal");
+    return;
+  }
+
+  let html = `<div style="display:flex; flex-direction:column; gap:12px;">`;
+
+  state.cycles.slice().reverse().forEach((cycle, idx) => {
+    const startStr = new Date(cycle.startDate).toLocaleDateString("pt-BR");
+    const endStr = new Date(cycle.endDate).toLocaleDateString("pt-BR");
+    const totalSpent = (cycle.expenses || []).reduce((acc, exp) => acc + (Number(exp.amount) || 0), 0);
+
+    html += `
+      <div style="padding:14px; background:var(--surface-2); border:1px solid var(--border); border-radius:var(--radius-small);">
+        <div style="font-weight:700; font-size:14px; color:var(--accent);">Ciclo ${state.cycles.length - idx} (${startStr} até ${endStr})</div>
+        <div style="display:flex; justify-content:space-between; margin-top:6px; font-size:13px; color:var(--text-secondary);">
+          <span>Gastos Totais:</span>
+          <strong style="color:var(--text);">${formatMoney(totalSpent)}</strong>
+        </div>
+        <div style="display:flex; justify-content:space-between; margin-top:2px; font-size:13px; color:var(--text-secondary);">
+          <span>Lançamentos:</span>
+          <strong>${(cycle.expenses || []).length} itens</strong>
+        </div>
+      </div>
+    `;
+  });
+
+  html += `</div>`;
+  container.innerHTML = html;
+  openModal("history-modal");
 }
 
 /* OPERAÇÕES DE RESERVA */
@@ -601,10 +668,8 @@ function confirmReserveWithdraw() {
     if (amount <= 0) throw new Error("Valor deve ser maior que zero.");
     if (amount > getReserveBalance()) throw new Error("Saldo insuficiente na Reserva.");
 
-    // 1. Subtrai da Reserva
     state.reserve.balance = roundMoney(state.reserve.balance - amount);
 
-    // 2. Lança o gasto consumido na categoria "Outros"
     const expense = {
       id: createId(),
       origin: "reserve",
@@ -624,6 +689,46 @@ function confirmReserveWithdraw() {
   } catch (err) {
     showElement("reserve-error", err.message);
   }
+}
+
+/* BACKUP E RESTAURAÇÃO DE DADOS (BUG-02) */
+function exportBackup() {
+  try {
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(state, null, 2));
+    const downloadAnchor = document.createElement("a");
+    const dateStr = new Date().toISOString().slice(0, 10);
+    downloadAnchor.setAttribute("href", dataStr);
+    downloadAnchor.setAttribute("download", `fx_backup_${dateStr}.json`);
+    document.body.appendChild(downloadAnchor);
+    downloadAnchor.click();
+    downloadAnchor.remove();
+  } catch (err) {
+    alert("Erro ao exportar backup: " + err.message);
+  }
+}
+
+function importBackup(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = function (e) {
+    try {
+      const importedState = JSON.parse(e.target.result);
+      if (!importedState || typeof importedState !== "object" || !importedState.version) {
+        throw new Error("Arquivo de backup inválido ou incompatível.");
+      }
+
+      state = importedState;
+      normalizeState();
+      saveState();
+      renderApplication();
+      alert("Backup importado com sucesso!");
+    } catch (err) {
+      alert("Erro ao importar backup: " + err.message);
+    }
+  };
+  reader.readAsText(file);
 }
 
 /* GERENCIADOR DE CATEGORIAS (CONFIGURAÇÕES) */
@@ -802,12 +907,13 @@ function saveCycleSettings() {
   alert("Alteração será aplicada no próximo ciclo.");
 }
 
+/* ALTERAÇÃO DE SENHA SEM CHAVE MESTRE (BUG-03) */
 function saveNewPassword() {
   const current = $("current-password")?.value;
   const newPass = $("new-password")?.value;
   const confirmPass = $("confirm-new-password")?.value;
 
-  if (current !== state.security.password && current !== MASTER_KEY) {
+  if (current !== state.security.password) {
     return showElement("password-error", "Senha atual incorreta.");
   }
   if (!newPass) return showElement("password-error", "Digite a nova senha.");
@@ -823,7 +929,7 @@ function deleteAllData() {
   const pass = $("delete-password")?.value;
   const confirmText = $("delete-confirmation")?.value.trim();
 
-  if (pass !== state.security.password && pass !== MASTER_KEY) {
+  if (pass !== state.security.password) {
     return showElement("delete-error", "Senha incorreta.");
   }
   if (confirmText !== "APAGAR") {
@@ -938,7 +1044,7 @@ function renderExpensesGrouped() {
         badgeClass = "badge-salary";
         badgeLabel = "Salário";
       } else if (exp.origin === "reserve") {
-        badgeClass = "badge-salary";
+        badgeClass = "badge-reserve";
         badgeLabel = "Reserva";
       }
 
@@ -1010,7 +1116,11 @@ function bindEvents() {
   $("setup-next-button")?.addEventListener("click", handleSetupNext);
   $("nav-home-button")?.addEventListener("click", () => switchTab("home"));
   $("nav-extrato-button")?.addEventListener("click", () => switchTab("extrato"));
-  $("previous-cycle-button")?.addEventListener("click", () => alert("Nenhum histórico de ciclo anterior encontrado."));
+  $("previous-cycle-button")?.addEventListener("click", openHistoryModal);
+
+  $("export-backup-button")?.addEventListener("click", exportBackup);
+  $("import-backup-button")?.addEventListener("click", () => $("import-backup-file")?.click());
+  $("import-backup-file")?.addEventListener("change", importBackup);
 
   $("toggle-lock-password")?.addEventListener("click", () => {
     const input = $("unlock-password");
@@ -1120,7 +1230,7 @@ function bindEvents() {
 
   $("unlock-button")?.addEventListener("click", () => {
     const pass = $("unlock-password")?.value;
-    if (pass === state.security.password || pass === MASTER_KEY) {
+    if (pass === state.security.password) {
       state.security.locked = false;
       saveState();
       showScreen("main");
