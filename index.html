@@ -61,7 +61,7 @@
 
           <div class="setup-step" data-step="6">
             <h2>Categorias</h2>
-            <p>As categorias padrão do FX já estão preparadas. Você poderá conferir e editar limites antes de concluir.</p>
+            <p>Toque em uma categoria para ajustar o limite antes de concluir.</p>
             <div id="setup-categories" class="setup-category-list"></div>
           </div>
         </main>
@@ -86,7 +86,7 @@
             <div class="password-input-wrapper">
               <input id="unlock-password" type="password" autocomplete="current-password" placeholder="Digite sua senha">
               <button type="button" id="toggle-lock-password" class="input-icon-button" aria-label="Mostrar senha">
-                <span id="eye-icon">👁️</span>
+                <span id="eye-icon-container"></span>
               </button>
             </div>
 
@@ -257,6 +257,68 @@
       </main>
     </section>
 
+    <!-- MODAL SELECTOR CUSTOMIZADO (SUBSTITUI SELECT NATIVO) -->
+    <div id="picker-modal" class="modal hidden" role="dialog" aria-modal="true">
+      <div class="modal-content glass-panel">
+        <header class="modal-header">
+          <h2 id="picker-title">Selecione</h2>
+          <button type="button" class="modal-close" data-close-modal="picker-modal">×</button>
+        </header>
+        <main class="modal-body">
+          <div id="picker-options" class="custom-picker-list"></div>
+        </main>
+      </div>
+    </div>
+
+    <!-- MODAL CONFIRM CUSTOMIZADO -->
+    <div id="custom-confirm-modal" class="modal hidden" role="dialog" aria-modal="true">
+      <div class="modal-content glass-panel" style="max-width:380px; text-align:center;">
+        <main class="modal-body" style="padding-top:24px;">
+          <p id="custom-confirm-message" style="font-size:15px; font-weight:600; color:var(--text);"></p>
+        </main>
+        <footer class="modal-footer modal-footer-dual" style="margin-top:10px;">
+          <button id="custom-confirm-cancel" type="button" class="secondary-button">Cancelar</button>
+          <button id="custom-confirm-ok" type="button" class="danger-button">Confirmar</button>
+        </footer>
+      </div>
+    </div>
+
+    <!-- MODAL ALERT CUSTOMIZADO -->
+    <div id="custom-alert-modal" class="modal hidden" role="dialog" aria-modal="true">
+      <div class="modal-content glass-panel" style="max-width:380px; text-align:center;">
+        <main class="modal-body" style="padding-top:24px;">
+          <p id="custom-alert-message" style="font-size:15px; font-weight:600; color:var(--text);"></p>
+        </main>
+        <footer class="modal-footer" style="margin-top:10px;">
+          <button id="custom-alert-ok" type="button" class="primary-button">Entender</button>
+        </footer>
+      </div>
+    </div>
+
+    <!-- MODAL EDICAO DE LIMITE DO SETUP -->
+    <div id="setup-limit-modal" class="modal hidden" role="dialog" aria-modal="true">
+      <div class="modal-content glass-panel">
+        <header class="modal-header">
+          <h2 id="setup-limit-title">Ajustar Limite</h2>
+          <button type="button" class="modal-close" data-close-modal="setup-limit-modal">×</button>
+        </header>
+        <main class="modal-body">
+          <p style="color:var(--text-secondary); font-size:13px;">Definir teto de gastos para esta categoria:</p>
+          <div class="choice-group">
+            <button type="button" class="choice-button" id="setup-limit-yes">Com Limite</button>
+            <button type="button" class="choice-button" id="setup-limit-no">Sem Limite</button>
+          </div>
+          <div id="setup-limit-input-container" class="hidden">
+            <label for="setup-limit-val">Valor do Limite (R$)</label>
+            <input id="setup-limit-val" class="hero-input" type="text" inputmode="decimal" placeholder="0,00">
+          </div>
+        </main>
+        <footer class="modal-footer">
+          <button id="save-setup-limit-button" type="button" class="primary-button">Salvar Limite</button>
+        </footer>
+      </div>
+    </div>
+
     <!-- MODAL DE HISTÓRICO DE MESES -->
     <div id="history-modal" class="modal hidden" role="dialog" aria-modal="true">
       <div class="modal-content glass-panel">
@@ -281,14 +343,11 @@
           <label for="edit-expense-value">Valor (R$)</label>
           <input id="edit-expense-value" class="hero-input" type="text" inputmode="decimal" placeholder="0,00">
 
-          <label for="edit-expense-category">Categoria</label>
-          <select id="edit-expense-category"></select>
+          <label>Categoria</label>
+          <button type="button" id="edit-expense-category-trigger" class="custom-select-button"></button>
 
-          <label for="edit-expense-origin">Origem</label>
-          <select id="edit-expense-origin">
-            <option value="salary">Salário</option>
-            <option value="extra">Extra</option>
-          </select>
+          <label>Origem</label>
+          <button type="button" id="edit-expense-origin-trigger" class="custom-select-button"></button>
 
           <label for="edit-expense-description">Descrição</label>
           <input id="edit-expense-description" type="text" maxlength="100" placeholder="Opcional">
@@ -313,11 +372,8 @@
           <label for="expense-value">Valor (R$)</label>
           <input id="expense-value" class="hero-input" type="text" inputmode="decimal" placeholder="0,00">
 
-          <label for="expense-origin">Origem</label>
-          <select id="expense-origin">
-            <option value="salary">Salário</option>
-            <option value="extra">Extra</option>
-          </select>
+          <label>Origem</label>
+          <button type="button" id="expense-origin-trigger" class="custom-select-button"></button>
 
           <label for="expense-description">Descrição</label>
           <input id="expense-description" type="text" maxlength="100" placeholder="Opcional">
@@ -427,15 +483,8 @@
           <label for="category-name">Nome</label>
           <input id="category-name" type="text" maxlength="40" placeholder="Nome da categoria">
 
-          <label for="category-icon">Ícone</label>
-          <select id="category-icon">
-            <option value="fixed">Gasto Fixo (Casa)</option>
-            <option value="reserve">Reserva (Cofre)</option>
-            <option value="medicine">Medicamentos (Remédio)</option>
-            <option value="leisure">Lazer (Controle)</option>
-            <option value="phone">Celular (Smartphone)</option>
-            <option value="other">Outros (Caixa)</option>
-          </select>
+          <label>Ícone</label>
+          <button type="button" id="category-icon-trigger" class="custom-select-button"></button>
 
           <p style="margin-top:10px;">Limite</p>
           <div class="choice-group">
