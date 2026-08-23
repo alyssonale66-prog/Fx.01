@@ -104,6 +104,26 @@ label {
   display: none !important;
 }
 
+/* ALINHAMENTO NUMÉRICO FIXO */
+.balance-value, 
+.category-balance, 
+.expense-item-amount, 
+.balance-source strong, 
+.hero-input {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+/* INPUTS ESTILO HERO EM MODAIS */
+.hero-input {
+  font-size: 30px !important;
+  font-weight: 800 !important;
+  text-align: center !important;
+  color: var(--accent) !important;
+  padding: 14px !important;
+  background: var(--surface-3) !important;
+}
+
 /* GLASSMORPHISM & EFEITOS */
 .glass-panel {
   background: rgba(18, 18, 18, 0.78) !important;
@@ -201,7 +221,11 @@ label {
   color: var(--text);
   font-weight: 700;
   font-size: 15px;
-  transition: all 0.2s ease;
+  transition: all 0.15s ease;
+}
+
+.choice-button:active {
+  transform: scale(0.96);
 }
 
 .choice-button.selected {
@@ -245,7 +269,6 @@ label {
   color: var(--text);
   font-size: 34px;
   font-weight: 800;
-  letter-spacing: -0.5px;
 }
 
 .balance-sources {
@@ -289,6 +312,11 @@ label {
   color: var(--accent);
   font-size: 11px;
   font-weight: 700;
+  transition: transform 0.1s ease;
+}
+
+.extra-button:active {
+  transform: scale(0.94);
 }
 
 /* CATEGORIAS */
@@ -320,7 +348,7 @@ label {
 }
 
 .category-card:active {
-  transform: scale(0.98);
+  transform: scale(0.97);
 }
 
 .category-main {
@@ -377,6 +405,11 @@ label {
   align-items: center;
   justify-content: center;
   font-size: 16px;
+  transition: transform 0.1s ease;
+}
+
+.category-icon-button:active {
+  transform: scale(0.92);
 }
 
 /* CONFIGURAÇÕES */
@@ -533,12 +566,18 @@ label {
   flex-direction: column;
   gap: 4px;
   color: var(--text);
+  transition: transform 0.15s ease;
+}
+
+.reserve-origin-option:active {
+  transform: scale(0.96);
 }
 
 .reserve-origin-option.selected {
-  border-color: var(--accent);
+  border: 2px solid var(--accent);
   background: var(--accent-soft);
   color: var(--accent);
+  box-shadow: var(--glow-gold);
 }
 
 .selected-reserve-origin {
@@ -588,11 +627,12 @@ label {
   padding: 12px 14px;
   background: var(--surface);
   cursor: pointer;
-  transition: background 0.15s ease;
+  transition: background 0.15s ease, transform 0.1s ease;
 }
 
 .expense-item-card:active {
   background: var(--surface-2);
+  transform: scale(0.98);
 }
 
 .expense-item-left {
@@ -633,19 +673,25 @@ label {
 .expense-origin-badge {
   font-size: 10px;
   font-weight: 700;
-  padding: 1px 6px;
+  padding: 2px 7px;
   border-radius: 4px;
   text-transform: uppercase;
 }
 
+/* ETIQUETAS DE ORIGEM COM CORES FOSCAS DISTINTAS */
 .badge-salary {
-  background: rgba(201, 162, 39, 0.15);
-  color: var(--accent);
+  background: rgba(46, 125, 50, 0.2);
+  color: #81c784;
 }
 
 .badge-extra {
-  background: rgba(255, 255, 255, 0.1);
-  color: var(--text-secondary);
+  background: rgba(103, 58, 183, 0.2);
+  color: #b388ff;
+}
+
+.badge-reserve {
+  background: var(--accent-soft);
+  color: var(--accent);
 }
 
 .expense-item-time {
@@ -740,6 +786,10 @@ label {
   transition: all 0.15s ease;
 }
 
+.primary-button:active, .secondary-button:active, .danger-button:active {
+  transform: scale(0.96);
+}
+
 .primary-button {
   color: #0a0a0a;
   background: var(--accent);
@@ -777,12 +827,16 @@ label {
   transition: all 0.15s ease;
 }
 
+.icon-button:active {
+  transform: scale(0.90);
+}
+
 .icon-button:hover {
   color: var(--accent);
   border-color: var(--border-gold);
 }
 
-/* MODAIS */
+/* MODAIS COM INDICADOR DE ARRASTE (BOTTOM SHEET HANDLE) */
 .modal {
   position: fixed;
   inset: 0;
@@ -807,13 +861,24 @@ label {
   overflow-y: auto;
   border-radius: var(--radius-large);
   box-shadow: var(--shadow);
+  position: relative;
+}
+
+.modal-content::before {
+  content: "";
+  display: block;
+  width: 38px;
+  height: 4px;
+  background: var(--surface-3);
+  border-radius: 99px;
+  margin: 10px auto 0;
 }
 
 .modal-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 18px 20px;
+  padding: 14px 20px 18px;
   border-bottom: 1px solid var(--border);
 }
 
