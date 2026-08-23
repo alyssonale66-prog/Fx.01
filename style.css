@@ -1,5 +1,5 @@
 /* ============================================================
-   FX — Matte Flow Theme (Versão Final Corrigida)
+   FX — Matte Flow Theme (Versão Final Refinada)
    ============================================================ */
 
 :root {
@@ -126,7 +126,7 @@ label {
 
 /* GLASSMORPHISM & EFEITOS */
 .glass-panel {
-  background: rgba(18, 18, 18, 0.78) !important;
+  background: rgba(18, 18, 18, 0.85) !important;
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border: 1px solid var(--border) !important;
@@ -501,6 +501,54 @@ label {
   line-height: 1.4;
 }
 
+/* SELETORES CUSTOMIZADOS (SUBSTITUEM CAIXAS NATIVAS) */
+.custom-select-button {
+  width: 100%;
+  min-height: 48px;
+  padding: 12px 16px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-small);
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 600;
+  text-align: left;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.custom-select-button::after {
+  content: "⌄";
+  font-size: 16px;
+  color: var(--accent);
+}
+
+.custom-picker-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.picker-option-button {
+  width: 100%;
+  padding: 14px 16px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-small);
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  transition: background 0.15s ease;
+}
+
+.picker-option-button:active {
+  background: var(--surface-3);
+}
+
 /* MODAL DE RESERVA */
 .reserve-balance {
   text-align: center;
@@ -678,7 +726,6 @@ label {
   text-transform: uppercase;
 }
 
-/* ETIQUETAS DE ORIGEM COM CORES FOSCAS DISTINTAS */
 .badge-salary {
   background: rgba(46, 125, 50, 0.2);
   color: #81c784;
@@ -742,7 +789,17 @@ label {
   transform: scale(0.92);
 }
 
-/* TELA DE BLOQUEIO */
+/* TELA DE BLOQUEIO COM TEXTURA GEOMÉTRICA DOURADA */
+#lock-screen {
+  background-color: #080808;
+  background-image: 
+    radial-gradient(circle at 80% 20%, rgba(201, 162, 39, 0.08) 0%, transparent 40%),
+    radial-gradient(circle at 10% 80%, rgba(201, 162, 39, 0.05) 0%, transparent 45%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.02) 25%, transparent 25%),
+    linear-gradient(225deg, rgba(255, 255, 255, 0.02) 25%, transparent 25%);
+  background-size: 100% 100%, 100% 100%, 40px 40px, 40px 40px;
+}
+
 .lock-container {
   width: 100%;
   max-width: 380px;
@@ -750,9 +807,9 @@ label {
 }
 
 .lock-card {
-  padding: 28px 22px;
+  padding: 32px 24px;
   border-radius: var(--radius-large);
-  box-shadow: var(--shadow);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8);
   text-align: center;
 }
 
@@ -774,7 +831,11 @@ label {
   top: 50%;
   transform: translateY(-50%);
   background: transparent;
-  font-size: 16px;
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
 }
 
 /* BOTÕES */
@@ -836,7 +897,7 @@ label {
   border-color: var(--border-gold);
 }
 
-/* MODAIS COM INDICADOR DE ARRASTE (BOTTOM SHEET HANDLE) */
+/* MODAIS */
 .modal {
   position: fixed;
   inset: 0;
