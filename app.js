@@ -125,7 +125,7 @@ function normalizeState() {
   if (!state.extra) state.extra = { balance: 0 };
   state.extra.balance = roundMoney(state.extra.balance);
 
-  if (!state.security) state.security = { password: "", locked: false, lastCycleNotificationDate: "", biometricId: null };
+  if (!state.security) state.security = { password: "", locked: false, lastCycleNotificationDate: "", biometricId: null, biometricType: null };
   if (!state.settings) state.settings = { cycleDay: 5, hideBalances: false };
 
   if (typeof state.settings.hideBalances !== "boolean") state.settings.hideBalances = false;
@@ -159,7 +159,7 @@ function createEmptyState() {
     version: FX_VERSION,
     setupCompleted: false,
     user: { name: "" },
-    security: { password: "", locked: false, lastCycleNotificationDate: "", biometricId: null },
+    security: { password: "", locked: false, lastCycleNotificationDate: "", biometricId: null, biometricType: null },
     salary: { reference: 0, split: false },
     extra: { balance: 0 },
     reserve: { balance: 0 },
@@ -889,77 +889,142 @@ function importBackup(event) {
   reader.readAsText(file);
 }
 
-/* SISTEMA BIOMÉTRICO (WEBAUTHN) */
-async function registerBiometrics() {
-  if (!window.PublicKeyCredential) {
-    return customAlert("Seu dispositivo ou navegador não suporta validação biométrica.");
+/* SISTEMA BIOMÉTRICO HÍBRIDO (CAPACITOR NATIVO APK + WEBAUTHN NAVEGADOR) */
+async function checkBiometricSupport() {
+  // 1. Verificação para APK Nativo (Capacitor)
+  if (window.Capacitor?.Plugins?.NativeBiometric) {
+    try {
+      const result = await window.Capacitor.Plugins.NativeBiometric.isAvailable();
+      return { type: "capacitor", available: !!result.isAvailable };
+    } catch {
+      return { type: "none", available: false };
+    }
   }
 
-  try {
-    const available = await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
-    if (!available) {
-      return customAlert("Biometria não disponível ou não configurada no dispositivo.");
+  // 2. Verificação para Navegador Web (HTTPS/Localhost)
+  if (window.PublicKeyCredential && (location.protocol === "https:" || location.hostname === "localhost")) {
+    try {
+      const available = await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
+      return { type: "webauthn", available: !!available };
+    } catch {
+      return { type: "none", available: false };
     }
+  }
 
-    const challenge = new Uint8Array(32);
-    window.crypto.getRandomValues(challenge);
+  return { type: "none", available: false };
+}
 
-    const userId = new Uint8Array(16);
-    window.crypto.getRandomValues(userId);
+async function registerBiometrics() {
+  const support = await checkBiometricSupport();
 
-    const publicKeyCredentialCreationOptions = {
-      challenge,
-      rp: { name: "FX App" },
-      user: {
-        id: userId,
-        name: state.user?.name || "usuario",
-        displayName: state.user?.name || "Usuário FX"
-      },
-      pubKeyCredParams: [{ alg: -7, type: "public-key" }],
-      authenticatorSelection: { authenticatorAttachment: "platform", userVerification: "required" },
-      timeout: 60000
-    };
+  if (!support.available) {
+    return customAlert("Seu dispositivo não possui biometria configurada ou ativa neste dispositivo.");
+  }
 
-    const credential = await navigator.credentials.create({ publicKey: publicKeyCredentialCreationOptions });
-    if (credential) {
-      state.security.biometricId = credential.id;
+  if (support.type === "capacitor") {
+    try {
+      await window.Capacitor.Plugins.NativeBiometric.verifyIdentity({
+        reason: "Cadastrar biometria no FX",
+        title: "Biometria FX",
+        subtitle: "Confirme sua digital ou face"
+      });
+      state.security.biometricId = "native_capacitor";
+      state.security.biometricType = "capacitor";
       saveState();
       customAlert("Biometria cadastrada com sucesso!");
+    } catch (err) {
+      customAlert("Não foi possível cadastrar a biometria: " + (err.message || "Cancelado pelo usuário."));
     }
-  } catch (err) {
-    console.error("Erro ao cadastrar biometria:", err);
-    customAlert("Não foi possível cadastrar a biometria: " + err.message);
+    return;
+  }
+
+  if (support.type === "webauthn") {
+    try {
+      const challenge = new Uint8Array(32);
+      window.crypto.getRandomValues(challenge);
+      const userId = new Uint8Array(16);
+      window.crypto.getRandomValues(userId);
+
+      const credential = await navigator.credentials.create({
+        publicKey: {
+          challenge,
+          rp: { name: "FX App" },
+          user: {
+            id: userId,
+            name: state.user?.name || "usuario",
+            displayName: state.user?.name || "Usuário FX"
+          },
+          pubKeyCredParams: [{ alg: -7, type: "public-key" }],
+          authenticatorSelection: { authenticatorAttachment: "platform", userVerification: "required" },
+          timeout: 60000
+        }
+      });
+
+      if (credential) {
+        state.security.biometricId = credential.id;
+        state.security.biometricType = "webauthn";
+        saveState();
+        customAlert("Biometria cadastrada com sucesso!");
+      }
+    } catch (err) {
+      console.error("Erro ao cadastrar biometria:", err);
+      customAlert("Não foi possível cadastrar a biometria: " + err.message);
+    }
   }
 }
 
 async function authenticateBiometric() {
-  if (!state.security.biometricId || !window.PublicKeyCredential) return;
+  if (!state.security.biometricId) return;
 
-  try {
-    const challenge = new Uint8Array(32);
-    window.crypto.getRandomValues(challenge);
+  const support = await checkBiometricSupport();
 
-    const publicKeyCredentialRequestOptions = {
-      challenge,
-      allowCredentials: [{
-        id: Uint8Array.from(atob(state.security.biometricId.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0)),
-        type: 'public-key'
-      }],
-      userVerification: "required",
-      timeout: 60000
-    };
-
-    const assertion = await navigator.credentials.get({ publicKey: publicKeyCredentialRequestOptions });
-    if (assertion) {
-      state.security.locked = false;
-      saveState();
-      showScreen("main");
-      renderApplication();
+  if (support.type === "capacitor") {
+    try {
+      await window.Capacitor.Plugins.NativeBiometric.verifyIdentity({
+        reason: "Acesse sua conta FX",
+        title: "Desbloqueio FX",
+        subtitle: "Confirme sua digital ou face"
+      });
+      unlockSuccess();
+    } catch (err) {
+      showElement("unlock-error", "Digital/Face não reconhecida. Use sua senha.");
     }
-  } catch (err) {
-    console.error("Autenticação biométrica falhou:", err);
-    showElement("unlock-error", "Falha na autenticação biométrica. Use sua senha.");
+    return;
   }
+
+  if (support.type === "webauthn" && state.security.biometricType === "webauthn") {
+    try {
+      const challenge = new Uint8Array(32);
+      window.crypto.getRandomValues(challenge);
+
+      const assertion = await navigator.credentials.get({
+        publicKey: {
+          challenge,
+          allowCredentials: [{
+            id: Uint8Array.from(atob(state.security.biometricId.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0)),
+            type: 'public-key'
+          }],
+          userVerification: "required",
+          timeout: 60000
+        }
+      });
+
+      if (assertion) unlockSuccess();
+    } catch (err) {
+      console.error("Autenticação biométrica falhou:", err);
+      showElement("unlock-error", "Falha na autenticação biométrica. Use sua senha.");
+    }
+    return;
+  }
+
+  showElement("unlock-error", "Biometria indisponível neste ambiente. Use sua senha.");
+}
+
+function unlockSuccess() {
+  state.security.locked = false;
+  saveState();
+  showScreen("main");
+  renderApplication();
 }
 
 function updateCustomSelectTriggers() {
