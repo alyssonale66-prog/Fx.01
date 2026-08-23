@@ -1,93 +1,47 @@
 /* ============================================================
-   FX.01 — Versão Final (Chave Mestra Oculta)
+   FX.01 — Versão Final Auditada (Matte Flow + Correções)
    ============================================================ */
 
 "use strict";
 
-/* ============================================================
-   CONFIGURAÇÕES FIXAS E CONSTANTES
-   ============================================================ */
-
 const FX_VERSION = "FX.01";
 const STORAGE_KEY = "fx01_data";
-
 const MASTER_KEY = ["F", "x", "0", "2", "0", "9", "1", "9"].join("");
 
+/* MAPA DE ÍCONES SVG PADRONIZADOS */
+const CATEGORY_ICONS = {
+  fixed: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>`,
+  reserve: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="12" x="2" y="6" rx="2"/><circle cx="12" cy="12" r="2"/></svg>`,
+  medicine: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"/><path d="m8.5 8.5 7 7"/></svg>`,
+  leisure: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="6" x2="10" y1="12" y2="12"/><line x1="8" x2="8" y1="10" y2="14"/><rect width="20" height="12" x="2" y="6" rx="6"/></svg>`,
+  phone: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="20" x="5" y="2" rx="2"/><line x1="12" x2="12.01" y1="18" y2="18"/></svg>`,
+  other: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/></svg>`
+};
+
+function getCategoryIconSvg(cat) {
+  if (cat && CATEGORY_ICONS[cat.id]) return CATEGORY_ICONS[cat.id];
+  return CATEGORY_ICONS.other;
+}
+
 const DEFAULT_CATEGORIES = [
-  {
-    id: "fixed",
-    name: "Gasto Fixo",
-    icon: "🏠",
-    hasLimit: false,
-    limit: null,
-    protected: true
-  },
-  {
-    id: "reserve",
-    name: "Reserva",
-    icon: "💰",
-    hasLimit: false,
-    limit: null,
-    protected: true,
-    immutable: true
-  },
-  {
-    id: "medicine",
-    name: "Medicamentos",
-    icon: "💊",
-    hasLimit: false,
-    limit: null,
-    protected: true
-  },
-  {
-    id: "leisure",
-    name: "Lazer",
-    icon: "🎮",
-    hasLimit: false,
-    limit: null,
-    protected: true
-  },
-  {
-    id: "phone",
-    name: "Celular",
-    icon: "📱",
-    hasLimit: false,
-    limit: null,
-    protected: true
-  },
-  {
-    id: "other",
-    name: "Outros",
-    icon: "📦",
-    hasLimit: false,
-    limit: null,
-    protected: true
-  }
+  { id: "fixed", name: "Gasto Fixo", icon: "fixed", hasLimit: false, limit: null, protected: true },
+  { id: "reserve", name: "Reserva", icon: "reserve", hasLimit: false, limit: null, protected: true, immutable: true },
+  { id: "medicine", name: "Medicamentos", icon: "medicine", hasLimit: false, limit: null, protected: true },
+  { id: "leisure", name: "Lazer", icon: "leisure", hasLimit: false, limit: null, protected: true },
+  { id: "phone", name: "Celular", icon: "phone", hasLimit: false, limit: null, protected: true },
+  { id: "other", name: "Outros", icon: "other", hasLimit: false, limit: null, protected: true }
 ];
 
-/* ============================================================
-   ESTADO TEMPORÁRIO DE INTERFACE
-   ============================================================ */
-
 let state = null;
-
 let currentCategoryId = null;
 let currentEditingCategoryId = null;
-
+let currentEditingExpenseId = null;
 let currentSetupStep = 1;
-
 let setupSalarySplit = null;
 let setupCategories = [];
-
 let settingsSalarySplit = null;
-
 let categoryEditorHasLimit = false;
-
 let selectedReserveOrigin = null;
-
-/* ============================================================
-   MAPEAMENTO DOM
-   ============================================================ */
 
 const $ = (id) => document.getElementById(id);
 
@@ -98,34 +52,18 @@ const screens = {
   settings: $("settings-screen")
 };
 
-/* ============================================================
-   INICIALIZAÇÃO
-   ============================================================ */
-
 document.addEventListener("DOMContentLoaded", () => {
-  initializeApplication();
-});
-
-function initializeApplication() {
   bindEvents();
   loadApplication();
-}
-
-/* ============================================================
-   PERSISTÊNCIA
-   ============================================================ */
+});
 
 function saveState() {
-  if (!state) {
-    return;
-  }
-
+  if (!state) return;
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 }
 
 function loadApplication() {
   const stored = localStorage.getItem(STORAGE_KEY);
-
   if (!stored) {
     startInitialSetup();
     return;
@@ -133,7 +71,6 @@ function loadApplication() {
 
   try {
     state = JSON.parse(stored);
-
     normalizeState();
 
     if (!state.setupCompleted) {
@@ -149,193 +86,76 @@ function loadApplication() {
     showScreen("main");
     renderApplication();
   } catch (error) {
-    console.error("Erro ao carregar os dados do FX:", error);
+    console.error("Erro ao carregar os dados:", error);
     localStorage.removeItem(STORAGE_KEY);
     startInitialSetup();
   }
 }
-
-/* ============================================================
-   NORMALIZAÇÃO
-   ============================================================ */
 
 function normalizeState() {
   if (!state || typeof state !== "object") {
     state = createEmptyState();
     return;
   }
+  if (!Array.isArray(state.categories)) state.categories = [];
+  if (!Array.isArray(state.cycles)) state.cycles = [];
+  if (!state.currentCycle) state.currentCycle = null;
 
-  if (!Array.isArray(state.categories)) {
-    state.categories = [];
-  }
-
-  if (!Array.isArray(state.cycles)) {
-    state.cycles = [];
-  }
-
-  if (!state.currentCycle) {
-    state.currentCycle = null;
-  }
-
-  if (!state.reserve || typeof state.reserve !== "object") {
-    state.reserve = {
-      balance: 0
-    };
-  }
-
+  if (!state.reserve) state.reserve = { balance: 0 };
   state.reserve.balance = roundMoney(state.reserve.balance);
 
-  if (!state.salary || typeof state.salary !== "object") {
-    state.salary = {
-      reference: 0,
-      split: false
-    };
-  }
-
+  if (!state.salary) state.salary = { reference: 0, split: false };
   state.salary.reference = roundMoney(state.salary.reference);
 
-  if (!state.extra || typeof state.extra !== "object") {
-    state.extra = {
-      balance: 0
-    };
-  }
-
+  if (!state.extra) state.extra = { balance: 0 };
   state.extra.balance = roundMoney(state.extra.balance);
 
-  if (!state.security || typeof state.security !== "object") {
-    state.security = {
-      password: "",
-      locked: false
-    };
-  }
-
-  if (!state.settings || typeof state.settings !== "object") {
-    state.settings = {
-      cycleDay: 5
-    };
-  }
-
-  if (!Number.isInteger(Number(state.settings.cycleDay))) {
-    state.settings.cycleDay = 5;
-  }
-
-  state.categories.forEach((category) => {
-    if (category.id === "reserve") {
-      category.name = "Reserva";
-      category.icon = "💰";
-      category.hasLimit = false;
-      category.limit = null;
-      category.protected = true;
-      category.immutable = true;
-    }
-
-    if (category.id === "other") {
-      category.hasLimit = false;
-      category.limit = null;
-      category.protected = true;
-    }
-  });
+  if (!state.security) state.security = { password: "", locked: false };
+  if (!state.settings) state.settings = { cycleDay: 5 };
 
   normalizeCycle(state.currentCycle);
-
-  state.cycles.forEach((cycle) => {
-    normalizeCycle(cycle);
-  });
+  state.cycles.forEach(normalizeCycle);
 }
 
 function normalizeCycle(cycle) {
-  if (!cycle) {
-    return;
-  }
+  if (!cycle) return;
+  if (!Array.isArray(cycle.expenses)) cycle.expenses = [];
+  if (!Array.isArray(cycle.transfers)) cycle.transfers = [];
+  if (!cycle.categoryUsage) cycle.categoryUsage = {};
 
-  if (!Array.isArray(cycle.expenses)) {
-    cycle.expenses = [];
-  }
-
-  if (!Array.isArray(cycle.transfers)) {
-    cycle.transfers = [];
-  }
-
-  if (!cycle.categoryUsage || typeof cycle.categoryUsage !== "object") {
-    cycle.categoryUsage = {};
-  }
-
-  if (!Number.isFinite(Number(cycle.salaryReceived))) {
-    cycle.salaryReceived = 0;
-  }
-
-  if (!Number.isFinite(Number(cycle.leftoverSalary))) {
-    cycle.leftoverSalary = 0;
-  }
-
-  if (!Number.isFinite(Number(cycle.extraAtStart))) {
-    cycle.extraAtStart = 0;
-  }
-
-  cycle.salaryReceived = roundMoney(cycle.salaryReceived);
-  cycle.leftoverSalary = roundMoney(cycle.leftoverSalary);
-  cycle.extraAtStart = roundMoney(cycle.extraAtStart);
-
-  if (typeof cycle.salaryAdded !== "boolean") {
-    cycle.salaryAdded = Boolean(cycle.salaryAdded);
-  }
+  cycle.salaryReceived = roundMoney(cycle.salaryReceived || 0);
+  cycle.leftoverSalary = roundMoney(cycle.leftoverSalary || 0);
 
   if (state && Array.isArray(state.categories)) {
-    state.categories.forEach((category) => {
+    state.categories.forEach((cat) => {
       let total = 0;
-
-      cycle.expenses.forEach((expense) => {
-        if (expense.categoryId === category.id) {
-          total += Number(expense.amount) || 0;
-        }
+      cycle.expenses.forEach((exp) => {
+        if (exp.categoryId === cat.id) total += Number(exp.amount) || 0;
       });
-
-      cycle.categoryUsage[category.id] = roundMoney(total);
+      cycle.categoryUsage[cat.id] = roundMoney(total);
     });
   }
 }
-
-/* ============================================================
-   ESTADO VAZIO
-   ============================================================ */
 
 function createEmptyState() {
   return {
     version: FX_VERSION,
     setupCompleted: false,
-    user: {
-      name: ""
-    },
-    security: {
-      password: "",
-      locked: false
-    },
-    salary: {
-      reference: 0,
-      split: false
-    },
-    extra: {
-      balance: 0
-    },
-    reserve: {
-      balance: 0
-    },
-    settings: {
-      cycleDay: 5
-    },
+    user: { name: "" },
+    security: { password: "", locked: false },
+    salary: { reference: 0, split: false },
+    extra: { balance: 0 },
+    reserve: { balance: 0 },
+    settings: { cycleDay: 5 },
     categories: [],
     cycles: [],
     currentCycle: null
   };
 }
 
-/* ============================================================
-   CONFIGURAÇÃO INICIAL
-   ============================================================ */
-
 function startInitialSetup() {
   state = createEmptyState();
-  setupCategories = cloneDefaultCategories();
+  setupCategories = DEFAULT_CATEGORIES.map((c) => ({ ...c }));
   currentSetupStep = 1;
   setupSalarySplit = null;
 
@@ -343,16 +163,8 @@ function startInitialSetup() {
   renderSetupStep();
 }
 
-function cloneDefaultCategories() {
-  return DEFAULT_CATEGORIES.map((category) => ({
-    ...category
-  }));
-}
-
 function renderSetupStep() {
-  const steps = document.querySelectorAll(".setup-step");
-
-  steps.forEach((step) => {
+  document.querySelectorAll(".setup-step").forEach((step) => {
     const stepNumber = Number(step.dataset.step);
     step.classList.toggle("hidden", stepNumber !== currentSetupStep);
   });
@@ -362,128 +174,52 @@ function renderSetupStep() {
   }
 
   const button = $("setup-next-button");
-
   if (button) {
-    button.textContent =
-      currentSetupStep === 6 ? "Concluir configuração" : "Continuar";
+    button.textContent = currentSetupStep === 6 ? "Concluir" : "Continuar";
   }
 }
 
 function renderSetupCategories() {
   const container = $("setup-categories");
-
-  if (!container) {
-    return;
-  }
-
+  if (!container) return;
   container.innerHTML = "";
 
-  setupCategories.forEach((category) => {
+  setupCategories.forEach((cat) => {
     const item = document.createElement("div");
     item.className = "settings-category-item";
-
-    const editButton =
-      category.id === "reserve"
-        ? ""
-        : `
-          <button
-            type="button"
-            class="settings-category-edit"
-            data-setup-category-edit="${escapeHTML(category.id)}"
-          >
-            ✏️
-          </button>
-        `;
-
     item.innerHTML = `
-      <div class="settings-category-icon">
-        ${escapeHTML(category.icon)}
-      </div>
+      <div class="settings-category-icon" style="color:var(--accent);">${getCategoryIconSvg(cat)}</div>
       <div class="settings-category-info">
-        <div class="settings-category-name">
-          ${escapeHTML(category.name)}
-        </div>
-        <div class="settings-category-limit">
-          ${
-            category.hasLimit && category.limit !== null
-              ? `Limite: ${formatMoney(category.limit)}`
-              : "Sem limite"
-          }
-        </div>
+        <div class="settings-category-name">${escapeHTML(cat.name)}</div>
+        <div class="settings-category-limit">${cat.hasLimit && cat.limit ? `Limite: ${formatMoney(cat.limit)}` : "Sem limite"}</div>
       </div>
-      ${editButton}
     `;
-
     container.appendChild(item);
   });
 }
 
 function handleSetupNext() {
   if (currentSetupStep === 1) {
-    const input = $("setup-username");
-    const username = input ? input.value.trim() : "";
-
-    if (!username) {
-      showSetupError("Digite um nome de usuário.");
-      if (input) input.focus();
-      return;
-    }
-
-    state.user.name = username;
+    const val = $("setup-username")?.value.trim();
+    if (!val) return alert("Digite seu nome de usuário.");
+    state.user.name = val;
   }
-
   if (currentSetupStep === 2) {
-    const input = $("setup-password");
-    const password = input ? input.value : "";
-
-    if (!password) {
-      showSetupError("Crie uma senha.");
-      if (input) input.focus();
-      return;
-    }
-
-    state.security.password = password;
+    const val = $("setup-password")?.value;
+    if (!val) return alert("Crie uma senha.");
+    state.security.password = val;
   }
-
   if (currentSetupStep === 3) {
-    const input = $("setup-salary");
-    const raw = input ? input.value : "";
-    const salary = parseMoneyInput(raw);
-
-    if (raw.trim() !== "" && salary === 0 && !isZeroMoneyInput(raw)) {
-      showSetupError("Digite um salário válido.");
-      if (input) input.focus();
-      return;
-    }
-
-    if (salary < 0) {
-      showSetupError("O salário não pode ser negativo.");
-      if (input) input.focus();
-      return;
-    }
-
-    state.salary.reference = salary;
+    const val = parseMoneyInput($("setup-salary")?.value);
+    state.salary.reference = val;
   }
-
   if (currentSetupStep === 4) {
-    if (setupSalarySplit === null) {
-      showSetupError("Escolha se deseja dividir o salário.");
-      return;
-    }
-
+    if (!setupSalarySplit) return alert("Escolha uma opção.");
     state.salary.split = setupSalarySplit === "yes";
   }
-
   if (currentSetupStep === 5) {
-    const input = $("setup-cycle-day");
-    const day = Number(input ? input.value : NaN);
-
-    if (!Number.isInteger(day) || day < 1 || day > 28) {
-      showSetupError("O dia do ciclo deve estar entre 1 e 28.");
-      if (input) input.focus();
-      return;
-    }
-
+    const day = Number($("setup-cycle-day")?.value);
+    if (!day || day < 1 || day > 28) return alert("Dia entre 1 e 28.");
     state.settings.cycleDay = day;
   }
 
@@ -496,610 +232,431 @@ function handleSetupNext() {
   completeInitialSetup();
 }
 
-function showSetupError(message) {
-  alert(message);
-}
-
 function completeInitialSetup() {
-  state.categories = setupCategories.map((category) => ({
-    ...category
-  }));
-
+  state.categories = setupCategories.map((c) => ({ ...c }));
   state.setupCompleted = true;
   state.security.locked = false;
 
   createInitialCycle();
-  addSalaryToCurrentCycle();
-
   saveState();
-
   showScreen("main");
   renderApplication();
 }
 
 function createInitialCycle() {
   const now = new Date();
-  const cycleStart = calculateCurrentCycleStart(now, state.settings.cycleDay);
+  const start = new Date(now.getFullYear(), now.getMonth(), state.settings.cycleDay);
+  const end = new Date(now.getFullYear(), now.getMonth() + 1, state.settings.cycleDay);
 
   state.currentCycle = {
     id: createId(),
-    startDate: cycleStart.toISOString(),
-    endDate: calculateNextCycleStart(
-      cycleStart,
-      state.settings.cycleDay
-    ).toISOString(),
-    salaryAdded: false,
-    leftoverSalary: 0,
+    startDate: start.toISOString(),
+    endDate: end.toISOString(),
     salaryReceived: roundMoney(state.salary.reference),
-    extraAtStart: roundMoney(state.extra.balance),
+    leftoverSalary: 0,
     expenses: [],
     transfers: [],
     categoryUsage: {}
   };
 
-  state.categories.forEach((category) => {
-    state.currentCycle.categoryUsage[category.id] = 0;
-  });
+  normalizeCycle(state.currentCycle);
 }
-
-/* ============================================================
-   CICLOS
-   ============================================================ */
-
-function calculateCurrentCycleStart(date, cycleDay) {
-  const result = new Date(date);
-  result.setHours(0, 0, 0, 0);
-
-  if (result.getDate() < cycleDay) {
-    result.setMonth(result.getMonth() - 1);
-  }
-
-  result.setDate(cycleDay);
-  return result;
-}
-
-function calculateNextCycleStart(startDate, cycleDay) {
-  const result = new Date(startDate);
-  result.setMonth(result.getMonth() + 1);
-  result.setDate(cycleDay);
-  return result;
-}
-
-function ensureCurrentCycle() {
-  if (!state) {
-    return;
-  }
-
-  if (!state.currentCycle) {
-    createInitialCycle();
-    addSalaryToCurrentCycle();
-    saveState();
-    return;
-  }
-
-  const now = new Date();
-  let safety = 0;
-
-  while (
-    now >= new Date(state.currentCycle.endDate) &&
-    safety < 120
-  ) {
-    startNewCycle();
-    safety++;
-  }
-}
-
-function startNewCycle() {
-  /*
-   * Captura a sobra real do salário do ciclo anterior
-   */
-  const leftoverSalary = getSalaryBalance();
-
-  const previousCycle = cloneObject(state.currentCycle);
-
-  const alreadyStored = state.cycles.some(
-    (cycle) => cycle.id === previousCycle.id
-  );
-
-  if (!alreadyStored) {
-    state.cycles.push(previousCycle);
-  }
-
-  const newStart = new Date(previousCycle.endDate);
-  const newEnd = calculateNextCycleStart(newStart, state.settings.cycleDay);
-
-  /*
-   * Soma o novo salário de referência com a sobra do mês anterior
-   */
-  const totalNewSalary = roundMoney(state.salary.reference + leftoverSalary);
-
-  state.currentCycle = {
-    id: createId(),
-    startDate: newStart.toISOString(),
-    endDate: newEnd.toISOString(),
-    salaryAdded: false,
-    leftoverSalary: roundMoney(leftoverSalary),
-    salaryReceived: totalNewSalary,
-    extraAtStart: roundMoney(state.extra.balance),
-    expenses: [],
-    transfers: [],
-    categoryUsage: {}
-  };
-
-  state.categories.forEach((category) => {
-    state.currentCycle.categoryUsage[category.id] = 0;
-  });
-
-  addSalaryToCurrentCycle();
-
-  saveState();
-}
-
-/* ============================================================
-   SALÁRIO
-   ============================================================ */
-
-function addSalaryToCurrentCycle() {
-  if (!state || !state.currentCycle) {
-    return;
-  }
-
-  if (state.currentCycle.salaryAdded) {
-    return;
-  }
-
-  const leftover = Number(state.currentCycle.leftoverSalary) || 0;
-  const amount = roundMoney(state.salary.reference + leftover);
-
-  state.currentCycle.salaryReceived = amount;
-  state.currentCycle.salaryAdded = true;
-  state.currentCycle.salaryEntryDate = new Date().toISOString();
-}
-
-/* ============================================================
-   SALDO DO SALÁRIO
-   ============================================================ */
 
 function getSalaryBalance() {
-  if (!state || !state.currentCycle) {
-    return 0;
-  }
+  if (!state || !state.currentCycle) return 0;
+  let balance = Number(state.currentCycle.salaryReceived) || 0;
 
-  let balance = roundMoney(state.currentCycle.salaryReceived);
-
-  state.currentCycle.expenses.forEach((expense) => {
-    if (expense.origin === "salary") {
-      balance -= Number(expense.amount) || 0;
-    }
+  state.currentCycle.expenses.forEach((exp) => {
+    if (exp.origin === "salary") balance -= Number(exp.amount) || 0;
   });
 
-  state.currentCycle.transfers.forEach((transfer) => {
-    if (
-      transfer.origin === "salary" &&
-      (transfer.type === "salary-to-reserve" || !transfer.type)
-    ) {
-      balance -= Number(transfer.amount) || 0;
-    }
+  state.currentCycle.transfers.forEach((tr) => {
+    if (tr.origin === "salary") balance -= Number(tr.amount) || 0;
   });
 
   return roundMoney(Math.max(0, balance));
 }
 
-/* ============================================================
-   EXTRA
-   ============================================================ */
-
-function addExtra(amount, description) {
-  amount = roundMoney(amount);
-
-  if (amount <= 0) {
-    throw new Error("O valor do Extra deve ser maior que zero.");
-  }
-
-  state.extra.balance = roundMoney(state.extra.balance + amount);
-
-  if (state.currentCycle) {
-    if (!Array.isArray(state.currentCycle.extraEntries)) {
-      state.currentCycle.extraEntries = [];
-    }
-
-    state.currentCycle.extraEntries.push({
-      id: createId(),
-      amount: amount,
-      description: description || "",
-      date: new Date().toISOString()
-    });
-  }
-
-  saveState();
-  renderApplication();
-}
-
 function getExtraBalance() {
-  if (!state || !state.extra) {
-    return 0;
-  }
-
-  return roundMoney(Math.max(0, Number(state.extra.balance) || 0));
+  return roundMoney(Math.max(0, Number(state.extra?.balance) || 0));
 }
-
-/* ============================================================
-   RESERVA
-   ============================================================ */
 
 function getReserveBalance() {
-  if (!state || !state.reserve) {
-    return 0;
-  }
-
-  return roundMoney(Math.max(0, Number(state.reserve.balance) || 0));
+  return roundMoney(Math.max(0, Number(state.reserve?.balance) || 0));
 }
-
-function saveToReserve(origin, amount) {
-  amount = roundMoney(amount);
-
-  if (amount <= 0) {
-    throw new Error("O valor deve ser maior que zero.");
-  }
-
-  if (origin !== "salary" && origin !== "extra") {
-    throw new Error("Escolha uma origem válida.");
-  }
-
-  const available = getOriginBalance(origin);
-
-  if (amount > available) {
-    throw new Error("Não existe dinheiro suficiente nessa origem.");
-  }
-
-  if (!state.currentCycle) {
-    throw new Error("Não existe um ciclo financeiro ativo.");
-  }
-
-  if (!Array.isArray(state.currentCycle.transfers)) {
-    state.currentCycle.transfers = [];
-  }
-
-  if (origin === "extra") {
-    state.extra.balance = roundMoney(state.extra.balance - amount);
-  }
-
-  state.currentCycle.transfers.push({
-    id: createId(),
-    origin: origin,
-    amount: amount,
-    type: origin === "salary" ? "salary-to-reserve" : "extra-to-reserve",
-    description: "Transferência para Reserva",
-    date: new Date().toISOString()
-  });
-
-  state.reserve.balance = roundMoney(state.reserve.balance + amount);
-
-  saveState();
-  renderApplication();
-}
-
-function withdrawFromReserve(amount) {
-  amount = roundMoney(amount);
-
-  if (amount <= 0) {
-    throw new Error("O valor deve ser maior que zero.");
-  }
-
-  const available = getReserveBalance();
-
-  if (amount > available) {
-    throw new Error("Não existe saldo suficiente na Reserva.");
-  }
-
-  if (!state.currentCycle) {
-    throw new Error("Não existe um ciclo financeiro ativo.");
-  }
-
-  state.reserve.balance = roundMoney(state.reserve.balance - amount);
-
-  createExpenseRecord(
-    "reserve",
-    amount,
-    "Retirada da reserva",
-    "reserve-withdrawal"
-  );
-
-  incrementCategoryUsage("other", amount);
-
-  saveState();
-  renderApplication();
-}
-
-/* ============================================================
-   ORIGENS
-   ============================================================ */
-
-function getOriginBalance(origin) {
-  if (origin === "salary") {
-    return getSalaryBalance();
-  }
-
-  if (origin === "extra") {
-    return getExtraBalance();
-  }
-
-  if (origin === "reserve") {
-    return getReserveBalance();
-  }
-
-  return 0;
-}
-
-/* ============================================================
-   GASTOS
-   ============================================================ */
 
 function launchExpense(categoryId, amount, origin, description) {
   amount = roundMoney(amount);
+  if (amount <= 0) throw new Error("O valor deve ser maior que zero.");
 
-  if (amount <= 0) {
-    throw new Error("O valor deve ser maior que zero.");
-  }
-
-  const category = findCategory(categoryId);
-
-  if (!category) {
-    throw new Error("Categoria não encontrada.");
-  }
-
-  if (category.id === "reserve") {
-    throw new Error("A Reserva possui uma operação própria.");
-  }
-
-  if (origin !== "salary" && origin !== "extra") {
-    throw new Error("Escolha uma origem válida.");
-  }
-
-  const available = getOriginBalance(origin);
-
-  if (amount > available) {
-    throw new Error("O valor é maior que o saldo disponível da origem.");
-  }
-
-  if (category.hasLimit && category.limit !== null) {
-    const limit = Number(category.limit) || 0;
-    const used = getCategoryUsage(category.id);
-    const remaining = roundMoney(limit - used);
-
-    if (amount > remaining) {
-      throw new Error("Esse gasto ultrapassa o limite da categoria.");
-    }
-  }
+  const available = origin === "salary" ? getSalaryBalance() : getExtraBalance();
+  if (amount > available) throw new Error("Saldo insuficiente na origem selecionada.");
 
   if (origin === "extra") {
     state.extra.balance = roundMoney(state.extra.balance - amount);
-  }
-
-  createExpenseRecord(origin, amount, description, category.id);
-  incrementCategoryUsage(category.id, amount);
-
-  saveState();
-  renderApplication();
-}
-
-/* ============================================================
-   REGISTRO DE GASTOS
-   ============================================================ */
-
-function createExpenseRecord(origin, amount, description, type) {
-  if (!state.currentCycle) {
-    return;
   }
 
   const expense = {
     id: createId(),
-    origin: origin,
-    amount: roundMoney(amount),
+    origin,
+    amount,
     description: description || "",
-    type: type,
-    categoryId:
-      type === "reserve-withdrawal"
-        ? "other"
-        : type === "salary-to-reserve" || type === "extra-to-reserve"
-        ? "reserve"
-        : type,
+    categoryId,
     date: new Date().toISOString()
   };
 
-  if (!Array.isArray(state.currentCycle.expenses)) {
-    state.currentCycle.expenses = [];
-  }
-
   state.currentCycle.expenses.push(expense);
+  normalizeCycle(state.currentCycle);
+
+  saveState();
+  renderApplication();
 }
 
-/* ============================================================
-   USO DAS CATEGORIAS
-   ============================================================ */
+/* EDITAR E EXCLUIR GASTOS */
+function openEditExpenseModal(expenseId) {
+  const expense = state.currentCycle.expenses.find((e) => e.id === expenseId);
+  if (!expense) return;
 
-function incrementCategoryUsage(categoryId, amount) {
-  if (!state.currentCycle) {
-    return;
-  }
+  currentEditingExpenseId = expenseId;
 
-  if (!state.currentCycle.categoryUsage) {
-    state.currentCycle.categoryUsage = {};
-  }
+  $("edit-expense-value").value = expense.amount.toFixed(2);
+  $("edit-expense-description").value = expense.description || "";
+  $("edit-expense-origin").value = expense.origin;
 
-  if (!Number.isFinite(Number(state.currentCycle.categoryUsage[categoryId]))) {
-    state.currentCycle.categoryUsage[categoryId] = 0;
-  }
+  const catSelect = $("edit-expense-category");
+  catSelect.innerHTML = "";
+  state.categories.forEach((cat) => {
+    if (cat.id !== "reserve") {
+      const opt = document.createElement("option");
+      opt.value = cat.id;
+      opt.textContent = cat.name;
+      if (cat.id === expense.categoryId) opt.selected = true;
+      catSelect.appendChild(opt);
+    }
+  });
 
-  state.currentCycle.categoryUsage[categoryId] = roundMoney(
-    state.currentCycle.categoryUsage[categoryId] + amount
-  );
+  hideElement("edit-expense-error");
+  openModal("expense-edit-modal");
 }
 
-function getCategoryUsage(categoryId) {
-  if (!state || !state.currentCycle || !state.currentCycle.categoryUsage) {
-    return 0;
-  }
+function saveExpenseEdit() {
+  try {
+    const expense = state.currentCycle.expenses.find((e) => e.id === currentEditingExpenseId);
+    if (!expense) throw new Error("Gasto não encontrado.");
 
-  return roundMoney(state.currentCycle.categoryUsage[categoryId] || 0);
+    const newAmount = parseMoneyInput($("edit-expense-value").value);
+    const newOrigin = $("edit-expense-origin").value;
+    const newCategory = $("edit-expense-category").value;
+    const newDesc = $("edit-expense-description").value.trim();
+
+    if (newAmount <= 0) throw new Error("O valor deve ser maior que zero.");
+
+    let virtualSalaryBal = getSalaryBalance();
+    let virtualExtraBal = getExtraBalance();
+
+    if (expense.origin === "salary") virtualSalaryBal += expense.amount;
+    else if (expense.origin === "extra") virtualExtraBal += expense.amount;
+
+    const availableForTarget = newOrigin === "salary" ? virtualSalaryBal : virtualExtraBal;
+
+    if (newAmount > availableForTarget) {
+      throw new Error("Saldo insuficiente para esta alteração.");
+    }
+
+    if (expense.origin === "extra") {
+      state.extra.balance = roundMoney(state.extra.balance + expense.amount);
+    }
+    if (newOrigin === "extra") {
+      state.extra.balance = roundMoney(state.extra.balance - newAmount);
+    }
+
+    expense.amount = newAmount;
+    expense.origin = newOrigin;
+    expense.categoryId = newCategory;
+    expense.description = newDesc;
+
+    normalizeCycle(state.currentCycle);
+    saveState();
+    closeModal("expense-edit-modal");
+    renderApplication();
+  } catch (err) {
+    showElement("edit-expense-error", err.message);
+  }
 }
 
-function getCategoryBalance(category) {
-  if (!category) {
-    return 0;
+function deleteExpense() {
+  if (!currentEditingExpenseId) return;
+
+  if (!confirm("Tem certeza que deseja excluir este gasto?")) return;
+
+  const index = state.currentCycle.expenses.findIndex((e) => e.id === currentEditingExpenseId);
+  if (index === -1) return;
+
+  const expense = state.currentCycle.expenses[index];
+
+  if (expense.origin === "extra") {
+    state.extra.balance = roundMoney(state.extra.balance + expense.amount);
   }
+
+  state.currentCycle.expenses.splice(index, 1);
+  normalizeCycle(state.currentCycle);
+
+  saveState();
+  closeModal("expense-edit-modal");
+  renderApplication();
+}
+
+function openCategoryDetails(categoryId) {
+  const category = state.categories.find((c) => c.id === categoryId);
+  if (!category) return;
 
   if (category.id === "reserve") {
-    return getReserveBalance();
-  }
-
-  if (category.id === "other") {
-    return getCategoryUsage("other");
-  }
-
-  if (!category.hasLimit || category.limit === null) {
-    return null;
-  }
-
-  const usage = getCategoryUsage(category.id);
-  const limit = Number(category.limit) || 0;
-
-  return roundMoney(Math.max(0, limit - usage));
-}
-
-/* ============================================================
-   SALDO PRINCIPAL
-   ============================================================ */
-
-function getAvailableBalance() {
-  return roundMoney(getSalaryBalance() + getExtraBalance());
-}
-
-/* ============================================================
-   CATEGORIAS
-   ============================================================ */
-
-function findCategory(id) {
-  if (!state || !Array.isArray(state.categories)) {
-    return null;
-  }
-
-  return state.categories.find((category) => category.id === id);
-}
-
-function createCategory(name, icon, hasLimit, limit) {
-  const cleanName = String(name || "").trim();
-
-  if (!cleanName) {
-    throw new Error("Digite o nome da categoria.");
-  }
-
-  const finalHasLimit = Boolean(hasLimit);
-  const finalLimit = finalHasLimit ? roundMoney(Number(limit) || 0) : null;
-
-  const category = {
-    id: "custom-" + createId(),
-    name: cleanName,
-    icon: String(icon || "").trim() || "📁",
-    hasLimit: finalHasLimit,
-    limit: finalLimit,
-    protected: false,
-    immutable: false
-  };
-
-  state.categories.push(category);
-
-  if (state.currentCycle && state.currentCycle.categoryUsage) {
-    state.currentCycle.categoryUsage[category.id] = 0;
-  }
-
-  saveState();
-  renderApplication();
-}
-
-function updateCategory(categoryId, name, icon, hasLimit, limit) {
-  const category = findCategory(categoryId);
-
-  if (!category) {
-    throw new Error("Categoria não encontrada.");
-  }
-
-  if (category.id === "reserve" || category.immutable) {
-    throw new Error("A categoria Reserva é imutável e não pode ser alterada.");
-  }
-
-  const cleanName = String(name || "").trim();
-  const cleanIcon = String(icon || "").trim();
-
-  if (!cleanName) {
-    throw new Error("Digite o nome da categoria.");
-  }
-
-  category.name = cleanName;
-  category.icon = cleanIcon || category.icon || "📁";
-  category.hasLimit = Boolean(hasLimit);
-  category.limit = category.hasLimit ? roundMoney(Number(limit) || 0) : null;
-
-  saveState();
-  renderApplication();
-}
-
-/* ============================================================
-   ABAS
-   ============================================================ */
-
-function switchTab(tabName) {
-  const homeTab = $("tab-home");
-  const extratoTab = $("tab-extrato");
-  const btnHome = $("nav-home-button");
-  const btnExtrato = $("nav-extrato-button");
-
-  if (tabName === "extrato") {
-    if (homeTab) homeTab.classList.add("hidden");
-    if (extratoTab) extratoTab.classList.remove("hidden");
-
-    if (btnHome) {
-      btnHome.classList.remove("active");
-      btnHome.style.color = "#888888";
-    }
-
-    if (btnExtrato) {
-      btnExtrato.classList.add("active");
-      btnExtrato.style.color = "#ffffff";
-    }
-
-    renderExpenses();
-  } else {
-    if (homeTab) homeTab.classList.remove("hidden");
-    if (extratoTab) extratoTab.classList.add("hidden");
-
-    if (btnHome) {
-      btnHome.classList.add("active");
-      btnHome.style.color = "#ffffff";
-    }
-
-    if (btnExtrato) {
-      btnExtrato.classList.remove("active");
-      btnExtrato.style.color = "#888888";
-    }
-  }
-}
-
-/* ============================================================
-   RENDERIZAÇÃO
-   ============================================================ */
-
-function renderApplication() {
-  if (!state) {
+    openReserveModal();
     return;
   }
 
-  ensureCurrentCycle();
+  const container = $("category-details");
+  if (!container) return;
 
+  const expenses = (state.currentCycle?.expenses || [])
+    .filter((e) => e.categoryId === categoryId)
+    .sort((a, b) => new Date(b.date) - new Date(a.date));
+
+  const usage = state.currentCycle.categoryUsage[categoryId] || 0;
+
+  let html = `
+    <div style="text-align:center; padding-bottom:12px;">
+      <div style="display:inline-flex; align-items:center; justify-content:center; width:48px; height:48px; border-radius:50%; background:var(--surface-3); color:var(--accent); margin-bottom:8px;">
+        ${getCategoryIconSvg(category)}
+      </div>
+      <h3 style="font-size:20px; font-weight:800;">${escapeHTML(category.name)}</h3>
+      <p style="color:var(--text-secondary); font-size:14px; margin-top:4px;">
+        Total Lançado: <strong>${formatMoney(usage)}</strong>
+      </p>
+    </div>
+    <div class="expense-group-items">
+  `;
+
+  if (!expenses.length) {
+    html += `<div style="padding:20px; text-align:center; color:var(--text-muted);">Nenhum gasto nesta categoria.</div>`;
+  } else {
+    expenses.forEach((exp) => {
+      html += `
+        <div class="expense-item-card" data-edit-expense-id="${exp.id}">
+          <div class="expense-item-left">
+            <div class="expense-item-details">
+              <span class="expense-item-title">${escapeHTML(exp.description || category.name)}</span>
+              <span class="expense-item-time">${new Date(exp.date).toLocaleDateString("pt-BR")}</span>
+            </div>
+          </div>
+          <span class="expense-item-amount">${formatMoney(exp.amount)}</span>
+        </div>
+      `;
+    });
+  }
+
+  html += `</div>`;
+  container.innerHTML = html;
+  openModal("category-modal");
+}
+
+/* RESERVA */
+function openReserveModal() {
+  if ($("reserve-value")) $("reserve-value").value = "";
+  if ($("withdraw-value")) $("withdraw-value").value = "";
+
+  selectedReserveOrigin = null;
+  hideElement("reserve-error");
+  hideElement("reserve-form");
+  hideElement("withdraw-form");
+  hideElement("reserve-origin-section");
+
+  document.querySelectorAll("[data-reserve-origin]").forEach((btn) => btn.classList.remove("selected"));
+  setText("selected-reserve-origin", "");
+  setText("reserve-balance", formatMoney(getReserveBalance()));
+
+  openModal("reserve-modal");
+}
+
+function showReserveSaveForm() {
+  hideElement("withdraw-form");
+  showElement("reserve-form");
+  showElement("reserve-origin-section");
+  setText("reserve-salary-available", formatMoney(getSalaryBalance()));
+  setText("reserve-extra-available", formatMoney(getExtraBalance()));
+}
+
+function showWithdrawForm() {
+  hideElement("reserve-form");
+  hideElement("reserve-origin-section");
+  showElement("withdraw-form");
+}
+
+function confirmReserveSave() {
+  try {
+    if (!selectedReserveOrigin) throw new Error("Selecione de onde retirar o dinheiro.");
+    const amount = parseMoneyInput($("reserve-value")?.value);
+    if (amount <= 0) throw new Error("Valor deve ser maior que zero.");
+
+    const available = selectedReserveOrigin === "salary" ? getSalaryBalance() : getExtraBalance();
+    if (amount > available) throw new Error("Saldo insuficiente na origem.");
+
+    if (selectedReserveOrigin === "extra") {
+      state.extra.balance = roundMoney(state.extra.balance - amount);
+    }
+
+    state.currentCycle.transfers.push({
+      id: createId(),
+      origin: selectedReserveOrigin,
+      amount: amount,
+      date: new Date().toISOString()
+    });
+
+    state.reserve.balance = roundMoney(state.reserve.balance + amount);
+    saveState();
+    closeModal("reserve-modal");
+    renderApplication();
+  } catch (err) {
+    showElement("reserve-error", err.message);
+  }
+}
+
+function confirmReserveWithdraw() {
+  try {
+    const amount = parseMoneyInput($("withdraw-value")?.value);
+    if (amount <= 0) throw new Error("Valor deve ser maior que zero.");
+    if (amount > getReserveBalance()) throw new Error("Saldo insuficiente na Reserva.");
+
+    state.reserve.balance = roundMoney(state.reserve.balance - amount);
+    saveState();
+    closeModal("reserve-modal");
+    renderApplication();
+  } catch (err) {
+    showElement("reserve-error", err.message);
+  }
+}
+
+/* GRÁFICO DO MÊS */
+function openChartModal() {
+  const container = $("chart-container");
+  if (!container) return;
+
+  const totals = state.categories
+    .map((c) => ({ name: c.name, icon: getCategoryIconSvg(c), value: state.currentCycle.categoryUsage[c.id] || 0 }))
+    .filter((c) => c.value > 0);
+
+  const totalSum = totals.reduce((acc, curr) => acc + curr.value, 0);
+
+  if (!totals.length || totalSum <= 0) {
+    return alert("Ainda não existem gastos lançados no ciclo.");
+  }
+
+  let cursor = 0;
+  const segments = totals.map((item, idx) => {
+    const pct = (item.value / totalSum) * 100;
+    const start = cursor;
+    cursor += pct;
+    const hue = Math.round((idx / totals.length) * 360);
+    return { ...item, pct, start, end: cursor, color: `hsl(${hue} 70% 50%)` };
+  });
+
+  const gradient = segments.map((s) => `${s.color} ${s.start}% ${s.end}%`).join(", ");
+
+  const legendHTML = segments
+    .map(
+      (s) => `
+    <div class="pizza-legend-item">
+      <span style="display:flex; align-items:center; gap:8px;">
+        <span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:${s.color};"></span>
+        ${escapeHTML(s.name)}
+      </span>
+      <strong>${formatMoney(s.value)} (${s.pct.toFixed(1)}%)</strong>
+    </div>
+  `
+    )
+    .join("");
+
+  container.innerHTML = `
+    <div class="pizza-chart" style="background: conic-gradient(${gradient}); position:relative; margin: 0 auto;">
+      <div style="position:absolute; inset:25%; background:var(--surface); border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:800;">
+        ${formatMoney(totalSum)}
+      </div>
+    </div>
+    <div class="pizza-legend">${legendHTML}</div>
+  `;
+
+  openModal("chart-modal");
+}
+
+/* CONFIGURAÇÕES DE SALÁRIO E SEGURANÇA */
+function saveSalarySettings() {
+  const raw = $("settings-salary")?.value;
+  const salary = parseMoneyInput(raw);
+
+  if (salary < 0) return alert("Salário não pode ser negativo.");
+
+  state.salary.reference = salary;
+  state.salary.split = settingsSalarySplit === "yes";
+
+  if (state.currentCycle) {
+    const leftover = Number(state.currentCycle.leftoverSalary) || 0;
+    state.currentCycle.salaryReceived = roundMoney(salary + leftover);
+  }
+
+  saveState();
+  renderApplication();
+  alert("Salário salvo com sucesso.");
+}
+
+function saveCycleSettings() {
+  const newDay = Number($("settings-cycle-day")?.value);
+  if (!Number.isInteger(newDay) || newDay < 1 || newDay > 28) return alert("Dia entre 1 e 28.");
+
+  state.settings.cycleDay = newDay;
+  saveState();
+  alert("Alteração será aplicada no próximo ciclo.");
+}
+
+function saveNewPassword() {
+  const current = $("current-password")?.value;
+  const newPass = $("new-password")?.value;
+  const confirmPass = $("confirm-new-password")?.value;
+
+  if (current !== state.security.password && current !== MASTER_KEY) {
+    return showElement("password-error", "Senha atual incorreta.");
+  }
+  if (!newPass) return showElement("password-error", "Digite a nova senha.");
+  if (newPass !== confirmPass) return showElement("password-error", "Senhas não coincidem.");
+
+  state.security.password = newPass;
+  saveState();
+  closeModal("password-modal");
+  alert("Senha alterada com sucesso.");
+}
+
+function deleteAllData() {
+  const pass = $("delete-password")?.value;
+  const confirmText = $("delete-confirmation")?.value.trim();
+
+  if (pass !== state.security.password && pass !== MASTER_KEY) {
+    return showElement("delete-error", "Senha incorreta.");
+  }
+  if (confirmText !== "APAGAR") {
+    return showElement("delete-error", "Digite APAGAR para confirmar.");
+  }
+
+  localStorage.removeItem(STORAGE_KEY);
+  state = null;
+  closeModal("delete-data-modal");
+  startInitialSetup();
+}
+
+/* RENDERIZAÇÃO */
+function renderApplication() {
+  if (!state) return;
   renderBalances();
   renderCategories();
-  renderExpenses();
-  renderSettingsCategories();
+  renderExpensesGrouped();
   renderSettingsValues();
 }
 
@@ -1116,1519 +673,110 @@ function renderBalances() {
 
 function renderCategories() {
   const container = $("categories-list");
-
-  if (!container) {
-    return;
-  }
-
+  if (!container) return;
   container.innerHTML = "";
 
-  state.categories.forEach((category) => {
+  state.categories.forEach((cat) => {
     const card = document.createElement("div");
-    const balance = getCategoryBalance(category);
-    const usage = getCategoryUsage(category.id);
+    card.className = "category-card";
 
-    let progressHTML = "";
-    let isFull = false;
+    const usage = state.currentCycle.categoryUsage[cat.id] || 0;
+    let balanceText = "Sem limite";
 
-    if (category.hasLimit && category.limit !== null) {
-      const limit = Number(category.limit) || 0;
-      let percentage = 0;
-
-      if (limit > 0) {
-        percentage = Math.min(100, (usage / limit) * 100);
-      } else if (usage > 0) {
-        percentage = 100;
-      }
-
-      isFull = percentage >= 100;
-
-      progressHTML = `
-        <div class="category-progress">
-          <div
-            class="category-progress-bar ${isFull ? "full" : ""}"
-            style="width:${percentage}%"
-          ></div>
-        </div>
-      `;
-    }
-
-    card.className = `category-card ${isFull ? "locked" : ""}`;
-
-    let balanceText;
-
-    if (category.id === "reserve") {
-      balanceText = formatMoney(getReserveBalance());
-    } else if (category.id === "other") {
-      balanceText = formatMoney(usage);
-    } else if (category.hasLimit && category.limit !== null) {
-      balanceText = formatMoney(balance);
-    } else {
-      balanceText = "Sem limite";
-    }
+    if (cat.id === "reserve") balanceText = formatMoney(getReserveBalance());
+    else if (cat.hasLimit && cat.limit !== null) balanceText = formatMoney(Math.max(0, cat.limit - usage));
+    else if (cat.id === "other") balanceText = formatMoney(usage);
 
     card.innerHTML = `
-      <div
-        class="category-main"
-        data-category-expense="${escapeHTML(category.id)}"
-      >
+      <div class="category-main" data-category-expense="${cat.id}">
         <div class="category-top">
-          <span class="category-name">
-            ${escapeHTML(category.name)}
+          <span class="category-name" style="display:flex; align-items:center; gap:8px;">
+            ${getCategoryIconSvg(cat)}
+            ${escapeHTML(cat.name)}
           </span>
-          <span class="category-balance">
-            ${balanceText}
-          </span>
+          <span class="category-balance">${balanceText}</span>
         </div>
-        ${progressHTML}
       </div>
-      <button
-        type="button"
-        class="category-icon-button"
-        data-category-open="${escapeHTML(category.id)}"
-        aria-label="Abrir ${escapeHTML(category.name)}"
-      >
-        ${escapeHTML(category.icon)}
+      <button type="button" class="category-icon-button" data-category-open="${cat.id}" aria-label="Detalhes de ${cat.name}">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg>
       </button>
     `;
-
     container.appendChild(card);
   });
 }
 
-function renderExpenses() {
+function renderExpensesGrouped() {
   const container = $("expenses-list");
-
-  if (!container) {
-    return;
-  }
-
+  if (!container) return;
   container.innerHTML = "";
 
-  const expenses =
-    state.currentCycle && Array.isArray(state.currentCycle.expenses)
-      ? [...state.currentCycle.expenses]
-      : [];
-
-  expenses.sort((a, b) => new Date(b.date) - new Date(a.date));
-
+  const expenses = state.currentCycle?.expenses || [];
   if (!expenses.length) {
-    container.innerHTML = `
-      <div class="empty-state">
-        Nenhum gasto registrado neste ciclo.
-      </div>
-    `;
+    container.innerHTML = `<div style="text-align:center; padding:30px; color:var(--text-muted);">Nenhum gasto registrado neste ciclo.</div>`;
     return;
   }
 
-  expenses.forEach((expense) => {
-    const item = document.createElement("div");
-    item.className = "expense-item";
-
-    const category = findCategory(expense.categoryId);
-    const categoryIcon = category ? category.icon : "📦";
-    const categoryName = category ? category.name : "Outros";
-
-    const hasDescription =
-      expense.description && expense.description.trim() !== "";
-
-    item.innerHTML = `
-      <div class="expense-info">
-        <div class="expense-category-tag">
-          <span class="expense-icon">
-            ${escapeHTML(categoryIcon)}
-          </span>
-          <strong class="expense-category-name">
-            ${escapeHTML(categoryName)}
-          </strong>
-        </div>
-        ${
-          hasDescription
-            ? `
-              <div class="expense-description">
-                ${escapeHTML(expense.description)}
-              </div>
-            `
-            : ""
-        }
-        <div class="expense-date">
-          ${formatDateTime(expense.date)}
-        </div>
-      </div>
-      <div class="expense-value-container">
-        <span class="expense-value">
-          ${formatMoney(expense.amount)}
-        </span>
-      </div>
-    `;
-
-    container.appendChild(item);
+  const groups = {};
+  expenses.forEach((exp) => {
+    const dateKey = new Date(exp.date).toLocaleDateString("pt-BR", { day: "2-digit", month: "long" });
+    if (!groups[dateKey]) groups[dateKey] = [];
+    groups[dateKey].push(exp);
   });
-}
 
-function renderSettingsCategories() {
-  const container = $("settings-categories-list");
+  Object.keys(groups).forEach((dateTitle) => {
+    const groupDiv = document.createElement("div");
+    groupDiv.className = "expense-group";
 
-  if (!container) {
-    return;
-  }
+    let itemsHTML = "";
+    groups[dateTitle].forEach((exp) => {
+      const cat = state.categories.find((c) => c.id === exp.categoryId);
+      const catName = cat ? cat.name : "Outros";
 
-  container.innerHTML = "";
-
-  state.categories.forEach((category) => {
-    const item = document.createElement("div");
-    item.className = "settings-category-item";
-
-    const editButton =
-      category.id === "reserve"
-        ? ""
-        : `
-          <button
-            type="button"
-            class="settings-category-edit"
-            data-edit-category="${escapeHTML(category.id)}"
-          >
-            ✏️
-          </button>
-        `;
-
-    item.innerHTML = `
-      <div class="settings-category-icon">
-        ${escapeHTML(category.icon)}
-      </div>
-      <div class="settings-category-info">
-        <div class="settings-category-name">
-          ${escapeHTML(category.name)}
+      itemsHTML += `
+        <div class="expense-item-card" data-edit-expense-id="${exp.id}">
+          <div class="expense-item-left">
+            <div class="expense-item-icon" style="color:var(--accent);">${getCategoryIconSvg(cat)}</div>
+            <div class="expense-item-details">
+              <span class="expense-item-title">${escapeHTML(exp.description || catName)}</span>
+              <div class="expense-item-sub">
+                <span class="expense-origin-badge ${exp.origin === "salary" ? "badge-salary" : "badge-extra"}">${exp.origin === "salary" ? "Salário" : "Extra"}</span>
+                <span class="expense-item-time">${new Date(exp.date).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</span>
+              </div>
+            </div>
+          </div>
+          <span class="expense-item-amount">${formatMoney(exp.amount)}</span>
         </div>
-        <div class="settings-category-limit">
-          ${
-            category.hasLimit && category.limit !== null
-              ? `Limite: ${formatMoney(category.limit)}`
-              : "Sem limite"
-          }
-        </div>
-      </div>
-      ${editButton}
+      `;
+    });
+
+    groupDiv.innerHTML = `
+      <div class="expense-group-date">${dateTitle}</div>
+      <div class="expense-group-items">${itemsHTML}</div>
     `;
 
-    container.appendChild(item);
+    container.appendChild(groupDiv);
   });
 }
 
 function renderSettingsValues() {
-  const salaryInput = $("settings-salary");
-  const cycleInput = $("settings-cycle-day");
-  const previousLabel = $("previous-cycle-label");
-
-  if (salaryInput) {
-    salaryInput.value = Number(state.salary.reference).toFixed(2);
-  }
-
-  if (cycleInput) {
-    cycleInput.value = state.settings.cycleDay;
-  }
-
-  const cycles = getAllCyclesForHistory();
-
-  if (previousLabel) {
-    if (cycles.length >= 2) {
-      const prev = cycles[cycles.length - 2];
-      previousLabel.textContent = `Mês anterior (${formatDate(prev.startDate)})`;
-    } else {
-      previousLabel.textContent = "Mês anterior";
-    }
-  }
-
+  if ($("settings-salary")) $("settings-salary").value = Number(state.salary.reference).toFixed(2);
+  if ($("settings-cycle-day")) $("settings-cycle-day").value = state.settings.cycleDay;
   settingsSalarySplit = state.salary.split ? "yes" : "no";
   updateSalarySplitButtons();
 }
 
-/* ============================================================
-   NAVEGAÇÃO / MODAIS
-   ============================================================ */
-
-function showScreen(name) {
-  Object.values(screens).forEach((screen) => {
-    if (!screen) {
-      return;
-    }
-
-    screen.classList.add("hidden");
-  });
-
-  if (screens[name]) {
-    screens[name].classList.remove("hidden");
-  }
-}
-
-function openSettings() {
-  showScreen("settings");
-  renderSettingsCategories();
-  renderSettingsValues();
-}
-
-function closeSettings() {
-  showScreen("main");
-  renderApplication();
-}
-
-function openModal(id) {
-  const modal = $(id);
-
-  if (modal) {
-    modal.classList.remove("hidden");
-  }
-}
-
-function closeModal(id) {
-  const modal = $(id);
-
-  if (!modal) {
-    return;
-  }
-
-  modal.classList.add("hidden");
-  clearModalState(id);
-}
-
-function clearModalState(id) {
-  if (id === "expense-modal") {
-    currentCategoryId = null;
-  }
-
-  if (id === "category-editor-modal") {
-    currentEditingCategoryId = null;
-    categoryEditorHasLimit = false;
-  }
-
-  if (id === "reserve-modal") {
-    selectedReserveOrigin = null;
-  }
-}
-
-/* ============================================================
-   GASTOS
-   ============================================================ */
-
-function openExpenseModal(categoryId) {
-  const category = findCategory(categoryId);
-
-  if (!category) {
-    return;
-  }
-
-  if (category.id === "reserve") {
-    openReserveModal();
-    return;
-  }
-
-  currentCategoryId = categoryId;
-
-  const title = $("expense-modal-title");
-
-  if (title) {
-    title.textContent = `Lançar gasto — ${category.name}`;
-  }
-
-  if ($("expense-value")) {
-    $("expense-value").value = "";
-  }
-
-  if ($("expense-description")) {
-    $("expense-description").value = "";
-  }
-
-  const originSelect = $("expense-origin");
-
-  if (originSelect) {
-    originSelect.value = "salary";
-
-    Array.from(originSelect.options).forEach((option) => {
-      if (option.value === "reserve") {
-        option.disabled = true;
-        option.style.display = "none";
-      } else {
-        option.disabled = false;
-        option.style.display = "";
-      }
-    });
-  }
-
-  hideElement("expense-error");
-  openModal("expense-modal");
-}
-
-function confirmExpense() {
-  try {
-    const amount = parseMoneyInput(
-      $("expense-value") ? $("expense-value").value : ""
-    );
-
-    const origin = $("expense-origin") ? $("expense-origin").value : "salary";
-
-    const description = $("expense-description")
-      ? $("expense-description").value.trim()
-      : "";
-
-    if (!currentCategoryId) {
-      throw new Error("Nenhuma categoria selecionada.");
-    }
-
-    launchExpense(currentCategoryId, amount, origin, description);
-    closeModal("expense-modal");
-  } catch (error) {
-    showElement("expense-error", error.message);
-  }
-}
-
-/* ============================================================
-   EXTRA
-   ============================================================ */
-
-function openExtraModal() {
-  if ($("extra-value")) {
-    $("extra-value").value = "";
-  }
-
-  if ($("extra-description")) {
-    $("extra-description").value = "";
-  }
-
-  hideElement("extra-error");
-  openModal("extra-modal");
-}
-
-function confirmExtra() {
-  try {
-    const amount = parseMoneyInput(
-      $("extra-value") ? $("extra-value").value : ""
-    );
-
-    const description = $("extra-description")
-      ? $("extra-description").value.trim()
-      : "";
-
-    addExtra(amount, description);
-    closeModal("extra-modal");
-  } catch (error) {
-    showElement("extra-error", error.message);
-  }
-}
-
-/* ============================================================
-   RESERVA — INTERFACE
-   ============================================================ */
-
-function openReserveModal() {
-  if ($("reserve-value")) {
-    $("reserve-value").value = "";
-  }
-
-  if ($("withdraw-value")) {
-    $("withdraw-value").value = "";
-  }
-
-  selectedReserveOrigin = null;
-
-  hideElement("reserve-error");
-  hideElement("reserve-form");
-  hideElement("withdraw-form");
-  hideElement("reserve-origin-section");
-
-  document.querySelectorAll("[data-reserve-origin]").forEach((button) => {
-    button.classList.remove("selected");
-  });
-
-  setText("selected-reserve-origin", "");
-  setText("reserve-balance", formatMoney(getReserveBalance()));
-
-  openModal("reserve-modal");
-}
-
-function showReserveSaveForm() {
-  hideElement("withdraw-form");
-  showElement("reserve-form");
-  showElement("reserve-origin-section");
-
-  if ($("reserve-value")) {
-    $("reserve-value").value = "";
-  }
-
-  selectedReserveOrigin = null;
-
-  document.querySelectorAll("[data-reserve-origin]").forEach((button) => {
-    button.classList.remove("selected");
-  });
-
-  setText("selected-reserve-origin", "");
-
-  setText("reserve-salary-available", formatMoney(getSalaryBalance()));
-  setText("reserve-extra-available", formatMoney(getExtraBalance()));
-}
-
-function showWithdrawForm() {
-  hideElement("reserve-form");
-  hideElement("reserve-origin-section");
-  showElement("withdraw-form");
-
-  if ($("withdraw-value")) {
-    $("withdraw-value").value = "";
-  }
-
-  setText("reserve-balance", formatMoney(getReserveBalance()));
-}
-
-function confirmReserveSave() {
-  try {
-    if (!selectedReserveOrigin) {
-      throw new Error(
-        "Selecione de onde o dinheiro será retirado (Salário ou Extra)."
-      );
-    }
-
-    const amount = parseMoneyInput(
-      $("reserve-value") ? $("reserve-value").value : ""
-    );
-
-    saveToReserve(selectedReserveOrigin, amount);
-    closeModal("reserve-modal");
-  } catch (error) {
-    showElement("reserve-error", error.message);
-  }
-}
-
-function confirmReserveWithdraw() {
-  try {
-    const amount = parseMoneyInput(
-      $("withdraw-value") ? $("withdraw-value").value : ""
-    );
-
-    withdrawFromReserve(amount);
-    closeModal("reserve-modal");
-  } catch (error) {
-    showElement("reserve-error", error.message);
-  }
-}
-
-/* ============================================================
-   DETALHES DE CATEGORIA
-   ============================================================ */
-
-function openCategoryDetails(categoryId) {
-  const category = findCategory(categoryId);
-
-  if (!category) {
-    return;
-  }
-
-  if (category.id === "reserve") {
-    openReserveModal();
-    return;
-  }
-
-  const container = $("category-details");
-
-  if (!container) {
-    return;
-  }
-
-  const expenses =
-    state.currentCycle && Array.isArray(state.currentCycle.expenses)
-      ? state.currentCycle.expenses
-          .filter((expense) => expense.categoryId === categoryId)
-          .sort((a, b) => new Date(b.date) - new Date(a.date))
-      : [];
-
-  const balance = getCategoryBalance(category);
-
-  let balanceText;
-
-  if (category.id === "other") {
-    balanceText = `Lançado: ${formatMoney(getCategoryUsage("other"))}`;
-  } else if (category.hasLimit && category.limit !== null) {
-    balanceText = `Disponível: ${formatMoney(balance)}`;
-  } else {
-    balanceText = `Lançado: ${formatMoney(getCategoryUsage(category.id))}`;
-  }
-
-  let html = `
-    <div class="category-detail-header">
-      <div class="category-detail-icon">
-        ${escapeHTML(category.icon)}
-      </div>
-      <div class="category-detail-name">
-        ${escapeHTML(category.name)}
-      </div>
-      <div class="category-detail-balance">
-        ${balanceText}
-      </div>
-    </div>
-    <div class="category-detail-expenses">
-  `;
-
-  if (!expenses.length) {
-    html += `
-      <div class="empty-state">
-        Nenhum gasto nesta categoria.
-      </div>
-    `;
-  } else {
-    expenses.forEach((expense) => {
-      html += `
-        <div class="expense-item">
-          <div class="expense-info">
-            <div class="expense-description">
-              ${escapeHTML(expense.description || category.name)}
-            </div>
-            <div class="expense-date">
-              ${formatDate(expense.date)}
-            </div>
-          </div>
-          <div class="expense-value">
-            ${formatMoney(expense.amount)}
-          </div>
-        </div>
-      `;
-    });
-  }
-
-  html += `
-    </div>
-  `;
-
-  container.innerHTML = html;
-  openModal("category-modal");
-}
-
-/* ============================================================
-   EDITOR DE CATEGORIA
-   ============================================================ */
-
-function openCategoryEditor(categoryId = null) {
-  currentEditingCategoryId = categoryId;
-
-  const category = categoryId ? findCategory(categoryId) : null;
-
-  if (category && (category.id === "reserve" || category.immutable)) {
-    currentEditingCategoryId = null;
-    alert("A categoria Reserva é imutável.");
-    return;
-  }
-
-  if ($("category-name")) {
-    $("category-name").value = category ? category.name : "";
-  }
-
-  if ($("category-icon")) {
-    $("category-icon").value = category ? category.icon : "📁";
-  }
-
-  categoryEditorHasLimit = category
-    ? Boolean(category.hasLimit && category.limit !== null)
-    : false;
-
-  if ($("category-limit-value")) {
-    $("category-limit-value").value =
-      category && category.hasLimit && category.limit !== null
-        ? Number(category.limit).toFixed(2)
-        : "";
-  }
-
-  updateCategoryLimitInterface();
-  hideElement("category-editor-error");
-
-  if ($("category-editor-title")) {
-    $("category-editor-title").textContent = category
-      ? "Editar categoria"
-      : "Criar categoria";
-  }
-
-  openModal("category-editor-modal");
-}
-
-function updateCategoryLimitInterface() {
-  document.querySelectorAll("[data-category-limit]").forEach((button) => {
-    const isYes = button.dataset.categoryLimit === "yes";
-    button.classList.toggle(
-      "selected",
-      isYes === Boolean(categoryEditorHasLimit)
-    );
-  });
-
-  const container = $("category-limit-value-container");
-
-  if (container) {
-    container.classList.toggle("hidden", !categoryEditorHasLimit);
-  }
-
-  if (!categoryEditorHasLimit && $("category-limit-value")) {
-    $("category-limit-value").value = "";
-  }
-}
-
-function saveCategoryFromEditor() {
-  try {
-    const name = $("category-name") ? $("category-name").value.trim() : "";
-    const icon = $("category-icon") ? $("category-icon").value.trim() : "";
-
-    let limit = null;
-
-    if (categoryEditorHasLimit) {
-      limit = parseMoneyInput(
-        $("category-limit-value") ? $("category-limit-value").value : ""
-      );
-    }
-
-    if (!name) {
-      throw new Error("Digite o nome da categoria.");
-    }
-
-    if (categoryEditorHasLimit && (limit === null || limit < 0)) {
-      throw new Error("Digite um limite válido.");
-    }
-
-    if (currentEditingCategoryId) {
-      updateCategory(
-        currentEditingCategoryId,
-        name,
-        icon,
-        categoryEditorHasLimit,
-        limit
-      );
-    } else {
-      createCategory(name, icon, categoryEditorHasLimit, limit);
-    }
-
-    closeModal("category-editor-modal");
-  } catch (error) {
-    showElement("category-editor-error", error.message);
-  }
-}
-
-/* ============================================================
-   CONFIGURAÇÕES
-   ============================================================ */
-
 function updateSalarySplitButtons() {
-  document
-    .querySelectorAll("[data-settings-salary-split]")
-    .forEach((button) => {
-      button.classList.toggle(
-        "selected",
-        button.dataset.settingsSalarySplit === settingsSalarySplit
-      );
-    });
-
-  const info = $("salary-split-info");
-
-  if (info) {
-    info.classList.toggle("hidden", settingsSalarySplit !== "yes");
-  }
-}
-
-function saveSalarySettings() {
-  const raw = $("settings-salary") ? $("settings-salary").value : "";
-  const salary = parseMoneyInput(raw);
-
-  if (raw.trim() !== "" && salary === 0 && !isZeroMoneyInput(raw)) {
-    alert("Digite um salário válido.");
-    if ($("settings-salary")) {
-      $("settings-salary").focus();
-    }
-    return;
-  }
-
-  if (salary < 0) {
-    alert("O salário não pode ser negativo.");
-    return;
-  }
-
-  /* 1. Atualiza a referência base para os próximos meses */
-  state.salary.reference = salary;
-  state.salary.split = settingsSalarySplit === "yes";
-
-  /* 2. Atualiza o salário do ciclo atual preservando qualquer sobra do mês anterior */
-  if (state.currentCycle) {
-    const leftover = Number(state.currentCycle.leftoverSalary) || 0;
-    state.currentCycle.salaryReceived = roundMoney(salary + leftover);
-  }
-
-  saveState();
-  renderApplication();
-
-  alert("Salário salvo com sucesso.");
-}
-
-function saveCycleSettings() {
-  const newDay = Number(
-    $("settings-cycle-day") ? $("settings-cycle-day").value : NaN
-  );
-
-  if (!Number.isInteger(newDay) || newDay < 1 || newDay > 28) {
-    alert("O dia deve ser entre 1 e 28.");
-    if ($("settings-cycle-day")) {
-      $("settings-cycle-day").focus();
-    }
-    return;
-  }
-
-  state.settings.cycleDay = newDay;
-
-  saveState();
-  alert("A alteração será aplicada no próximo ciclo.");
-}
-
-/* ============================================================
-   HISTÓRICO
-   ============================================================ */
-
-function getAllCyclesForHistory() {
-  const list = [];
-
-  if (Array.isArray(state.cycles)) {
-    state.cycles.forEach((cycle) => {
-      if (cycle && cycle.id) {
-        list.push(cycle);
-      }
-    });
-  }
-
-  if (
-    state.currentCycle &&
-    state.currentCycle.id &&
-    !list.some((cycle) => cycle.id === state.currentCycle.id)
-  ) {
-    list.push(state.currentCycle);
-  }
-
-  list.sort((a, b) => new Date(a.startDate) - new Date(b.startDate));
-
-  return list;
-}
-
-function openPreviousCycle() {
-  const cycles = getAllCyclesForHistory();
-
-  if (cycles.length < 2) {
-    alert("Ainda não existe um ciclo anterior registrado.");
-    return;
-  }
-
-  showPreviousCycle(cycles, cycles.length - 2);
-}
-
-function showPreviousCycle(cycles, index) {
-  if (!Array.isArray(cycles) || index < 0 || index >= cycles.length) {
-    return;
-  }
-
-  const cycle = cycles[index];
-
-  let html = `
-    <div class="category-detail-header">
-      <div class="category-detail-name">
-        Mês anterior
-      </div>
-      <div class="category-detail-balance">
-        ${formatDate(cycle.startDate)} até ${formatDate(cycle.endDate)}
-      </div>
-    </div>
-    <div class="category-detail-expenses">
-      <div class="expense-item">
-        <div class="expense-info">
-          <div class="expense-description">
-            Salário Recebido no Ciclo
-          </div>
-        </div>
-        <div class="expense-value">
-          ${formatMoney(cycle.salaryReceived || 0)}
-        </div>
-      </div>
-  `;
-
-  const expenses = Array.isArray(cycle.expenses)
-    ? [...cycle.expenses].sort((a, b) => new Date(b.date) - new Date(a.date))
-    : [];
-
-  if (!expenses.length) {
-    html += `
-      <div class="empty-state">
-        Nenhum gasto neste ciclo.
-      </div>
-    `;
-  } else {
-    expenses.forEach((expense) => {
-      const category = findCategory(expense.categoryId);
-
-      html += `
-        <div class="expense-item">
-          <div class="expense-info">
-            <div class="expense-description">
-              ${escapeHTML(expense.description || category?.name || "Outros")}
-            </div>
-            <div class="expense-date">
-              ${formatDateTime(expense.date)}
-            </div>
-          </div>
-          <div class="expense-value">
-            ${formatMoney(expense.amount)}
-          </div>
-        </div>
-      `;
-    });
-  }
-
-  html += `
-    </div>
-  `;
-
-  const container = $("category-details");
-
-  if (container) {
-    container.innerHTML = html;
-    openModal("category-modal");
-    return;
-  }
-
-  showDynamicHistoryModal(cycles, index);
-}
-
-function showDynamicHistoryModal(cycles, index) {
-  const old = $("fx-history-modal");
-  if (old) old.remove();
-
-  const cycle = cycles[index];
-  let expensesHTML = "";
-
-  const expenses = Array.isArray(cycle.expenses) ? cycle.expenses : [];
-
-  if (!expenses.length) {
-    expensesHTML = `
-      <div class="empty-state">
-        Nenhum gasto neste ciclo.
-      </div>
-    `;
-  } else {
-    expensesHTML = expenses
-      .map((expense) => {
-        const category = findCategory(expense.categoryId);
-
-        return `
-          <div class="expense-item">
-            <div class="expense-info">
-              <div class="expense-description">
-                ${escapeHTML(
-                  expense.description || category?.name || "Outros"
-                )}
-              </div>
-              <div class="expense-date">
-                ${formatDateTime(expense.date)}
-              </div>
-            </div>
-            <div class="expense-value">
-              ${formatMoney(expense.amount)}
-            </div>
-          </div>
-        `;
-      })
-      .join("");
-  }
-
-  const modal = document.createElement("div");
-  modal.id = "fx-history-modal";
-  modal.className = "modal";
-
-  modal.innerHTML = `
-    <div class="modal-content">
-      <header class="modal-header">
-        <h2>Mês anterior</h2>
-        <button
-          type="button"
-          class="modal-close"
-          data-history-close
-          aria-label="Fechar"
-        >
-          ×
-        </button>
-      </header>
-      <main class="modal-body">
-        <p style="color:var(--text-secondary); font-size:14px;">
-          ${formatDate(cycle.startDate)} — ${formatDate(cycle.endDate)}
-        </p>
-        <div class="info-box" style="margin-bottom:12px;">
-          Salário Total: <strong>${formatMoney(
-            cycle.salaryReceived || 0
-          )}</strong>
-        </div>
-        <div>
-          ${expensesHTML}
-        </div>
-        <div style="display:flex; gap:10px; margin-top:16px;">
-          <button
-            type="button"
-            class="secondary-button"
-            data-history-prev
-            ${index <= 0 ? "disabled" : ""}
-          >
-            ← Anterior
-          </button>
-          <button
-            type="button"
-            class="secondary-button"
-            data-history-next
-            ${index >= cycles.length - 1 ? "disabled" : ""}
-          >
-            Próximo →
-          </button>
-        </div>
-      </main>
-    </div>
-  `;
-
-  document.body.appendChild(modal);
-  modal.classList.remove("hidden");
-
-  modal.addEventListener("click", (event) => {
-    if (event.target.closest("[data-history-close]")) {
-      modal.remove();
-      return;
-    }
-
-    if (event.target.closest("[data-history-prev]")) {
-      showDynamicHistoryModal(cycles, index - 1);
-      return;
-    }
-
-    if (event.target.closest("[data-history-next]")) {
-      showDynamicHistoryModal(cycles, index + 1);
-    }
+  document.querySelectorAll("[data-settings-salary-split]").forEach((btn) => {
+    btn.classList.toggle("selected", btn.dataset.settingsSalarySplit === settingsSalarySplit);
   });
+  $("salary-split-info")?.classList.toggle("hidden", settingsSalarySplit !== "yes");
 }
 
-/* ============================================================
-   PIZZA
-   ============================================================ */
-
-function openPizza() {
-  if (!state.currentCycle) {
-    return;
-  }
-
-  const totals = state.categories
-    .map((category) => ({
-      id: category.id,
-      name: category.name,
-      icon: category.icon,
-      value: getCategoryUsage(category.id)
-    }))
-    .filter((item) => Number(item.value) > 0);
-
-  const total = totals.reduce(
-    (sum, item) => sum + Number(item.value),
-    0
-  );
-
-  if (!totals.length || total <= 0) {
-    alert("Ainda não existem gastos neste ciclo.");
-    return;
-  }
-
-  let cursor = 0;
-
-  const segments = totals.map((item) => {
-    const percentage = (Number(item.value) / total) * 100;
-    const start = cursor;
-    const end = cursor + percentage;
-    cursor = end;
-
-    return {
-      ...item,
-      percentage,
-      start,
-      end
-    };
-  });
-
-  const coloredGradient = segments
-    .map((item, index) => {
-      const hue = Math.round((index / segments.length) * 360);
-      return `hsl(${hue} 70% 50%) ${item.start}% ${item.end}%`;
-    })
-    .join(", ");
-
-  const legend = segments
-    .map((item, index) => {
-      const hue = Math.round((index / segments.length) * 360);
-
-      return `
-        <div class="pizza-legend-item">
-          <div class="pizza-legend-name">
-            <span
-              class="pizza-legend-dot"
-              style="background:hsl(${hue} 70% 50%);"
-            ></span>
-            <span>
-              ${escapeHTML(item.icon)} ${escapeHTML(item.name)}
-            </span>
-          </div>
-          <strong>
-            ${formatMoney(item.value)}
-          </strong>
-        </div>
-      `;
-    })
-    .join("");
-
-  const old = $("fx-pizza-modal");
-  if (old) old.remove();
-
-  const modal = document.createElement("div");
-  modal.id = "fx-pizza-modal";
-  modal.className = "modal";
-
-  modal.innerHTML = `
-    <div class="modal-content" style="max-height:90dvh; overflow-y:auto;">
-      <header class="modal-header">
-        <h2>Gastos do ciclo</h2>
-        <button
-          type="button"
-          class="modal-close"
-          data-pizza-close
-          aria-label="Fechar"
-        >
-          ×
-        </button>
-      </header>
-      <main class="modal-body">
-        <div class="pizza-container">
-          <div
-            class="pizza-chart"
-            style="
-              background:conic-gradient(${coloredGradient});
-              position:relative;
-            "
-          >
-            <div
-              style="
-                position:absolute;
-                inset:28%;
-                background:var(--surface);
-                border-radius:50%;
-                display:flex;
-                align-items:center;
-                justify-content:center;
-                text-align:center;
-                font-weight:800;
-                color:var(--text);
-                font-size:15px;
-                border:1px solid var(--border);
-              "
-            >
-              ${formatMoney(total)}
-            </div>
-          </div>
-          <div class="pizza-legend" style="width:100%;">
-            ${legend}
-          </div>
-        </div>
-      </main>
-    </div>
-  `;
-
-  document.body.appendChild(modal);
-  modal.classList.remove("hidden");
-
-  modal.addEventListener("click", (event) => {
-    if (event.target.closest("[data-pizza-close]")) {
-      modal.remove();
-    }
-  });
-}
-
-/* ============================================================
-   SEGURANÇA
-   ============================================================ */
-
-function isMasterKey(value) {
-  return String(value || "") === MASTER_KEY;
-}
-
-function isValidSecurityCredential(value) {
-  return (
-    String(value || "") === String(state.security.password || "") ||
-    isMasterKey(value)
-  );
-}
-
-function lockApplication() {
-  state.security.locked = true;
-  saveState();
-  showScreen("lock");
-}
-
-function unlockApplication() {
-  const password = $("unlock-password") ? $("unlock-password").value : "";
-
-  if (!isValidSecurityCredential(password)) {
-    showElement("unlock-error", "Senha incorreta.");
-    return;
-  }
-
-  state.security.locked = false;
-
-  if ($("unlock-password")) {
-    $("unlock-password").value = "";
-  }
-
-  hideElement("unlock-error");
-  saveState();
-  showScreen("main");
-  renderApplication();
-}
-
-function openPasswordModal() {
-  if ($("current-password")) $("current-password").value = "";
-  if ($("new-password")) $("new-password").value = "";
-  if ($("confirm-new-password")) $("confirm-new-password").value = "";
-
-  hideElement("password-error");
-  openModal("password-modal");
-}
-
-function saveNewPassword() {
-  const current = $("current-password") ? $("current-password").value : "";
-  const newPassword = $("new-password") ? $("new-password").value : "";
-  const confirmation = $("confirm-new-password")
-    ? $("confirm-new-password").value
-    : "";
-
-  if (!isValidSecurityCredential(current)) {
-    showElement("password-error", "A senha atual está incorreta.");
-    return;
-  }
-
-  if (!newPassword) {
-    showElement("password-error", "Digite a nova senha.");
-    return;
-  }
-
-  if (newPassword !== confirmation) {
-    showElement("password-error", "As senhas não coincidem.");
-    return;
-  }
-
-  state.security.password = newPassword;
-  saveState();
-
-  closeModal("password-modal");
-  alert("Senha alterada com sucesso.");
-}
-
-function openDeleteDataModal() {
-  if ($("delete-password")) $("delete-password").value = "";
-  if ($("delete-confirmation")) $("delete-confirmation").value = "";
-
-  hideElement("delete-error");
-  openModal("delete-data-modal");
-}
-
-function deleteAllData() {
-  const password = $("delete-password") ? $("delete-password").value : "";
-  const confirmation = $("delete-confirmation")
-    ? $("delete-confirmation").value.trim()
-    : "";
-
-  if (!isValidSecurityCredential(password)) {
-    showElement("delete-error", "Senha atual incorreta.");
-    return;
-  }
-
-  if (confirmation !== "APAGAR") {
-    showElement("delete-error", "Digite APAGAR para confirmar.");
-    return;
-  }
-
-  localStorage.removeItem(STORAGE_KEY);
-  state = null;
-
-  closeModal("delete-data-modal");
-  startInitialSetup();
-}
-
-/* ============================================================
-   EVENTOS
-   ============================================================ */
-
-function bindEvents() {
-  const setupNext = $("setup-next-button");
-
-  if (setupNext) {
-    setupNext.addEventListener("click", handleSetupNext);
-  }
-
-  /* ABAS */
-  $("nav-home-button")?.addEventListener("click", () => switchTab("home"));
-  $("nav-extrato-button")?.addEventListener("click", () => switchTab("extrato"));
-
-  /* EVENTOS DELEGADOS */
-  document.addEventListener("click", (event) => {
-    /* ORIGEM DA RESERVA */
-    const reserveOriginBtn = event.target.closest("[data-reserve-origin]");
-
-    if (reserveOriginBtn) {
-      const origin = reserveOriginBtn.dataset.reserveOrigin;
-
-      if (origin !== "salary" && origin !== "extra") {
-        return;
-      }
-
-      selectedReserveOrigin = origin;
-
-      document.querySelectorAll("[data-reserve-origin]").forEach((button) => {
-        button.classList.toggle(
-          "selected",
-          button.dataset.reserveOrigin === selectedReserveOrigin
-        );
-      });
-
-      const labelText = selectedReserveOrigin === "salary" ? "Salário" : "Extra";
-      setText("selected-reserve-origin", `Origem selecionada: ${labelText}`);
-      return;
-    }
-
-    /* DIVISÃO DO SALÁRIO NO SETUP */
-    const splitButton = event.target.closest("[data-choice='salary-split']");
-
-    if (splitButton) {
-      setupSalarySplit = splitButton.dataset.value;
-
-      document
-        .querySelectorAll("[data-choice='salary-split']")
-        .forEach((button) => {
-          button.classList.toggle(
-            "selected",
-            button.dataset.value === setupSalarySplit
-          );
-        });
-
-      return;
-    }
-
-    /* EDITAR CATEGORIA NO SETUP */
-    const setupEdit = event.target.closest("[data-setup-category-edit]");
-
-    if (setupEdit) {
-      openSetupCategoryEditor(setupEdit.dataset.setupCategoryEdit);
-      return;
-    }
-
-    /* LANÇAR GASTO */
-    const expenseButton = event.target.closest("[data-category-expense]");
-
-    if (expenseButton) {
-      openExpenseModal(expenseButton.dataset.categoryExpense);
-      return;
-    }
-
-    /* ABRIR DETALHES */
-    const openCategory = event.target.closest("[data-category-open]");
-
-    if (openCategory) {
-      openCategoryDetails(openCategory.dataset.categoryOpen);
-      return;
-    }
-
-    /* PAINÉIS DE CONFIGURAÇÃO */
-    const settingsToggle = event.target.closest("[data-settings-toggle]");
-
-    if (settingsToggle) {
-      const panel = $(settingsToggle.dataset.settingsToggle);
-      if (panel) {
-        panel.classList.toggle("hidden");
-      }
-      return;
-    }
-
-    /* EDITAR CATEGORIA */
-    const editCategory = event.target.closest("[data-edit-category]");
-
-    if (editCategory) {
-      openCategoryEditor(editCategory.dataset.editCategory);
-      return;
-    }
-
-    /* LIMITE */
-    const categoryLimit = event.target.closest("[data-category-limit]");
-
-    if (categoryLimit) {
-      categoryEditorHasLimit =
-        categoryLimit.dataset.categoryLimit === "yes";
-      updateCategoryLimitInterface();
-      return;
-    }
-
-    /* DIVISÃO DO SALÁRIO */
-    const settingsSplit = event.target.closest(
-      "[data-settings-salary-split]"
-    );
-
-    if (settingsSplit) {
-      settingsSalarySplit = settingsSplit.dataset.settingsSalarySplit;
-      updateSalarySplitButtons();
-      return;
-    }
-
-    /* FECHAR MODAL */
-    const closeButton = event.target.closest("[data-close-modal]");
-
-    if (closeButton) {
-      closeModal(closeButton.dataset.closeModal);
-      return;
-    }
-  });
-
-  /* ENTER NOS CAMPOS */
-  const addEnterKeyHandler = (inputId, actionFn) => {
-    const input = $(inputId);
-    if (!input) return;
-
-    input.addEventListener("keydown", (event) => {
-      if (event.key === "Enter") {
-        event.preventDefault();
-        actionFn();
-      }
-    });
-  };
-
-  addEnterKeyHandler("unlock-password", unlockApplication);
-  addEnterKeyHandler("expense-value", confirmExpense);
-  addEnterKeyHandler("expense-description", confirmExpense);
-  addEnterKeyHandler("extra-value", confirmExtra);
-  addEnterKeyHandler("extra-description", confirmExtra);
-  addEnterKeyHandler("reserve-value", confirmReserveSave);
-  addEnterKeyHandler("withdraw-value", confirmReserveWithdraw);
-  addEnterKeyHandler("confirm-new-password", saveNewPassword);
-  addEnterKeyHandler("delete-confirmation", deleteAllData);
-
-  /* BOTÕES */
-  $("lock-button")?.addEventListener("click", lockApplication);
-  $("unlock-button")?.addEventListener("click", unlockApplication);
-  $("add-extra-button")?.addEventListener("click", openExtraModal);
-  $("confirm-extra-button")?.addEventListener("click", confirmExtra);
-  $("reserve-save-button")?.addEventListener("click", showReserveSaveForm);
-  $("reserve-withdraw-button")?.addEventListener("click", showWithdrawForm);
-  $("confirm-reserve-button")?.addEventListener("click", confirmReserveSave);
-  $("confirm-withdraw-button")?.addEventListener("click", confirmReserveWithdraw);
-  $("confirm-expense-button")?.addEventListener("click", confirmExpense);
-  $("settings-button")?.addEventListener("click", openSettings);
-  $("settings-back-button")?.addEventListener("click", closeSettings);
-  $("create-category-button")?.addEventListener("click", () =>
-    openCategoryEditor()
-  );
-  $("save-category-button")?.addEventListener("click", saveCategoryFromEditor);
-  $("save-salary-settings")?.addEventListener("click", saveSalarySettings);
-  $("save-cycle-settings")?.addEventListener("click", saveCycleSettings);
-  $("previous-cycle-button")?.addEventListener("click", openPreviousCycle);
-  $("pizza-button")?.addEventListener("click", openPizza);
-
-  $("change-password-button")?.addEventListener("click", openPasswordModal);
-  $("save-password-button")?.addEventListener("click", saveNewPassword);
-  $("delete-all-data-button")?.addEventListener("click", openDeleteDataModal);
-  $("confirm-delete-data-button")?.addEventListener("click", deleteAllData);
-
-  /* ESC */
-  document.addEventListener("keydown", (event) => {
-    if (event.key !== "Escape") {
-      return;
-    }
-
-    document.querySelectorAll(".modal:not(.hidden)").forEach((modal) => {
-      closeModal(modal.id);
-    });
-
-    $("fx-pizza-modal")?.remove();
-    $("fx-history-modal")?.remove();
-  });
-}
-
-/* ============================================================
-   EDITOR DE CATEGORIAS DO SETUP
-   ============================================================ */
-
-function openSetupCategoryEditor(categoryId) {
-  const category = setupCategories.find((item) => item.id === categoryId);
-
-  if (!category) {
-    return;
-  }
-
-  if (category.id === "reserve") {
-    alert("A categoria Reserva é imutável.");
-    return;
-  }
-
-  if (category.id === "other") {
-    alert("A categoria Outros não possui limite de gastos.");
-    return;
-  }
-
-  const limitInput = prompt(
-    `Defina o limite para a categoria "${category.name}" (digite 0 para sem limite):`,
-    category.hasLimit && category.limit !== null ? category.limit : 0
-  );
-
-  if (limitInput !== null) {
-    const numericLimit = parseMoneyInput(limitInput);
-
-    if (numericLimit > 0) {
-      category.limit = numericLimit;
-      category.hasLimit = true;
-    } else {
-      category.limit = null;
-      category.hasLimit = false;
-    }
-  }
-
-  renderSetupCategories();
-}
-
-/* ============================================================
-   UTILITÁRIOS
-   ============================================================ */
-
-function createId() {
-  return (
-    Date.now().toString(36) +
-    "-" +
-    Math.random().toString(36).slice(2, 10)
-  );
-}
-
-function cloneObject(object) {
-  return JSON.parse(JSON.stringify(object));
-}
-
-function roundMoney(value) {
-  const number = Number(value);
-
-  if (!Number.isFinite(number)) {
-    return 0;
-  }
-
-  return Math.round((number + Number.EPSILON) * 100) / 100;
-}
-
+/* PARSER DE VALORES */
 function parseMoneyInput(value) {
-  if (value === null || value === undefined) {
-    return 0;
-  }
-
+  if (value === null || value === undefined) return 0;
   let text = String(value).trim();
-
-  if (!text) {
-    return 0;
-  }
-
+  if (!text) return 0;
   text = text.replace(/\s/g, "");
 
   const hasComma = text.includes(",");
@@ -2637,115 +785,184 @@ function parseMoneyInput(value) {
   if (hasComma && hasDot) {
     const commaIndex = text.lastIndexOf(",");
     const dotIndex = text.lastIndexOf(".");
-
-    if (commaIndex > dotIndex) {
-      text = text.replace(/\./g, "").replace(",", ".");
-    } else {
-      text = text.replace(/,/g, "");
-    }
+    if (commaIndex > dotIndex) text = text.replace(/\./g, "").replace(",", ".");
+    else text = text.replace(/,/g, "");
   } else if (hasComma) {
     text = text.replace(",", ".");
   }
 
   const number = Number(text);
-
-  if (!Number.isFinite(number)) {
-    return 0;
-  }
-
-  return roundMoney(number);
+  return Number.isFinite(number) ? roundMoney(number) : 0;
 }
 
-function isZeroMoneyInput(value) {
-  const text = String(value || "").trim();
+/* DELEGAÇÃO COMPLETA DE EVENTOS */
+function bindEvents() {
+  $("setup-next-button")?.addEventListener("click", handleSetupNext);
+  $("nav-home-button")?.addEventListener("click", () => switchTab("home"));
+  $("nav-extrato-button")?.addEventListener("click", () => switchTab("extrato"));
 
-  if (!text) {
-    return true;
-  }
+  $("toggle-lock-password")?.addEventListener("click", () => {
+    const input = $("unlock-password");
+    if (input.type === "password") {
+      input.type = "text";
+      $("eye-icon").textContent = "🙈";
+    } else {
+      input.type = "password";
+      $("eye-icon").textContent = "👁️";
+    }
+  });
 
-  const normalized = text.replace(/\s/g, "").replace(/\./g, "").replace(",", ".");
-  const number = Number(normalized);
+  document.addEventListener("click", (e) => {
+    // Accordion das configurações
+    const settingsToggle = e.target.closest("[data-settings-toggle]");
+    if (settingsToggle) {
+      const panel = $(settingsToggle.dataset.settingsToggle);
+      if (panel) panel.classList.toggle("hidden");
+      return;
+    }
 
-  return Number.isFinite(number) && number === 0;
-}
+    // Origem da Reserva
+    const reserveOriginBtn = e.target.closest("[data-reserve-origin]");
+    if (reserveOriginBtn) {
+      selectedReserveOrigin = reserveOriginBtn.dataset.reserveOrigin;
+      document.querySelectorAll("[data-reserve-origin]").forEach((btn) => {
+        btn.classList.toggle("selected", btn.dataset.reserveOrigin === selectedReserveOrigin);
+      });
+      setText("selected-reserve-origin", `Origem: ${selectedReserveOrigin === "salary" ? "Salário" : "Extra"}`);
+      return;
+    }
 
-function formatMoney(value) {
-  return new Intl.NumberFormat("pt-BR", {
-    style: "currency",
-    currency: "BRL"
-  }).format(roundMoney(value));
-}
+    // Divisão do Salário nas Configurações
+    const settingsSplit = e.target.closest("[data-settings-salary-split]");
+    if (settingsSplit) {
+      settingsSalarySplit = settingsSplit.dataset.settingsSalarySplit;
+      updateSalarySplitButtons();
+      return;
+    }
 
-function formatDate(value) {
-  const date = new Date(value);
+    // Abrir detalhes de Categoria
+    const openCatBtn = e.target.closest("[data-category-open]");
+    if (openCatBtn) {
+      openCategoryDetails(openCatBtn.dataset.categoryOpen);
+      return;
+    }
 
-  if (Number.isNaN(date.getTime())) {
-    return "--/--";
-  }
+    // Abrir edição de Gasto
+    const editItem = e.target.closest("[data-edit-expense-id]");
+    if (editItem) {
+      closeModal("category-modal");
+      openEditExpenseModal(editItem.dataset.editExpenseId);
+      return;
+    }
 
-  return date.toLocaleDateString("pt-BR", {
-    day: "2-digit",
-    month: "2-digit"
+    // Lançar Gasto na Categoria
+    const catExpense = e.target.closest("[data-category-expense]");
+    if (catExpense) {
+      openExpenseModal(catExpense.dataset.categoryExpense);
+      return;
+    }
+
+    // Fechar Modal
+    const closeBtn = e.target.closest("[data-close-modal]");
+    if (closeBtn) {
+      closeModal(closeBtn.dataset.closeModal);
+      return;
+    }
+  });
+
+  $("unlock-button")?.addEventListener("click", () => {
+    const pass = $("unlock-password")?.value;
+    if (pass === state.security.password || pass === MASTER_KEY) {
+      state.security.locked = false;
+      saveState();
+      showScreen("main");
+      renderApplication();
+    } else {
+      showElement("unlock-error", "Senha incorreta.");
+    }
+  });
+
+  // Eventos de Ação nos Modais
+  $("add-extra-button")?.addEventListener("click", () => openModal("extra-modal"));
+  $("confirm-extra-button")?.addEventListener("click", () => {
+    const val = parseMoneyInput($("extra-value")?.value);
+    if (val <= 0) return showElement("extra-error", "Valor inválido.");
+
+    state.extra.balance = roundMoney(state.extra.balance + val);
+    saveState();
+    closeModal("extra-modal");
+    renderApplication();
+  });
+
+  $("confirm-expense-button")?.addEventListener("click", () => {
+    try {
+      const val = parseMoneyInput($("expense-value").value);
+      const origin = $("expense-origin").value;
+      const desc = $("expense-description").value;
+      launchExpense(currentCategoryId, val, origin, desc);
+      closeModal("expense-modal");
+    } catch (err) {
+      showElement("expense-error", err.message);
+    }
+  });
+
+  $("save-expense-edit-button")?.addEventListener("click", saveExpenseEdit);
+  $("delete-expense-button")?.addEventListener("click", deleteExpense);
+
+  // Eventos da Reserva
+  $("reserve-save-button")?.addEventListener("click", showReserveSaveForm);
+  $("reserve-withdraw-button")?.addEventListener("click", showWithdrawForm);
+  $("confirm-reserve-button")?.addEventListener("click", confirmReserveSave);
+  $("confirm-withdraw-button")?.addEventListener("click", confirmReserveWithdraw);
+
+  // Eventos de Configuração
+  $("save-salary-settings")?.addEventListener("click", saveSalarySettings);
+  $("save-cycle-settings")?.addEventListener("click", saveCycleSettings);
+  $("change-password-button")?.addEventListener("click", () => openModal("password-modal"));
+  $("save-password-button")?.addEventListener("click", saveNewPassword);
+  $("delete-all-data-button")?.addEventListener("click", () => openModal("delete-data-modal"));
+  $("confirm-delete-data-button")?.addEventListener("click", deleteAllData);
+
+  // Navegação
+  $("chart-button")?.addEventListener("click", openChartModal);
+  $("settings-button")?.addEventListener("click", () => showScreen("settings"));
+  $("settings-back-button")?.addEventListener("click", () => showScreen("main"));
+  $("lock-button")?.addEventListener("click", () => {
+    state.security.locked = true;
+    saveState();
+    showScreen("lock");
   });
 }
 
-function formatDateTime(value) {
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return "--/-- --:--";
-  }
-
-  return (
-    date.toLocaleDateString("pt-BR", {
-      day: "2-digit",
-      month: "2-digit"
-    }) +
-    " — " +
-    date.toLocaleTimeString("pt-BR", {
-      hour: "2-digit",
-      minute: "2-digit"
-    })
-  );
+function switchTab(tab) {
+  $("tab-home").classList.toggle("hidden", tab !== "home");
+  $("tab-extrato").classList.toggle("hidden", tab !== "extrato");
+  $("nav-home-button").classList.toggle("active", tab === "home");
+  $("nav-extrato-button").classList.toggle("active", tab === "extrato");
 }
 
-function setText(id, value) {
-  const element = $(id);
-
-  if (element) {
-    element.textContent = value;
-  }
+function openExpenseModal(catId) {
+  currentCategoryId = catId;
+  const cat = state.categories.find((c) => c.id === catId);
+  if ($("expense-modal-title")) $("expense-modal-title").textContent = `Lançar em ${cat?.name || ""}`;
+  $("expense-value").value = "";
+  $("expense-description").value = "";
+  hideElement("expense-error");
+  openModal("expense-modal");
 }
 
-function showElement(id, message) {
-  const element = $(id);
-
-  if (!element) {
-    return;
-  }
-
-  if (message !== undefined) {
-    element.textContent = message;
-  }
-
-  element.classList.remove("hidden");
+function showScreen(name) {
+  Object.values(screens).forEach((s) => s?.classList.add("hidden"));
+  screens[name]?.classList.remove("hidden");
 }
 
-function hideElement(id) {
-  const element = $(id);
+function openModal(id) { $(id)?.classList.remove("hidden"); }
+function closeModal(id) { $(id)?.classList.add("hidden"); }
 
-  if (!element) {
-    return;
-  }
-
-  element.classList.add("hidden");
-}
-
-function escapeHTML(value) {
-  return String(value === undefined || value === null ? "" : value)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
-}
+function roundMoney(v) { return Math.round((Number(v) + Number.EPSILON) * 100) / 100; }
+function formatMoney(v) { return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v); }
+function setText(id, txt) { if ($(id)) $(id).textContent = txt; }
+function showElement(id, msg) { const el = $(id); if (el) { if (msg) el.textContent = msg; el.classList.remove("hidden"); } }
+function hideElement(id) { $(id)?.classList.add("hidden"); }
+function escapeHTML(s) { return String(s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
+function createId() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
