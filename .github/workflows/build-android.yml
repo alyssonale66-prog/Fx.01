@@ -44,12 +44,13 @@ jobs:
             "private": true,
             "version": "1.0.0",
             "dependencies": {
-              "@capacitor/core": "8.5.0",
-              "@capacitor/android": "8.5.0"
+              "@capacitor/core": "^6.0.0",
+              "@capacitor/android": "^6.0.0",
+              "@capacitor-community/native-biometric": "^6.0.0"
             },
             "devDependencies": {
-              "@capacitor/cli": "8.5.0",
-              "@capacitor/assets": "3.0.5"
+              "@capacitor/cli": "^6.0.0",
+              "@capacitor/assets": "^3.0.5"
             }
           }
           EOF
