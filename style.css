@@ -67,11 +67,13 @@ button, input, select, textarea {
   font: inherit;
 }
 
-button {
+button, .category-card, .expense-item-card, .choice-button, .nav-button {
   border: 0;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
 }
 
 input, select {
@@ -777,7 +779,7 @@ label {
   color: var(--text);
 }
 
-/* BUG-05: TRATAMENTO RESPONSIVO DA NAVEGAÇÃO INFERIOR PARA TECLADO VIRTUAL */
+/* TRATAMENTO RESPONSIVO DA NAVEGAÇÃO INFERIOR PARA TECLADO VIRTUAL */
 .bottom-nav {
   position: fixed;
   bottom: 0;
