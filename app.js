@@ -68,8 +68,24 @@ const screens = {
 
 document.addEventListener("DOMContentLoaded", () => {
   bindEvents();
+  setupAndroidBackButton();
   loadApplication();
 });
+
+function setupAndroidBackButton() {
+  if (window.Capacitor?.Plugins?.App) {
+    window.Capacitor.Plugins.App.addListener('backButton', () => {
+      const openModals = document.querySelectorAll('.modal:not(.hidden)');
+      if (openModals.length > 0) {
+        openModals[openModals.length - 1].classList.add('hidden');
+      } else if (state && !state.security.locked) {
+        lockApp();
+      } else {
+        window.Capacitor.Plugins.App.exitApp();
+      }
+    });
+  }
+}
 
 function saveState() {
   if (!state) return;
@@ -837,21 +853,26 @@ async function exportBackup() {
     const jsonStr = JSON.stringify(state, null, 2);
     const dateStr = new Date().toISOString().slice(0, 10);
     const fileName = `fx_backup_${dateStr}.json`;
-    const file = new File([jsonStr], fileName, { type: "application/json" });
 
-    let canShare = false;
-    try {
-      canShare = !!(navigator.canShare && navigator.canShare({ files: [file] }));
-    } catch (e) {
-      canShare = false;
-    }
+    if (window.Capacitor?.isNativePlatform() && window.Capacitor.Plugins?.Filesystem) {
+      const Filesystem = window.Capacitor.Plugins.Filesystem;
+      const Share = window.Capacitor.Plugins.Share;
 
-    if (canShare) {
-      await navigator.share({
-        files: [file],
-        title: "Backup FX",
-        text: "Seu arquivo de backup do FX"
+      const savedFile = await Filesystem.writeFile({
+        path: fileName,
+        data: jsonStr,
+        directory: 'CACHE',
+        encoding: 'utf8'
       });
+
+      if (Share) {
+        await Share.share({
+          title: "Backup FX",
+          text: "Seu arquivo de backup do FX",
+          url: savedFile.uri,
+          dialogTitle: "Salvar ou Enviar Backup"
+        });
+      }
       return;
     }
 
@@ -866,7 +887,7 @@ async function exportBackup() {
     URL.revokeObjectURL(url);
   } catch (err) {
     if (err.name !== "AbortError") {
-      customAlert("Erro ao exportar backup: " + err.message);
+      customAlert("Erro ao exportar backup: " + (err.message || err));
     }
   }
 }
@@ -893,21 +914,26 @@ async function exportCSV() {
 
     const dateStr = new Date().toISOString().slice(0, 10);
     const fileName = `fx_extrato_${dateStr}.csv`;
-    const file = new File([csvContent], fileName, { type: "text/csv" });
 
-    let canShare = false;
-    try {
-      canShare = !!(navigator.canShare && navigator.canShare({ files: [file] }));
-    } catch (e) {
-      canShare = false;
-    }
+    if (window.Capacitor?.isNativePlatform() && window.Capacitor.Plugins?.Filesystem) {
+      const Filesystem = window.Capacitor.Plugins.Filesystem;
+      const Share = window.Capacitor.Plugins.Share;
 
-    if (canShare) {
-      await navigator.share({
-        files: [file],
-        title: "Extrato FX",
-        text: "Seu extrato em CSV"
+      const savedFile = await Filesystem.writeFile({
+        path: fileName,
+        data: csvContent,
+        directory: 'CACHE',
+        encoding: 'utf8'
       });
+
+      if (Share) {
+        await Share.share({
+          title: "Extrato FX",
+          text: "Seu extrato em CSV",
+          url: savedFile.uri,
+          dialogTitle: "Salvar ou Enviar Extrato CSV"
+        });
+      }
       return;
     }
 
@@ -922,7 +948,7 @@ async function exportCSV() {
     URL.revokeObjectURL(url);
   } catch (err) {
     if (err.name !== "AbortError") {
-      customAlert("Erro ao exportar planilha CSV: " + err.message);
+      customAlert("Erro ao exportar planilha CSV: " + (err.message || err));
     }
   }
 }
