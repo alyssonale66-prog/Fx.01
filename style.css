@@ -1,5 +1,5 @@
 /* ============================================================
-   FX — Matte Flow Theme (Global com Textura Geométrica Dourada)
+   FX — Matte Flow Theme (Global com Transições Nativas)
    ============================================================ */
 
 :root {
@@ -112,6 +112,41 @@ label {
   display: none !important;
 }
 
+/* TRANSIÇÕES DE TELA NATIVAS */
+.screen {
+  width: 100%;
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding: calc(var(--safe-top) + 16px) 16px calc(var(--safe-bottom) + 80px);
+  animation: slide-in-right 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.tab-content {
+  animation: fade-in-tab 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes slide-in-right {
+  from {
+    opacity: 0;
+    transform: translateX(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes fade-in-tab {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 /* SAUDAÇÃO INICIAL */
 .welcome-header {
   margin-bottom: 16px;
@@ -172,20 +207,6 @@ label {
   font-weight: 800;
   letter-spacing: -0.5px;
   color: var(--text);
-}
-
-/* TELAS */
-.screen {
-  width: 100%;
-  min-height: 100vh;
-  min-height: 100dvh;
-  padding: calc(var(--safe-top) + 16px) 16px calc(var(--safe-bottom) + 80px);
-  animation: screen-fade 0.2s ease;
-}
-
-@keyframes screen-fade {
-  from { opacity: 0; transform: scale(0.99); }
-  to { opacity: 1; transform: scale(1); }
 }
 
 .screen-header {
@@ -779,7 +800,7 @@ label {
   color: var(--text);
 }
 
-/* TRATAMENTO RESPONSIVO DA NAVEGAÇÃO INFERIOR PARA TECLADO VIRTUAL */
+/* NAVEGAÇÃO INFERIOR RESPONSIVA */
 .bottom-nav {
   position: fixed;
   bottom: 0;
@@ -945,6 +966,12 @@ label {
   border-radius: var(--radius-large);
   box-shadow: var(--shadow);
   position: relative;
+  animation: modal-slide-up 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes modal-slide-up {
+  from { transform: translateY(40px); }
+  to { transform: translateY(0); }
 }
 
 .modal-content::before {
@@ -1034,7 +1061,6 @@ label {
   border: 1px solid var(--border);
 }
 
-/* ELEVAÇÃO DE CAMADA PARA SELETORES E ALERTAS */
 #picker-modal, 
 #custom-alert-modal, 
 #custom-confirm-modal {
