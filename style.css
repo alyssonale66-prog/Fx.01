@@ -777,7 +777,7 @@ label {
   color: var(--text);
 }
 
-/* NAVEGAÇÃO INFERIOR */
+/* BUG-05: TRATAMENTO RESPONSIVO DA NAVEGAÇÃO INFERIOR PARA TECLADO VIRTUAL */
 .bottom-nav {
   position: fixed;
   bottom: 0;
@@ -792,6 +792,12 @@ label {
   -webkit-backdrop-filter: blur(16px);
   border-top: 1px solid var(--border);
   z-index: 90;
+}
+
+@media screen and (max-height: 500px) {
+  .bottom-nav {
+    display: none !important;
+  }
 }
 
 .nav-button {
