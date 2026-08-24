@@ -835,22 +835,39 @@ function confirmReserveWithdraw() {
   }
 }
 
-function exportBackup() {
+async function exportBackup() {
   try {
-    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(state, null, 2));
-    const downloadAnchor = document.createElement("a");
+    const jsonStr = JSON.stringify(state, null, 2);
     const dateStr = new Date().toISOString().slice(0, 10);
-    downloadAnchor.setAttribute("href", dataStr);
-    downloadAnchor.setAttribute("download", `fx_backup_${dateStr}.json`);
+    const fileName = `fx_backup_${dateStr}.json`;
+    const file = new File([jsonStr], fileName, { type: "application/json" });
+
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator.share({
+        files: [file],
+        title: "Backup FX",
+        text: "Seu arquivo de backup do FX"
+      });
+      return;
+    }
+
+    const blob = new Blob([jsonStr], { type: "application/json;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const downloadAnchor = document.createElement("a");
+    downloadAnchor.href = url;
+    downloadAnchor.download = fileName;
     document.body.appendChild(downloadAnchor);
     downloadAnchor.click();
     downloadAnchor.remove();
+    URL.revokeObjectURL(url);
   } catch (err) {
-    customAlert("Erro ao exportar backup: " + err.message);
+    if (err.name !== "AbortError") {
+      customAlert("Erro ao exportar backup: " + err.message);
+    }
   }
 }
 
-function exportCSV() {
+async function exportCSV() {
   try {
     const expenses = state.currentCycle?.expenses || [];
     if (!expenses.length) {
@@ -870,18 +887,32 @@ function exportCSV() {
       csvContent += `${dateStr};"${catName}";${originStr};"${descStr}";${valStr}\n`;
     });
 
+    const dateStr = new Date().toISOString().slice(0, 10);
+    const fileName = `fx_extrato_${dateStr}.csv`;
+    const file = new File([csvContent], fileName, { type: "text/csv" });
+
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator.share({
+        files: [file],
+        title: "Extrato FX",
+        text: "Seu extrato em CSV"
+      });
+      return;
+    }
+
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const downloadAnchor = document.createElement("a");
-    const dateStr = new Date().toISOString().slice(0, 10);
-    downloadAnchor.setAttribute("href", url);
-    downloadAnchor.setAttribute("download", `fx_extrato_${dateStr}.csv`);
+    downloadAnchor.href = url;
+    downloadAnchor.download = fileName;
     document.body.appendChild(downloadAnchor);
     downloadAnchor.click();
     downloadAnchor.remove();
     URL.revokeObjectURL(url);
   } catch (err) {
-    customAlert("Erro ao exportar planilha CSV: " + err.message);
+    if (err.name !== "AbortError") {
+      customAlert("Erro ao exportar planilha CSV: " + err.message);
+    }
   }
 }
 
