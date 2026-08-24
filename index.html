@@ -73,14 +73,13 @@
       </div>
     </section>
 
-    <!-- UX-01: TELA DE BLOQUEIO REDESENHADA -->
+    <!-- TELA DE BLOQUEIO -->
     <section id="lock-screen" class="screen hidden" aria-labelledby="lock-title">
       <div class="lock-container">
         <div class="lock-card glass-panel">
           <header class="lock-header">
             <div style="display: flex; align-items: center; justify-content: center; gap: 10px;">
               <div class="brand-logo-glow">FX</div>
-              <!-- UX-03: ÍCONE DISCRETO E INTERATIVO DE BIOMETRIA -->
               <button type="button" id="biometric-unlock-icon" class="icon-button hidden" title="Autenticar com Biometria" aria-label="Autenticar com Biometria" style="border-color: var(--border-gold); color: var(--accent);">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04C4.05 16.148 3 13.686 3 11c0-4.97 4.03-9 9-9s9 4.03 9 9c0 4.015-2.631 7.41-6.284 8.571M12 7v8m0 0a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/></svg>
               </button>
@@ -298,7 +297,7 @@
       </main>
     </section>
 
-    <!-- MODAL SELECTOR CUSTOMIZADO -->
+    <!-- MODAIS -->
     <div id="picker-modal" class="modal hidden" role="dialog" aria-modal="true">
       <div class="modal-content glass-panel">
         <header class="modal-header">
@@ -311,7 +310,6 @@
       </div>
     </div>
 
-    <!-- MODAL CONFIRM CUSTOMIZADO -->
     <div id="custom-confirm-modal" class="modal hidden" role="dialog" aria-modal="true">
       <div class="modal-content glass-panel" style="max-width:380px; text-align:center;">
         <main class="modal-body" style="padding-top:24px;">
@@ -324,7 +322,6 @@
       </div>
     </div>
 
-    <!-- MODAL ALERT CUSTOMIZADO -->
     <div id="custom-alert-modal" class="modal hidden" role="dialog" aria-modal="true">
       <div class="modal-content glass-panel" style="max-width:380px; text-align:center;">
         <main class="modal-body" style="padding-top:24px;">
@@ -336,7 +333,6 @@
       </div>
     </div>
 
-    <!-- MODAL EDICAO DE LIMITE DO SETUP -->
     <div id="setup-limit-modal" class="modal hidden" role="dialog" aria-modal="true">
       <div class="modal-content glass-panel">
         <header class="modal-header">
@@ -360,7 +356,6 @@
       </div>
     </div>
 
-    <!-- MODAL DE HISTÓRICO DE MESES -->
     <div id="history-modal" class="modal hidden" role="dialog" aria-modal="true">
       <div class="modal-content glass-panel">
         <header class="modal-header">
@@ -373,7 +368,6 @@
       </div>
     </div>
 
-    <!-- MODAL DE EDIÇÃO / EXCLUSÃO DE GASTO -->
     <div id="expense-edit-modal" class="modal hidden" role="dialog" aria-modal="true">
       <div class="modal-content glass-panel">
         <header class="modal-header">
@@ -402,7 +396,6 @@
       </div>
     </div>
 
-    <!-- UX-04: MODAL DE LANÇAR GASTO REESTRUTURADO (ESTILO RESERVA) -->
     <div id="expense-modal" class="modal hidden" role="dialog" aria-modal="true">
       <div class="modal-content glass-panel">
         <header class="modal-header">
@@ -438,7 +431,6 @@
       </div>
     </div>
 
-    <!-- MODAL DE EXTRA -->
     <div id="extra-modal" class="modal hidden" role="dialog" aria-modal="true">
       <div class="modal-content glass-panel">
         <header class="modal-header">
@@ -460,7 +452,6 @@
       </div>
     </div>
 
-    <!-- MODAL DE RESERVA -->
     <div id="reserve-modal" class="modal hidden" role="dialog" aria-modal="true">
       <div class="modal-content glass-panel">
         <header class="modal-header">
@@ -510,7 +501,6 @@
       </div>
     </div>
 
-    <!-- MODAL DE CATEGORIA -->
     <div id="category-modal" class="modal hidden" role="dialog" aria-modal="true">
       <div class="modal-content glass-panel">
         <header class="modal-header">
@@ -523,7 +513,6 @@
       </div>
     </div>
 
-    <!-- MODAL DE CRIAÇÃO / EDIÇÃO DE CATEGORIA -->
     <div id="category-editor-modal" class="modal hidden" role="dialog" aria-modal="true">
       <div class="modal-content glass-panel">
         <header class="modal-header">
@@ -556,7 +545,6 @@
       </div>
     </div>
 
-    <!-- MODAL DO GRÁFICO DO MÊS -->
     <div id="chart-modal" class="modal hidden" role="dialog" aria-modal="true">
       <div class="modal-content glass-panel">
         <header class="modal-header">
@@ -569,7 +557,6 @@
       </div>
     </div>
 
-    <!-- MODAL DE ALTERAÇÃO DE SENHA -->
     <div id="password-modal" class="modal hidden" role="dialog" aria-modal="true">
       <div class="modal-content glass-panel">
         <header class="modal-header">
@@ -594,7 +581,6 @@
       </div>
     </div>
 
-    <!-- MODAL DE EXCLUSÃO DOS DADOS -->
     <div id="delete-data-modal" class="modal hidden" role="dialog" aria-modal="true">
       <div class="modal-content glass-panel">
         <header class="modal-header">
@@ -619,7 +605,8 @@
 
     <script src="app.js"></script>
     <script>
-      if ('serviceWorker' in navigator) {
+      // Registra o Service Worker apenas na Web e PWA, desativando dentro do APK nativo para evitar conflitos
+      if ('serviceWorker' in navigator && !window.Capacitor?.isNativePlatform()) {
         window.addEventListener('load', () => {
           navigator.serviceWorker.register('./service-worker.js')
             .catch(err => console.error('Erro ao registrar Service Worker:', err));
