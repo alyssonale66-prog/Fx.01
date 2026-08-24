@@ -74,15 +74,18 @@ jobs:
           rm -rf android
           npx cap add android
 
-      - name: Gerar ícones Android
+      - name: Gerar ícones e Splash Android
         run: |
           mkdir -p resources
           cp icon-512.png resources/icon.png
+          cp icon-512.png resources/splash.png
 
           npx capacitor-assets generate \
             --android \
             --iconBackgroundColor "#0a0a0a" \
-            --iconBackgroundColorDark "#0a0a0a"
+            --iconBackgroundColorDark "#0a0a0a" \
+            --splashBackgroundColor "#0a0a0a" \
+            --splashBackgroundColorDark "#0a0a0a"
 
       - name: Sincronizar projeto
         run: npx cap sync android
