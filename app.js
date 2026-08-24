@@ -1,5 +1,5 @@
 /* ============================================================
-   FX.01 — Versão Completa, Auditada e Sincronizada
+   FX.01 — Versão Completa e Auditada
    ============================================================ */
 
 "use strict";
@@ -14,7 +14,8 @@ const CATEGORY_ICONS = {
   medicine: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"/><path d="m8.5 8.5 7 7"/></svg>`,
   leisure: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="6" x2="10" y1="12" y2="12"/><line x1="8" x2="8" y1="10" y2="14"/><rect width="20" height="12" x="2" y="6" rx="6"/></svg>`,
   phone: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="20" x="5" y="2" rx="2"/><line x1="12" x2="12.01" y1="18" y2="18"/></svg>`,
-  other: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/></svg>`
+  other: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/></svg>`,
+  biometrics: `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04C4.05 16.148 3 13.686 3 11c0-4.97 4.03-9 9-9s9 4.03 9 9c0 4.015-2.631 7.41-6.284 8.571M12 7v8m0 0a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/></svg>`
 };
 
 /* ÍCONES VETORIAIS DE VISIBILIDADE E SEGURANÇA */
@@ -72,7 +73,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
 function saveState() {
   if (!state) return;
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  } catch (e) {
+    console.error("Erro ao salvar no LocalStorage:", e);
+  }
 }
 
 function loadApplication() {
@@ -83,27 +88,33 @@ function loadApplication() {
   }
 
   try {
-    state = JSON.parse(stored);
-    normalizeState();
-    checkCycleRollover();
-    checkCycleNotification();
-
-    if (!state.setupCompleted) {
-      startInitialSetup();
-      return;
+    const parsed = JSON.parse(stored);
+    if (parsed && typeof parsed === "object") {
+      state = parsed;
+    } else {
+      state = createEmptyState();
     }
-
-    if (state.security && state.security.locked) {
-      lockApp();
-      return;
-    }
-
-    showScreen("main");
-    renderApplication();
   } catch (error) {
-    console.error("Erro ao carregar os dados:", error);
-    customAlert("Ocorreu um erro ao ler os dados salvos. Seus dados foram preservados.");
+    console.error("Erro ao ler JSON corrompido:", error);
+    state = createEmptyState();
   }
+
+  normalizeState();
+  checkCycleRollover();
+  checkCycleNotification();
+
+  if (!state.setupCompleted) {
+    startInitialSetup();
+    return;
+  }
+
+  if (state.security && state.security.locked) {
+    lockApp();
+    return;
+  }
+
+  showScreen("main");
+  renderApplication();
 }
 
 function normalizeState() {
@@ -111,19 +122,22 @@ function normalizeState() {
     state = createEmptyState();
     return;
   }
-  if (!state.user) state.user = { name: "" };
+  if (!state.user || typeof state.user !== "object") state.user = { name: "" };
   if (!Array.isArray(state.categories)) state.categories = [];
   if (!Array.isArray(state.cycles)) state.cycles = [];
   if (!state.currentCycle) state.currentCycle = null;
 
   if (!state.reserve) state.reserve = { balance: 0 };
-  state.reserve.balance = roundMoney(state.reserve.balance);
+  state.reserve.balance = roundMoney(state.reserve.balance || 0);
 
-  if (!state.salary) state.salary = { reference: 0, split: false };
-  state.salary.reference = roundMoney(state.salary.reference);
+  if (!state.salary) state.salary = { reference: 0, hasAdvance: false, advanceAmount: 0, advanceDay: 20 };
+  state.salary.reference = roundMoney(state.salary.reference || 0);
+  state.salary.advanceAmount = roundMoney(state.salary.advanceAmount || 0);
+  if (typeof state.salary.hasAdvance !== "boolean") state.salary.hasAdvance = false;
+  if (!state.salary.advanceDay) state.salary.advanceDay = 20;
 
   if (!state.extra) state.extra = { balance: 0 };
-  state.extra.balance = roundMoney(state.extra.balance);
+  state.extra.balance = roundMoney(state.extra.balance || 0);
 
   if (!state.security) state.security = { password: "", locked: false, lastCycleNotificationDate: "", biometricId: null, biometricType: null };
   if (!state.settings) state.settings = { cycleDay: 5, hideBalances: false };
@@ -160,7 +174,7 @@ function createEmptyState() {
     setupCompleted: false,
     user: { name: "" },
     security: { password: "", locked: false, lastCycleNotificationDate: "", biometricId: null, biometricType: null },
-    salary: { reference: 0, split: false },
+    salary: { reference: 0, hasAdvance: false, advanceAmount: 0, advanceDay: 20 },
     extra: { balance: 0 },
     reserve: { balance: 0 },
     settings: { cycleDay: 5, hideBalances: false },
@@ -170,7 +184,7 @@ function createEmptyState() {
   };
 }
 
-/* SISTEMA DE NOTIFICAÇÃO 3 DIAS ANTES DO TÉRMINO DO CICLO (1 POR DIA) */
+/* SISTEMA DE NOTIFICAÇÃO 3 DIAS ANTES DO TÉRMINO DO CICLO */
 function checkCycleNotification() {
   if (!state || !state.currentCycle || !state.currentCycle.endDate) return;
   if (!("Notification" in window)) return;
@@ -204,14 +218,14 @@ function checkCycleNotification() {
   }
 }
 
-/* TRANSIÇÃO DE MÊS COM TRANSFERÊNCIA DO SALDO RESTANTE DO SALÁRIO PARA EXTRA */
+/* BUG-02: TRANSIÇÃO DE MÊS COM PROCESSAMENTO DE MÚLTIPLOS CICLOS ATRASADOS (WHILE) */
 function checkCycleRollover() {
   if (!state || !state.currentCycle || !state.currentCycle.endDate) return;
 
-  const now = new Date();
-  const endDate = new Date(state.currentCycle.endDate);
+  let now = new Date();
+  let endDate = new Date(state.currentCycle.endDate);
 
-  if (now >= endDate) {
+  while (now >= endDate) {
     const leftoverSalary = getSalaryBalance();
     if (leftoverSalary > 0) {
       state.extra.balance = roundMoney(state.extra.balance + leftoverSalary);
@@ -235,8 +249,10 @@ function checkCycleRollover() {
     };
 
     normalizeCycle(state.currentCycle);
-    saveState();
+    endDate = new Date(state.currentCycle.endDate);
   }
+
+  saveState();
 }
 
 function startInitialSetup() {
@@ -354,7 +370,13 @@ function handleSetupNext() {
   }
   if (currentSetupStep === 4) {
     if (!setupSalarySplit) return customAlert("Escolha uma opção.");
-    state.salary.split = setupSalarySplit === "yes";
+    state.salary.hasAdvance = setupSalarySplit === "yes";
+    if (state.salary.hasAdvance) {
+      const advVal = parseMoneyInput($("setup-advance-val")?.value);
+      state.salary.advanceAmount = advVal;
+    } else {
+      state.salary.advanceAmount = 0;
+    }
   }
   if (currentSetupStep === 5) {
     const day = Number($("setup-cycle-day")?.value);
@@ -401,26 +423,10 @@ function createInitialCycle() {
   normalizeCycle(state.currentCycle);
 }
 
-function getCalculatedSalaryReceived() {
-  if (!state || !state.salary) return 0;
-  const ref = Number(state.salary.reference) || 0;
-  if (!state.salary.split) return ref;
-
-  const todayDay = new Date().getDate();
-  const cycleDay = state.settings.cycleDay || 5;
-
-  if (todayDay >= 20) {
-    return ref;
-  } else if (todayDay >= cycleDay) {
-    return roundMoney(ref * 0.60);
-  } else {
-    return roundMoney(ref * 0.40);
-  }
-}
-
+/* BUG-01: SALÁRIO FIXO BASEADO NO VALOR REGISTRADO NO CICLO (SEM DIVISÃO DINÂMICA POR DIA) */
 function getSalaryBalance() {
   if (!state || !state.currentCycle) return 0;
-  let balance = getCalculatedSalaryReceived();
+  let balance = Number(state.currentCycle.salaryReceived) || 0;
 
   state.currentCycle.expenses.forEach((exp) => {
     if (exp.origin === "salary") balance -= Number(exp.amount) || 0;
@@ -729,25 +735,38 @@ function openReserveModal() {
   if ($("reserve-value")) $("reserve-value").value = "";
   if ($("withdraw-value")) $("withdraw-value").value = "";
 
-  selectedReserveOrigin = null;
+  selectedReserveOrigin = "salary";
   hideElement("reserve-error");
   hideElement("reserve-form");
   hideElement("withdraw-form");
   hideElement("reserve-origin-section");
 
-  document.querySelectorAll("[data-reserve-origin]").forEach((btn) => btn.classList.remove("selected"));
-  setText("selected-reserve-origin", "");
+  updateReserveModalOriginButtons();
   setText("reserve-balance", formatMoneyOrMask(getReserveBalance()));
 
   openModal("reserve-modal");
+}
+
+function updateReserveModalOriginButtons() {
+  const salaryBtn = $("reserve-origin-salary-btn");
+  const extraBtn = $("reserve-origin-extra-btn");
+
+  if (salaryBtn) {
+    salaryBtn.classList.toggle("selected", selectedReserveOrigin === "salary");
+  }
+  if (extraBtn) {
+    extraBtn.classList.toggle("selected", selectedReserveOrigin === "extra");
+  }
+
+  setText("reserve-salary-available", formatMoneyOrMask(getSalaryBalance()));
+  setText("reserve-extra-available", formatMoneyOrMask(getExtraBalance()));
 }
 
 function showReserveSaveForm() {
   hideElement("withdraw-form");
   showElement("reserve-form");
   showElement("reserve-origin-section");
-  setText("reserve-salary-available", formatMoneyOrMask(getSalaryBalance()));
-  setText("reserve-extra-available", formatMoneyOrMask(getExtraBalance()));
+  updateReserveModalOriginButtons();
 }
 
 function showWithdrawForm() {
@@ -786,6 +805,7 @@ function confirmReserveSave() {
   }
 }
 
+/* ITEM 11 MANUTENÇÃO OBRIGATÓRIA DA REGRA DA RESERVA */
 function confirmReserveWithdraw() {
   try {
     const amount = parseMoneyInput($("withdraw-value")?.value);
@@ -891,7 +911,6 @@ function importBackup(event) {
 
 /* SISTEMA BIOMÉTRICO HÍBRIDO (CAPACITOR NATIVO APK + WEBAUTHN NAVEGADOR) */
 async function checkBiometricSupport() {
-  // 1. Verificação para APK Nativo (Capacitor)
   if (window.Capacitor?.Plugins?.NativeBiometric) {
     try {
       const result = await window.Capacitor.Plugins.NativeBiometric.isAvailable();
@@ -901,7 +920,6 @@ async function checkBiometricSupport() {
     }
   }
 
-  // 2. Verificação para Navegador Web (HTTPS/Localhost)
   if (window.PublicKeyCredential && (location.protocol === "https:" || location.hostname === "localhost")) {
     try {
       const available = await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
@@ -918,7 +936,7 @@ async function registerBiometrics() {
   const support = await checkBiometricSupport();
 
   if (!support.available) {
-    return customAlert("Seu dispositivo não possui biometria configurada ou ativa neste dispositivo.");
+    return customAlert("Seu dispositivo não possui biometria configurada ou ativa.");
   }
 
   if (support.type === "capacitor") {
@@ -933,7 +951,7 @@ async function registerBiometrics() {
       saveState();
       customAlert("Biometria cadastrada com sucesso!");
     } catch (err) {
-      customAlert("Não foi possível cadastrar a biometria: " + (err.message || "Cancelado pelo usuário."));
+      customAlert("Não foi possível cadastrar a biometria: " + (err.message || "Cancelado."));
     }
     return;
   }
@@ -973,8 +991,9 @@ async function registerBiometrics() {
   }
 }
 
+/* BUG-04 & UX-03: TRATAMENTO DE PADDING BASE64 NO ATOB() E FALLBACK DA BIOMETRIA */
 async function authenticateBiometric() {
-  if (!state.security.biometricId) return;
+  if (!state || !state.security || !state.security.biometricId) return;
 
   const support = await checkBiometricSupport();
 
@@ -987,7 +1006,7 @@ async function authenticateBiometric() {
       });
       unlockSuccess();
     } catch (err) {
-      showElement("unlock-error", "Digital/Face não reconhecida. Use sua senha.");
+      showElement("unlock-error", "Biometria não reconhecida. Use sua senha.");
     }
     return;
   }
@@ -997,11 +1016,18 @@ async function authenticateBiometric() {
       const challenge = new Uint8Array(32);
       window.crypto.getRandomValues(challenge);
 
+      let b64 = state.security.biometricId.replace(/-/g, '+').replace(/_/g, '/');
+      while (b64.length % 4 !== 0) {
+        b64 += '=';
+      }
+
+      const rawId = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+
       const assertion = await navigator.credentials.get({
         publicKey: {
           challenge,
           allowCredentials: [{
-            id: Uint8Array.from(atob(state.security.biometricId.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0)),
+            id: rawId,
             type: 'public-key'
           }],
           userVerification: "required",
@@ -1012,12 +1038,12 @@ async function authenticateBiometric() {
       if (assertion) unlockSuccess();
     } catch (err) {
       console.error("Autenticação biométrica falhou:", err);
-      showElement("unlock-error", "Falha na autenticação biométrica. Use sua senha.");
+      showElement("unlock-error", "Biometria não reconhecida. Use sua senha.");
     }
     return;
   }
 
-  showElement("unlock-error", "Biometria indisponível neste ambiente. Use sua senha.");
+  showElement("unlock-error", "Biometria indisponível. Use sua senha.");
 }
 
 function unlockSuccess() {
@@ -1028,9 +1054,6 @@ function unlockSuccess() {
 }
 
 function updateCustomSelectTriggers() {
-  const expOriginBtn = $("expense-origin-trigger");
-  if (expOriginBtn) expOriginBtn.textContent = selectedExpenseOrigin === "salary" ? "Salário" : "Extra";
-
   const editExpOriginBtn = $("edit-expense-origin-trigger");
   if (editExpOriginBtn) {
     if (selectedEditExpenseOrigin === "salary") editExpOriginBtn.textContent = "Salário";
@@ -1241,11 +1264,17 @@ function saveSalarySettings() {
   if (salary < 0) return customAlert("Salário não pode ser negativo.");
 
   state.salary.reference = salary;
-  state.salary.split = settingsSalarySplit === "yes";
+  state.salary.hasAdvance = settingsSalarySplit === "yes";
+  
+  if (state.salary.hasAdvance) {
+    const advVal = parseMoneyInput($("settings-advance-val")?.value);
+    state.salary.advanceAmount = advVal;
+  } else {
+    state.salary.advanceAmount = 0;
+  }
 
   if (state.currentCycle) {
-    const leftover = Number(state.currentCycle.leftoverSalary) || 0;
-    state.currentCycle.salaryReceived = roundMoney(salary + leftover);
+    state.currentCycle.salaryReceived = roundMoney(salary);
   }
 
   saveState();
@@ -1296,6 +1325,7 @@ function deleteAllData() {
   startInitialSetup();
 }
 
+/* UX-01 & UX-02: TELA DE BLOQUEIO ATUALIZADA E BIOMETRIA AUTOMÁTICA */
 function lockApp() {
   if (state) state.security.locked = true;
   if ($("unlock-password")) {
@@ -1305,14 +1335,19 @@ function lockApp() {
   renderLockPasswordIcon();
   hideElement("unlock-error");
   
+  const bioTrigger = $("biometric-unlock-icon");
   if (state && state.security && state.security.biometricId) {
-    showElement("biometric-unlock-button");
+    if (bioTrigger) bioTrigger.classList.remove("hidden");
+    saveState();
+    showScreen("lock");
+    setTimeout(() => {
+      authenticateBiometric();
+    }, 300);
   } else {
-    hideElement("biometric-unlock-button");
+    if (bioTrigger) bioTrigger.classList.add("hidden");
+    saveState();
+    showScreen("lock");
   }
-
-  saveState();
-  showScreen("lock");
 }
 
 function renderLockPasswordIcon() {
@@ -1483,7 +1518,8 @@ function renderSettingsValues() {
   if ($("settings-username")) $("settings-username").value = state.user?.name || "";
   if ($("settings-salary")) $("settings-salary").value = Number(state.salary.reference).toFixed(2);
   if ($("settings-cycle-day")) $("settings-cycle-day").value = state.settings.cycleDay;
-  settingsSalarySplit = state.salary.split ? "yes" : "no";
+  if ($("settings-advance-val")) $("settings-advance-val").value = Number(state.salary.advanceAmount || 0).toFixed(2);
+  settingsSalarySplit = state.salary.hasAdvance ? "yes" : "no";
   updateSalarySplitButtons();
 }
 
@@ -1547,15 +1583,9 @@ function bindEvents() {
 
   $("toggle-hide-balances-button")?.addEventListener("click", toggleHideBalances);
 
-  $("biometric-unlock-button")?.addEventListener("click", authenticateBiometric);
+  /* UX-03: FALLBACK INTERATIVO NO ÍCONE DISCRETO */
+  $("biometric-unlock-icon")?.addEventListener("click", authenticateBiometric);
   $("register-biometrics-button")?.addEventListener("click", registerBiometrics);
-
-  $("expense-origin-trigger")?.addEventListener("click", () => {
-    openCustomPicker("Origem do Gasto", [
-      { label: "Salário", value: "salary", selected: selectedExpenseOrigin === "salary" },
-      { label: "Extra", value: "extra", selected: selectedExpenseOrigin === "extra" }
-    ], (val) => { selectedExpenseOrigin = val; });
-  });
 
   $("edit-expense-origin-trigger")?.addEventListener("click", () => {
     const opts = [
@@ -1611,6 +1641,7 @@ function bindEvents() {
       document.querySelectorAll("[data-choice='salary-split']").forEach((btn) => {
         btn.classList.toggle("selected", btn.dataset.value === setupSalarySplit);
       });
+      $("setup-advance-container")?.classList.toggle("hidden", setupSalarySplit !== "yes");
       return;
     }
 
@@ -1641,13 +1672,31 @@ function bindEvents() {
       return;
     }
 
-    const reserveOriginBtn = e.target.closest("[data-reserve-origin]");
-    if (reserveOriginBtn) {
-      selectedReserveOrigin = reserveOriginBtn.dataset.reserveOrigin;
-      document.querySelectorAll("[data-reserve-origin]").forEach((btn) => {
-        btn.classList.toggle("selected", btn.dataset.reserveOrigin === selectedReserveOrigin);
-      });
-      setText("selected-reserve-origin", `Origem selecionada: ${selectedReserveOrigin === "salary" ? "Salário" : "Extra"}`);
+    const reserveOriginSalaryBtn = e.target.closest("#reserve-origin-salary-btn");
+    if (reserveOriginSalaryBtn) {
+      selectedReserveOrigin = "salary";
+      updateReserveModalOriginButtons();
+      return;
+    }
+
+    const reserveOriginExtraBtn = e.target.closest("#reserve-origin-extra-btn");
+    if (reserveOriginExtraBtn) {
+      selectedReserveOrigin = "extra";
+      updateReserveModalOriginButtons();
+      return;
+    }
+
+    const expenseOriginSalaryBtn = e.target.closest("#expense-origin-salary-btn");
+    if (expenseOriginSalaryBtn) {
+      selectedExpenseOrigin = "salary";
+      updateExpenseModalOriginButtons();
+      return;
+    }
+
+    const expenseOriginExtraBtn = e.target.closest("#expense-origin-extra-btn");
+    if (expenseOriginExtraBtn) {
+      selectedExpenseOrigin = "extra";
+      updateExpenseModalOriginButtons();
       return;
     }
 
@@ -1759,6 +1808,7 @@ function switchTab(tab) {
   $("nav-extrato-button").classList.toggle("active", tab === "extrato");
 }
 
+/* UX-04: PADRONIZAÇÃO DOS MODAIS DE LANÇAMENTO (ESTILO RESERVA) */
 function openExpenseModal(catId) {
   if (catId === "reserve") {
     openReserveModal();
@@ -1766,14 +1816,34 @@ function openExpenseModal(catId) {
   }
   currentCategoryId = catId;
   selectedExpenseOrigin = "salary";
-  updateCustomSelectTriggers();
 
   const cat = state.categories.find((c) => c.id === catId);
-  if ($("expense-modal-title")) $("expense-modal-title").textContent = `Lançar em ${cat?.name || ""}`;
+  const catName = cat?.name || "Categoria";
+
+  if ($("expense-modal-title")) $("expense-modal-title").textContent = `Lançar em ${catName}`;
+  if ($("confirm-expense-button")) $("confirm-expense-button").textContent = `Lançar em ${catName}`;
+
   $("expense-value").value = "";
   $("expense-description").value = "";
+
+  updateExpenseModalOriginButtons();
   hideElement("expense-error");
   openModal("expense-modal");
+}
+
+function updateExpenseModalOriginButtons() {
+  const salaryBtn = $("expense-origin-salary-btn");
+  const extraBtn = $("expense-origin-extra-btn");
+
+  if (salaryBtn) {
+    salaryBtn.classList.toggle("selected", selectedExpenseOrigin === "salary");
+  }
+  if (extraBtn) {
+    extraBtn.classList.toggle("selected", selectedExpenseOrigin === "extra");
+  }
+
+  setText("expense-salary-available", formatMoneyOrMask(getSalaryBalance()));
+  setText("expense-extra-available", formatMoneyOrMask(getExtraBalance()));
 }
 
 function showScreen(name) {
