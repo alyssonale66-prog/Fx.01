@@ -1,5 +1,5 @@
 /* ============================================================
-   FX.01 — Versão Completa e Auditada (Otimizada para APK/Capacitor)
+   FX.01 — Versão Completa e Auditada (Navegação & APK Nativo)
    ============================================================ */
 
 "use strict";
@@ -55,6 +55,8 @@ let selectedCategoryIcon = "other";
 let editingSetupCategoryIndex = null;
 let setupLimitHasLimit = false;
 
+let currentScreenName = "main";
+let currentTabName = "home";
 let customConfirmCallback = null;
 
 const $ = (id) => document.getElementById(id);
@@ -68,23 +70,54 @@ const screens = {
 
 document.addEventListener("DOMContentLoaded", () => {
   bindEvents();
-  setupAndroidBackButton();
+  setupAndroidNavigation();
   loadApplication();
 });
 
-function setupAndroidBackButton() {
+/* GERENCIADOR NATIVO DO BOTÃO VOLTAR DO ANDROID */
+function setupAndroidNavigation() {
+  window.addEventListener("popstate", (e) => {
+    handleBackAction();
+  });
+
   if (window.Capacitor?.Plugins?.App) {
     window.Capacitor.Plugins.App.addListener('backButton', () => {
-      const openModals = document.querySelectorAll('.modal:not(.hidden)');
-      if (openModals.length > 0) {
-        openModals[openModals.length - 1].classList.add('hidden');
-      } else if (state && !state.security.locked) {
-        lockApp();
-      } else {
-        window.Capacitor.Plugins.App.exitApp();
-      }
+      handleBackAction();
     });
   }
+}
+
+function handleBackAction() {
+  const openModals = document.querySelectorAll('.modal:not(.hidden)');
+  if (openModals.length > 0) {
+    const lastModal = openModals[openModals.length - 1];
+    lastModal.classList.add('hidden');
+    return;
+  }
+
+  if (currentScreenName === "settings") {
+    showScreen("main", false);
+    return;
+  }
+
+  if (currentScreenName === "main" && currentTabName === "extrato") {
+    switchTab("home", false);
+    return;
+  }
+
+  if (currentScreenName === "main") {
+    if (state && !state.security.locked) {
+      lockApp();
+    } else if (window.Capacitor?.Plugins?.App) {
+      window.Capacitor.Plugins.App.exitApp();
+    }
+  }
+}
+
+function pushNavigationState(type, name) {
+  try {
+    history.pushState({ type, name }, "");
+  } catch (e) {}
 }
 
 function saveState() {
@@ -129,7 +162,7 @@ function loadApplication() {
     return;
   }
 
-  showScreen("main");
+  showScreen("main", false);
   renderApplication();
 }
 
@@ -200,7 +233,6 @@ function createEmptyState() {
   };
 }
 
-/* SISTEMA DE NOTIFICAÇÃO 3 DIAS ANTES DO TÉRMINO DO CICLO */
 function checkCycleNotification() {
   if (!state || !state.currentCycle || !state.currentCycle.endDate) return;
   if (!("Notification" in window)) return;
@@ -234,7 +266,6 @@ function checkCycleNotification() {
   }
 }
 
-/* TRANSIÇÃO DE MÊS COM PROCESSAMENTO DE MÚLTIPLOS CICLOS ATRASADOS */
 function checkCycleRollover() {
   if (!state || !state.currentCycle || !state.currentCycle.endDate) return;
 
@@ -277,7 +308,7 @@ function startInitialSetup() {
   currentSetupStep = 1;
   setupSalarySplit = null;
 
-  showScreen("setup");
+  showScreen("setup", false);
   renderSetupStep();
 }
 
@@ -416,7 +447,7 @@ function completeInitialSetup() {
 
   createInitialCycle();
   saveState();
-  showScreen("main");
+  showScreen("main", false);
   renderApplication();
 }
 
@@ -979,7 +1010,6 @@ function importBackup(event) {
   reader.readAsText(file);
 }
 
-/* SISTEMA BIOMÉTRICO HÍBRIDO (CAPACITOR NATIVO APK + WEBAUTHN NAVEGADOR) */
 async function checkBiometricSupport() {
   if (window.Capacitor?.Plugins?.NativeBiometric) {
     try {
@@ -1118,7 +1148,7 @@ async function authenticateBiometric() {
 function unlockSuccess() {
   state.security.locked = false;
   saveState();
-  showScreen("main");
+  showScreen("main", false);
   renderApplication();
 }
 
@@ -1407,14 +1437,14 @@ function lockApp() {
   if (state && state.security && state.security.biometricId) {
     if (bioTrigger) bioTrigger.classList.remove("hidden");
     saveState();
-    showScreen("lock");
+    showScreen("lock", false);
     setTimeout(() => {
       authenticateBiometric();
     }, 300);
   } else {
     if (bioTrigger) bioTrigger.classList.add("hidden");
     saveState();
-    showScreen("lock");
+    showScreen("lock", false);
   }
 }
 
@@ -1810,7 +1840,7 @@ function bindEvents() {
     if (pass === state.security.password) {
       state.security.locked = false;
       saveState();
-      showScreen("main");
+      showScreen("main", false);
       renderApplication();
     } else {
       showElement("unlock-error", "Senha incorreta.");
@@ -1868,11 +1898,16 @@ function bindEvents() {
   $("lock-button")?.addEventListener("click", lockApp);
 }
 
-function switchTab(tab) {
+function switchTab(tab, recordHistory = true) {
+  currentTabName = tab;
   $("tab-home").classList.toggle("hidden", tab !== "home");
   $("tab-extrato").classList.toggle("hidden", tab !== "extrato");
   $("nav-home-button").classList.toggle("active", tab === "home");
   $("nav-extrato-button").classList.toggle("active", tab === "extrato");
+
+  if (recordHistory) {
+    pushNavigationState("tab", tab);
+  }
 }
 
 function openExpenseModal(catId) {
@@ -1912,13 +1947,24 @@ function updateExpenseModalOriginButtons() {
   setText("expense-extra-available", formatMoneyOrMask(getExtraBalance()));
 }
 
-function showScreen(name) {
+function showScreen(name, recordHistory = true) {
+  currentScreenName = name;
   Object.values(screens).forEach((s) => s?.classList.add("hidden"));
   screens[name]?.classList.remove("hidden");
+
+  if (recordHistory) {
+    pushNavigationState("screen", name);
+  }
 }
 
-function openModal(id) { $(id)?.classList.remove("hidden"); }
-function closeModal(id) { $(id)?.classList.add("hidden"); }
+function openModal(id) {
+  $(id)?.classList.remove("hidden");
+  pushNavigationState("modal", id);
+}
+
+function closeModal(id) {
+  $(id)?.classList.add("hidden");
+}
 
 function roundMoney(v) { return Math.round((Number(v) + Number.EPSILON) * 100) / 100; }
 function formatMoney(v) { return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v); }
