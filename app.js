@@ -1,5 +1,5 @@
 /* ============================================================
-   FX.01 — Versão Completa e Auditada
+   FX.01 — Versão Completa e Auditada (Otimizada para APK/Capacitor)
    ============================================================ */
 
 "use strict";
@@ -218,7 +218,7 @@ function checkCycleNotification() {
   }
 }
 
-/* BUG-02: TRANSIÇÃO DE MÊS COM PROCESSAMENTO DE MÚLTIPLOS CICLOS ATRASADOS (WHILE) */
+/* TRANSIÇÃO DE MÊS COM PROCESSAMENTO DE MÚLTIPLOS CICLOS ATRASADOS */
 function checkCycleRollover() {
   if (!state || !state.currentCycle || !state.currentCycle.endDate) return;
 
@@ -423,7 +423,6 @@ function createInitialCycle() {
   normalizeCycle(state.currentCycle);
 }
 
-/* BUG-01: SALÁRIO FIXO BASEADO NO VALOR REGISTRADO NO CICLO (SEM DIVISÃO DINÂMICA POR DIA) */
 function getSalaryBalance() {
   if (!state || !state.currentCycle) return 0;
   let balance = Number(state.currentCycle.salaryReceived) || 0;
@@ -652,7 +651,6 @@ function openCategoryDetails(categoryId) {
   openModal("category-modal");
 }
 
-/* HISTÓRICO DE MESES ANTERIORES DETALHADO */
 function openHistoryModal(cycleId = null) {
   const container = $("history-container");
   if (!container) return;
@@ -805,7 +803,6 @@ function confirmReserveSave() {
   }
 }
 
-/* ITEM 11 MANUTENÇÃO OBRIGATÓRIA DA REGRA DA RESERVA */
 function confirmReserveWithdraw() {
   try {
     const amount = parseMoneyInput($("withdraw-value")?.value);
@@ -842,7 +839,14 @@ async function exportBackup() {
     const fileName = `fx_backup_${dateStr}.json`;
     const file = new File([jsonStr], fileName, { type: "application/json" });
 
-    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    let canShare = false;
+    try {
+      canShare = !!(navigator.canShare && navigator.canShare({ files: [file] }));
+    } catch (e) {
+      canShare = false;
+    }
+
+    if (canShare) {
       await navigator.share({
         files: [file],
         title: "Backup FX",
@@ -891,7 +895,14 @@ async function exportCSV() {
     const fileName = `fx_extrato_${dateStr}.csv`;
     const file = new File([csvContent], fileName, { type: "text/csv" });
 
-    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    let canShare = false;
+    try {
+      canShare = !!(navigator.canShare && navigator.canShare({ files: [file] }));
+    } catch (e) {
+      canShare = false;
+    }
+
+    if (canShare) {
       await navigator.share({
         files: [file],
         title: "Extrato FX",
@@ -935,6 +946,8 @@ function importBackup(event) {
       customAlert("Backup importado com sucesso!");
     } catch (err) {
       customAlert("Erro ao importar backup: " + err.message);
+    } finally {
+      event.target.value = "";
     }
   };
   reader.readAsText(file);
@@ -1022,7 +1035,6 @@ async function registerBiometrics() {
   }
 }
 
-/* BUG-04 & UX-03: TRATAMENTO DE PADDING BASE64 NO ATOB() E FALLBACK DA BIOMETRIA */
 async function authenticateBiometric() {
   if (!state || !state.security || !state.security.biometricId) return;
 
@@ -1356,7 +1368,6 @@ function deleteAllData() {
   startInitialSetup();
 }
 
-/* UX-01 & UX-02: TELA DE BLOQUEIO ATUALIZADA E BIOMETRIA AUTOMÁTICA */
 function lockApp() {
   if (state) state.security.locked = true;
   if ($("unlock-password")) {
@@ -1614,7 +1625,6 @@ function bindEvents() {
 
   $("toggle-hide-balances-button")?.addEventListener("click", toggleHideBalances);
 
-  /* UX-03: FALLBACK INTERATIVO NO ÍCONE DISCRETO */
   $("biometric-unlock-icon")?.addEventListener("click", authenticateBiometric);
   $("register-biometrics-button")?.addEventListener("click", registerBiometrics);
 
@@ -1839,7 +1849,6 @@ function switchTab(tab) {
   $("nav-extrato-button").classList.toggle("active", tab === "extrato");
 }
 
-/* UX-04: PADRONIZAÇÃO DOS MODAIS DE LANÇAMENTO (ESTILO RESERVA) */
 function openExpenseModal(catId) {
   if (catId === "reserve") {
     openReserveModal();
