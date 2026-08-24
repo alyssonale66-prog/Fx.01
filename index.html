@@ -42,15 +42,16 @@
           </div>
 
           <div class="setup-step" data-step="4">
-            <h2>Divisão do salário</h2>
-            <p>Deseja dividir o salário?</p>
+            <h2>Adiantamento / Vale</h2>
+            <p>Você recebe adiantamento/vale no dia 20?</p>
             <div class="choice-group">
               <button type="button" class="choice-button" data-choice="salary-split" data-value="yes">Sim</button>
               <button type="button" class="choice-button" data-choice="salary-split" data-value="no">Não</button>
             </div>
-            <p class="choice-description">
-              Se escolher Sim, o FX utilizará automaticamente 40% no dia 20 e 60% no 5º dia útil.
-            </p>
+            <div id="setup-advance-container" class="hidden" style="margin-top: 10px;">
+              <label for="setup-advance-val">Valor do Adiantamento/Vale (R$)</label>
+              <input id="setup-advance-val" class="hero-input" type="text" inputmode="decimal" placeholder="0,00">
+            </div>
           </div>
 
           <div class="setup-step" data-step="5">
@@ -72,20 +73,22 @@
       </div>
     </section>
 
-    <!-- TELA DE BLOQUEIO PERSONALIZADA -->
+    <!-- UX-01: TELA DE BLOQUEIO REDESENHADA -->
     <section id="lock-screen" class="screen hidden" aria-labelledby="lock-title">
       <div class="lock-container">
         <div class="lock-card glass-panel">
           <header class="lock-header">
-            <div class="brand-logo-glow">FX</div>
+            <div style="display: flex; align-items: center; justify-content: center; gap: 10px;">
+              <div class="brand-logo-glow">FX</div>
+              <!-- UX-03: ÍCONE DISCRETO E INTERATIVO DE BIOMETRIA -->
+              <button type="button" id="biometric-unlock-icon" class="icon-button hidden" title="Autenticar com Biometria" aria-label="Autenticar com Biometria" style="border-color: var(--border-gold); color: var(--accent);">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04C4.05 16.148 3 13.686 3 11c0-4.97 4.03-9 9-9s9 4.03 9 9c0 4.015-2.631 7.41-6.284 8.571M12 7v8m0 0a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/></svg>
+              </button>
+            </div>
             <p class="lock-subtitle" id="lock-title">Acesso Protegido</p>
           </header>
 
           <main class="lock-form">
-            <button id="biometric-unlock-button" type="button" class="secondary-button hidden" style="margin-bottom: 16px; border-color: var(--border-gold); color: var(--accent);">
-              👈 Entrar com Biometria
-            </button>
-
             <label for="unlock-password">Senha de Acesso</label>
             <div class="password-input-wrapper">
               <input id="unlock-password" type="password" autocomplete="current-password" placeholder="Digite sua senha">
@@ -229,17 +232,18 @@
             <span>⌄</span>
           </button>
           <div id="salary-settings" class="settings-panel hidden">
-            <label for="settings-salary">Valor</label>
+            <label for="settings-salary">Valor do Salário (R$)</label>
             <input id="settings-salary" class="hero-input" type="text" inputmode="decimal" placeholder="0,00">
-            <p style="margin-top:10px;">Dividir salário</p>
+            <p style="margin-top:10px;">Adiantamento / Vale</p>
             <div class="choice-group">
               <button type="button" class="choice-button" data-settings-salary-split="yes">Sim</button>
               <button type="button" class="choice-button" data-settings-salary-split="no">Não</button>
             </div>
-            <div id="salary-split-info" class="info-box hidden">
-              40% → dia 20<br>60% → 5º dia útil
+            <div id="salary-split-info" class="hidden" style="margin-top:10px;">
+              <label for="settings-advance-val">Valor do Adiantamento/Vale (R$)</label>
+              <input id="settings-advance-val" class="hero-input" type="text" inputmode="decimal" placeholder="0,00">
             </div>
-            <button id="save-salary-settings" type="button" class="primary-button">Salvar</button>
+            <button id="save-salary-settings" type="button" class="primary-button" style="margin-top:12px;">Salvar</button>
           </div>
         </section>
 
@@ -398,7 +402,7 @@
       </div>
     </div>
 
-    <!-- MODAL DE LANÇAR GASTO -->
+    <!-- UX-04: MODAL DE LANÇAR GASTO REESTRUTURADO (ESTILO RESERVA) -->
     <div id="expense-modal" class="modal hidden" role="dialog" aria-modal="true">
       <div class="modal-content glass-panel">
         <header class="modal-header">
@@ -406,11 +410,22 @@
           <button type="button" class="modal-close" data-close-modal="expense-modal">×</button>
         </header>
         <main class="modal-body">
-          <label for="expense-value">Valor (R$)</label>
+          <label for="expense-value">Quanto deseja lançar? (R$)</label>
           <input id="expense-value" class="hero-input" type="text" inputmode="decimal" placeholder="0,00">
 
-          <label>Origem</label>
-          <button type="button" id="expense-origin-trigger" class="custom-select-button"></button>
+          <div id="expense-origin-section" class="reserve-origin-section">
+            <p class="reserve-origin-title">De onde retirar?</p>
+            <div class="reserve-origin-options">
+              <button type="button" id="expense-origin-salary-btn" class="reserve-origin-option selected">
+                <span class="reserve-origin-name">Salário</span>
+                <strong id="expense-salary-available" class="reserve-origin-balance">R$ 0,00</strong>
+              </button>
+              <button type="button" id="expense-origin-extra-btn" class="reserve-origin-option">
+                <span class="reserve-origin-name">Extra</span>
+                <strong id="expense-extra-available" class="reserve-origin-balance">R$ 0,00</strong>
+              </button>
+            </div>
+          </div>
 
           <label for="expense-description">Descrição</label>
           <input id="expense-description" type="text" maxlength="100" placeholder="Opcional">
@@ -470,16 +485,15 @@
             <div id="reserve-origin-section" class="reserve-origin-section hidden">
               <p class="reserve-origin-title">De onde retirar?</p>
               <div id="reserve-origin-options" class="reserve-origin-options">
-                <button type="button" class="reserve-origin-option" data-reserve-origin="salary">
+                <button type="button" id="reserve-origin-salary-btn" class="reserve-origin-option selected">
                   <span class="reserve-origin-name">Salário</span>
                   <strong id="reserve-salary-available" class="reserve-origin-balance">R$ 0,00</strong>
                 </button>
-                <button type="button" class="reserve-origin-option" data-reserve-origin="extra">
+                <button type="button" id="reserve-origin-extra-btn" class="reserve-origin-option">
                   <span class="reserve-origin-name">Extra</span>
                   <strong id="reserve-extra-available" class="reserve-origin-balance">R$ 0,00</strong>
                 </button>
               </div>
-              <p id="selected-reserve-origin" class="selected-reserve-origin"></p>
             </div>
 
             <button id="confirm-reserve-button" type="button" class="primary-button">Guardar na Reserva</button>
