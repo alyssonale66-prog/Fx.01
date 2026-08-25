@@ -67,7 +67,7 @@ button, input, select, textarea {
   font: inherit;
 }
 
-button, .category-card, .expense-item-card, .choice-button, .nav-button, .interactive-card {
+button, .category-card, .expense-item-card, .choice-button, .nav-button, .interactive-card, .reserve-origin-option {
   border: 0;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
@@ -171,7 +171,8 @@ label {
 .category-balance, 
 .expense-item-amount, 
 .balance-source strong, 
-.hero-input {
+.hero-input,
+.reserve-origin-balance {
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.02em;
 }
@@ -461,6 +462,60 @@ label {
   transform: scale(0.92);
 }
 
+/* REESTRUTURAÇÃO DOS CARDS LADO A LADO (MODAIS) */
+.reserve-origin-options {
+  display: grid !important;
+  grid-template-columns: 1fr 1fr !important;
+  gap: 12px !important;
+  margin-top: 6px !important;
+  margin-bottom: 14px !important;
+}
+
+.reserve-origin-option {
+  padding: 16px 14px !important;
+  background: var(--surface-3) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius-medium) !important;
+  text-align: center !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 6px !important;
+  color: var(--text) !important;
+  transition: transform 0.15s ease, border-color 0.15s ease !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+.reserve-origin-option:active {
+  transform: scale(0.96) !important;
+}
+
+.reserve-origin-option.selected {
+  border: 2px solid var(--accent) !important;
+  background: var(--accent-soft) !important;
+  box-shadow: var(--glow-gold) !important;
+}
+
+.reserve-origin-name {
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  color: var(--text) !important;
+  display: block !important;
+}
+
+.reserve-origin-option.selected .reserve-origin-name {
+  color: var(--accent) !important;
+}
+
+.reserve-origin-balance {
+  font-size: 16px !important;
+  font-weight: 800 !important;
+  display: block !important;
+  color: var(--text) !important;
+}
+
 /* CONFIGURAÇÕES MODULARES */
 .settings-content {
   max-width: 560px;
@@ -500,7 +555,6 @@ label {
   font-size: 11px;
   font-weight: 600;
   color: var(--accent);
-
 }
 
 .settings-item .chevron {
