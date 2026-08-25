@@ -1637,7 +1637,6 @@ function bindEvents() {
   $("setup-recovery-question-button")?.addEventListener("click", openRecoveryQuestionSetupModal);
   $("save-sec-q-button")?.addEventListener("click", saveRecoveryQuestionSetup);
 
-  /* PADRONIZAÇÃO TOUCH: ABERTURA DIRETA AO TOCAR NO CARD EXTRA OU SALÁRIO */
   $("extra-card-trigger")?.addEventListener("click", () => {
     openModal("extra-modal");
   });
