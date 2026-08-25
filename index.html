@@ -204,7 +204,7 @@
 
     </section>
 
-    <!-- TELA DE CONFIGURAÇÕES (CARDS MODULARES) -->
+    <!-- TELA DE CONFIGURAÇÕES -->
     <section id="settings-screen" class="screen hidden" aria-labelledby="settings-title">
       <header class="screen-header settings-header">
         <button id="settings-back-button" type="button" class="icon-button" aria-label="Voltar">←</button>
@@ -353,7 +353,7 @@
       </div>
     </div>
 
-    <!-- OUTROS MODAIS EXISTENTES CONTINUAM INTEGRADOS E AUDITADOS -->
+    <!-- MODAIS DE SISTEMA -->
     <div id="picker-modal" class="modal hidden" role="dialog" aria-modal="true">
       <div class="modal-content glass-panel">
         <header class="modal-header">
@@ -452,6 +452,7 @@
       </div>
     </div>
 
+    <!-- MODAL DE LANÇAR GASTO -->
     <div id="expense-modal" class="modal hidden" role="dialog" aria-modal="true">
       <div class="modal-content glass-panel">
         <header class="modal-header">
@@ -463,7 +464,7 @@
           <input id="expense-value" class="hero-input" type="text" inputmode="decimal" placeholder="0,00">
 
           <div id="expense-origin-section" class="reserve-origin-section">
-            <p class="reserve-origin-title">De onde retirar?</p>
+            <p class="reserve-origin-title" style="margin-bottom: 6px; font-weight: 600; color: var(--text-secondary); font-size: 13px;">De onde retirar?</p>
             <div class="reserve-origin-options">
               <button type="button" id="expense-origin-salary-btn" class="reserve-origin-option selected">
                 <span class="reserve-origin-name">Salário</span>
@@ -530,7 +531,7 @@
             <input id="reserve-value" class="hero-input" type="text" inputmode="decimal" placeholder="0,00">
 
             <div id="reserve-origin-section" class="reserve-origin-section hidden">
-              <p class="reserve-origin-title">De onde retirar?</p>
+              <p class="reserve-origin-title" style="margin-bottom: 6px; font-weight: 600; color: var(--text-secondary); font-size: 13px;">De onde retirar?</p>
               <div id="reserve-origin-options" class="reserve-origin-options">
                 <button type="button" id="reserve-origin-salary-btn" class="reserve-origin-option selected">
                   <span class="reserve-origin-name">Salário</span>
