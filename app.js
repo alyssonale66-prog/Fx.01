@@ -1,5 +1,5 @@
 /* ============================================================
-   FX.01 — Versão Completa e Auditada (Navegação & APK Nativo)
+   FX.01 — Versão Nativa Completa (Identidade, Recuperação & Touch)
    ============================================================ */
 
 "use strict";
@@ -7,7 +7,6 @@
 const FX_VERSION = "FX.01";
 const STORAGE_KEY = "fx01_data";
 
-/* MAPA DE ÍCONES SVG PADRONIZADOS */
 const CATEGORY_ICONS = {
   fixed: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>`,
   reserve: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="12" x="2" y="6" rx="2"/><circle cx="12" cy="12" r="2"/></svg>`,
@@ -18,7 +17,6 @@ const CATEGORY_ICONS = {
   biometrics: `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04C4.05 16.148 3 13.686 3 11c0-4.97 4.03-9 9-9s9 4.03 9 9c0 4.015-2.631 7.41-6.284 8.571M12 7v8m0 0a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/></svg>`
 };
 
-/* ÍCONES VETORIAIS DE VISIBILIDADE E SEGURANÇA */
 const SVG_EYE_OPEN = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>`;
 const SVG_EYE_SLASH = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.52 13.52 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" x2="22" y1="2" y2="22"/></svg>`;
 
@@ -74,9 +72,8 @@ document.addEventListener("DOMContentLoaded", () => {
   loadApplication();
 });
 
-/* GERENCIADOR NATIVO DO BOTÃO VOLTAR DO ANDROID */
 function setupAndroidNavigation() {
-  window.addEventListener("popstate", (e) => {
+  window.addEventListener("popstate", () => {
     handleBackAction();
   });
 
@@ -125,7 +122,7 @@ function saveState() {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   } catch (e) {
-    console.error("Erro ao salvar no LocalStorage:", e);
+    console.error("Erro ao salvar dados:", e);
   }
 }
 
@@ -138,13 +135,8 @@ function loadApplication() {
 
   try {
     const parsed = JSON.parse(stored);
-    if (parsed && typeof parsed === "object") {
-      state = parsed;
-    } else {
-      state = createEmptyState();
-    }
+    state = (parsed && typeof parsed === "object") ? parsed : createEmptyState();
   } catch (error) {
-    console.error("Erro ao ler JSON corrompido:", error);
     state = createEmptyState();
   }
 
@@ -167,11 +159,14 @@ function loadApplication() {
 }
 
 function normalizeState() {
-  if (!state || typeof state !== "object") {
-    state = createEmptyState();
-    return;
+  if (!state || typeof state !== "object") state = createEmptyState();
+  
+  if (!state.user || typeof state.user !== "object") {
+    state.user = { fullName: "", displayName: "" };
   }
-  if (!state.user || typeof state.user !== "object") state.user = { name: "" };
+  if (!state.user.fullName) state.user.fullName = state.user.name || "";
+  if (!state.user.displayName) state.user.displayName = state.user.fullName.split(" ")[0] || "Usuário";
+
   if (!Array.isArray(state.categories)) state.categories = [];
   if (!Array.isArray(state.cycles)) state.cycles = [];
   if (!state.currentCycle) state.currentCycle = null;
@@ -182,16 +177,17 @@ function normalizeState() {
   if (!state.salary) state.salary = { reference: 0, hasAdvance: false, advanceAmount: 0, advanceDay: 20 };
   state.salary.reference = roundMoney(state.salary.reference || 0);
   state.salary.advanceAmount = roundMoney(state.salary.advanceAmount || 0);
-  if (typeof state.salary.hasAdvance !== "boolean") state.salary.hasAdvance = false;
-  if (!state.salary.advanceDay) state.salary.advanceDay = 20;
 
   if (!state.extra) state.extra = { balance: 0 };
   state.extra.balance = roundMoney(state.extra.balance || 0);
 
-  if (!state.security) state.security = { password: "", locked: false, lastCycleNotificationDate: "", biometricId: null, biometricType: null };
-  if (!state.settings) state.settings = { cycleDay: 5, hideBalances: false };
+  if (!state.security) {
+    state.security = { password: "", locked: false, lastCycleNotificationDate: "", biometricId: null, biometricType: null, recoveryQuestion: "", recoveryAnswer: "" };
+  }
+  if (state.security.recoveryQuestion === undefined) state.security.recoveryQuestion = "";
+  if (state.security.recoveryAnswer === undefined) state.security.recoveryAnswer = "";
 
-  if (typeof state.settings.hideBalances !== "boolean") state.settings.hideBalances = false;
+  if (!state.settings) state.settings = { cycleDay: 5, hideBalances: false };
 
   normalizeCycle(state.currentCycle);
   state.cycles.forEach(normalizeCycle);
@@ -221,8 +217,8 @@ function createEmptyState() {
   return {
     version: FX_VERSION,
     setupCompleted: false,
-    user: { name: "" },
-    security: { password: "", locked: false, lastCycleNotificationDate: "", biometricId: null, biometricType: null },
+    user: { fullName: "", displayName: "" },
+    security: { password: "", locked: false, lastCycleNotificationDate: "", biometricId: null, biometricType: null, recoveryQuestion: "", recoveryAnswer: "" },
     salary: { reference: 0, hasAdvance: false, advanceAmount: 0, advanceDay: 20 },
     extra: { balance: 0 },
     reserve: { balance: 0 },
@@ -239,28 +235,17 @@ function checkCycleNotification() {
 
   const now = new Date();
   const endDate = new Date(state.currentCycle.endDate);
-  const diffTime = endDate - now;
-  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  const diffDays = Math.ceil((endDate - now) / (1000 * 60 * 60 * 24));
 
   if (diffDays > 0 && diffDays <= 3) {
     const todayStr = now.toISOString().slice(0, 10);
     if (state.security.lastCycleNotificationDate !== todayStr) {
       if (Notification.permission === "granted") {
         new Notification("FX — Aviso de Fechamento de Ciclo", {
-          body: `Seu ciclo financeiro encerra em ${diffDays} ${diffDays === 1 ? 'dia' : 'dias'}. Prepare-se!`
+          body: `Seu ciclo financeiro encerra em ${diffDays} ${diffDays === 1 ? 'dia' : 'dias'}.`
         });
         state.security.lastCycleNotificationDate = todayStr;
         saveState();
-      } else if (Notification.permission !== "denied") {
-        Notification.requestPermission().then(permission => {
-          if (permission === "granted") {
-            new Notification("FX — Aviso de Fechamento de Ciclo", {
-              body: `Seu ciclo financeiro encerra em ${diffDays} ${diffDays === 1 ? 'dia' : 'dias'}. Prepare-se!`
-            });
-            state.security.lastCycleNotificationDate = todayStr;
-            saveState();
-          }
-        });
       }
     }
   }
@@ -318,14 +303,10 @@ function renderSetupStep() {
     step.classList.toggle("hidden", stepNumber !== currentSetupStep);
   });
 
-  if (currentSetupStep === 6) {
-    renderSetupCategories();
-  }
+  if (currentSetupStep === 6) renderSetupCategories();
 
   const button = $("setup-next-button");
-  if (button) {
-    button.textContent = currentSetupStep === 6 ? "Concluir" : "Continuar";
-  }
+  if (button) button.textContent = currentSetupStep === 6 ? "Concluir" : "Continuar";
 }
 
 function renderSetupCategories() {
@@ -402,28 +383,31 @@ function saveSetupLimit() {
 
 function handleSetupNext() {
   if (currentSetupStep === 1) {
-    const val = $("setup-username")?.value.trim();
-    if (!val) return customAlert("Digite seu nome.");
-    state.user.name = val;
+    const full = $("setup-fullname")?.value.trim();
+    const display = $("setup-displayname")?.value.trim();
+    if (!full) return customAlert("Digite seu nome completo.");
+    state.user.fullName = full;
+    state.user.displayName = display || full.split(" ")[0];
   }
   if (currentSetupStep === 2) {
-    const val = $("setup-password")?.value;
-    if (!val) return customAlert("Crie uma senha.");
-    state.security.password = val;
+    const pass = $("setup-password")?.value;
+    const q = $("setup-security-question")?.value.trim();
+    const a = $("setup-security-answer")?.value.trim();
+
+    if (!pass) return customAlert("Crie uma senha.");
+    if (!q || !a) return customAlert("Preencha a pergunta e resposta de segurança.");
+
+    state.security.password = pass;
+    state.security.recoveryQuestion = q;
+    state.security.recoveryAnswer = a.toLowerCase();
   }
   if (currentSetupStep === 3) {
-    const val = parseMoneyInput($("setup-salary")?.value);
-    state.salary.reference = val;
+    state.salary.reference = parseMoneyInput($("setup-salary")?.value);
   }
   if (currentSetupStep === 4) {
     if (!setupSalarySplit) return customAlert("Escolha uma opção.");
     state.salary.hasAdvance = setupSalarySplit === "yes";
-    if (state.salary.hasAdvance) {
-      const advVal = parseMoneyInput($("setup-advance-val")?.value);
-      state.salary.advanceAmount = advVal;
-    } else {
-      state.salary.advanceAmount = 0;
-    }
+    state.salary.advanceAmount = state.salary.hasAdvance ? parseMoneyInput($("setup-advance-val")?.value) : 0;
   }
   if (currentSetupStep === 5) {
     const day = Number($("setup-cycle-day")?.value);
@@ -566,9 +550,7 @@ function saveExpenseEdit() {
     const targetCat = state.categories.find((c) => c.id === newCategory);
     if (targetCat && targetCat.hasLimit && targetCat.limit && targetCat.limit > 0) {
       let currentUsage = state.currentCycle.categoryUsage[newCategory] || 0;
-      if (expense.categoryId === newCategory) {
-        currentUsage -= expense.amount;
-      }
+      if (expense.categoryId === newCategory) currentUsage -= expense.amount;
       if (roundMoney(currentUsage + newAmount) > targetCat.limit) {
         throw new Error(`Este valor excede o limite da categoria (${formatMoney(targetCat.limit)}).`);
       }
@@ -628,11 +610,8 @@ function deleteExpense() {
 
     const expense = state.currentCycle.expenses[index];
 
-    if (expense.origin === "extra") {
-      state.extra.balance = roundMoney(state.extra.balance + expense.amount);
-    } else if (expense.origin === "reserve") {
-      state.reserve.balance = roundMoney(state.reserve.balance + expense.amount);
-    }
+    if (expense.origin === "extra") state.extra.balance = roundMoney(state.extra.balance + expense.amount);
+    if (expense.origin === "reserve") state.reserve.balance = roundMoney(state.reserve.balance + expense.amount);
 
     state.currentCycle.expenses.splice(index, 1);
     normalizeCycle(state.currentCycle);
@@ -763,10 +742,6 @@ function openHistoryModal(cycleId = null) {
           <span>Gastos Totais:</span>
           <strong style="color:var(--text);">${formatMoneyOrMask(totalSpent)}</strong>
         </div>
-        <div style="display:flex; justify-content:space-between; margin-top:2px; font-size:13px; color:var(--text-secondary);">
-          <span>Lançamentos:</span>
-          <strong>${(cycle.expenses || []).length} itens (Toque para ver detalhes)</strong>
-        </div>
       </div>
     `;
   });
@@ -796,12 +771,8 @@ function updateReserveModalOriginButtons() {
   const salaryBtn = $("reserve-origin-salary-btn");
   const extraBtn = $("reserve-origin-extra-btn");
 
-  if (salaryBtn) {
-    salaryBtn.classList.toggle("selected", selectedReserveOrigin === "salary");
-  }
-  if (extraBtn) {
-    extraBtn.classList.toggle("selected", selectedReserveOrigin === "extra");
-  }
+  if (salaryBtn) salaryBtn.classList.toggle("selected", selectedReserveOrigin === "salary");
+  if (extraBtn) extraBtn.classList.toggle("selected", selectedReserveOrigin === "extra");
 
   setText("reserve-salary-available", formatMoneyOrMask(getSalaryBalance()));
   setText("reserve-extra-available", formatMoneyOrMask(getExtraBalance()));
@@ -829,9 +800,7 @@ function confirmReserveSave() {
     const available = selectedReserveOrigin === "salary" ? getSalaryBalance() : getExtraBalance();
     if (amount > available) throw new Error("Saldo insuficiente na origem.");
 
-    if (selectedReserveOrigin === "extra") {
-      state.extra.balance = roundMoney(state.extra.balance - amount);
-    }
+    if (selectedReserveOrigin === "extra") state.extra.balance = roundMoney(state.extra.balance - amount);
 
     state.currentCycle.transfers.push({
       id: createId(),
@@ -917,18 +886,14 @@ async function exportBackup() {
     downloadAnchor.remove();
     URL.revokeObjectURL(url);
   } catch (err) {
-    if (err.name !== "AbortError") {
-      customAlert("Erro ao exportar backup: " + (err.message || err));
-    }
+    if (err.name !== "AbortError") customAlert("Erro ao exportar backup: " + (err.message || err));
   }
 }
 
 async function exportCSV() {
   try {
     const expenses = state.currentCycle?.expenses || [];
-    if (!expenses.length) {
-      return customAlert("Não há lançamentos no ciclo ativo para exportar.");
-    }
+    if (!expenses.length) return customAlert("Não há lançamentos no ciclo ativo para exportar.");
 
     let csvContent = "\uFEFFData;Categoria;Origem;Descrição;Valor (R$)\n";
 
@@ -978,9 +943,7 @@ async function exportCSV() {
     downloadAnchor.remove();
     URL.revokeObjectURL(url);
   } catch (err) {
-    if (err.name !== "AbortError") {
-      customAlert("Erro ao exportar planilha CSV: " + (err.message || err));
-    }
+    if (err.name !== "AbortError") customAlert("Erro ao exportar planilha CSV: " + (err.message || err));
   }
 }
 
@@ -1055,40 +1018,6 @@ async function registerBiometrics() {
     }
     return;
   }
-
-  if (support.type === "webauthn") {
-    try {
-      const challenge = new Uint8Array(32);
-      window.crypto.getRandomValues(challenge);
-      const userId = new Uint8Array(16);
-      window.crypto.getRandomValues(userId);
-
-      const credential = await navigator.credentials.create({
-        publicKey: {
-          challenge,
-          rp: { name: "FX App" },
-          user: {
-            id: userId,
-            name: state.user?.name || "usuario",
-            displayName: state.user?.name || "Usuário FX"
-          },
-          pubKeyCredParams: [{ alg: -7, type: "public-key" }],
-          authenticatorSelection: { authenticatorAttachment: "platform", userVerification: "required" },
-          timeout: 60000
-        }
-      });
-
-      if (credential) {
-        state.security.biometricId = credential.id;
-        state.security.biometricType = "webauthn";
-        saveState();
-        customAlert("Biometria cadastrada com sucesso!");
-      }
-    } catch (err) {
-      console.error("Erro ao cadastrar biometria:", err);
-      customAlert("Não foi possível cadastrar a biometria: " + err.message);
-    }
-  }
 }
 
 async function authenticateBiometric() {
@@ -1109,46 +1038,68 @@ async function authenticateBiometric() {
     }
     return;
   }
-
-  if (support.type === "webauthn" && state.security.biometricType === "webauthn") {
-    try {
-      const challenge = new Uint8Array(32);
-      window.crypto.getRandomValues(challenge);
-
-      let b64 = state.security.biometricId.replace(/-/g, '+').replace(/_/g, '/');
-      while (b64.length % 4 !== 0) {
-        b64 += '=';
-      }
-
-      const rawId = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
-
-      const assertion = await navigator.credentials.get({
-        publicKey: {
-          challenge,
-          allowCredentials: [{
-            id: rawId,
-            type: 'public-key'
-          }],
-          userVerification: "required",
-          timeout: 60000
-        }
-      });
-
-      if (assertion) unlockSuccess();
-    } catch (err) {
-      console.error("Autenticação biométrica falhou:", err);
-      showElement("unlock-error", "Biometria não reconhecida. Use sua senha.");
-    }
-    return;
-  }
-
-  showElement("unlock-error", "Biometria indisponível. Use sua senha.");
 }
 
 function unlockSuccess() {
   state.security.locked = false;
   saveState();
   showScreen("main", false);
+  renderApplication();
+}
+
+function openForgotPasswordModal() {
+  if (!state.security.recoveryQuestion) {
+    return customAlert("Pergunta de segurança não configurada. Use sua senha.");
+  }
+
+  setText("recovery-question-display", state.security.recoveryQuestion);
+  if ($("recovery-answer-input")) $("recovery-answer-input").value = "";
+  if ($("recovery-new-password")) $("recovery-new-password").value = "";
+  hideElement("recovery-error");
+
+  openModal("forgot-password-modal");
+}
+
+function confirmPasswordRecovery() {
+  const ans = $("recovery-answer-input")?.value.trim().toLowerCase();
+  const newPass = $("recovery-new-password")?.value;
+
+  if (!ans) return showElement("recovery-error", "Digite sua resposta secreta.");
+  if (!newPass) return showElement("recovery-error", "Digite a nova senha.");
+
+  if (ans !== state.security.recoveryAnswer) {
+    return showElement("recovery-error", "Resposta secreta incorreta.");
+  }
+
+  state.security.password = newPass;
+  state.security.locked = false;
+  saveState();
+
+  closeModal("forgot-password-modal");
+  customAlert("Senha redefinida com sucesso!");
+  showScreen("main", false);
+  renderApplication();
+}
+
+function openRecoveryQuestionSetupModal() {
+  if ($("setup-sec-q-input")) $("setup-sec-q-input").value = state.security.recoveryQuestion || "";
+  if ($("setup-sec-a-input")) $("setup-sec-a-input").value = "";
+  hideElement("sec-q-error");
+  openModal("recovery-question-setup-modal");
+}
+
+function saveRecoveryQuestionSetup() {
+  const q = $("setup-sec-q-input")?.value.trim();
+  const a = $("setup-sec-a-input")?.value.trim().toLowerCase();
+
+  if (!q || !a) return showElement("sec-q-error", "Preencha a pergunta e resposta.");
+
+  state.security.recoveryQuestion = q;
+  state.security.recoveryAnswer = a;
+  saveState();
+
+  closeModal("recovery-question-setup-modal");
+  customAlert("Pergunta de segurança atualizada!");
   renderApplication();
 }
 
@@ -1348,12 +1299,17 @@ function openChartModal() {
 }
 
 function saveProfileSettings() {
-  const name = $("settings-username")?.value.trim();
-  if (!name) return customAlert("Digite seu nome.");
-  state.user.name = name;
+  const full = $("settings-fullname")?.value.trim();
+  const display = $("settings-displayname")?.value.trim();
+
+  if (!full) return customAlert("Digite seu nome completo.");
+
+  state.user.fullName = full;
+  state.user.displayName = display || full.split(" ")[0];
+
   saveState();
   renderApplication();
-  customAlert("Nome salvo com sucesso.");
+  customAlert("Identidade salva com sucesso.");
 }
 
 function saveSalarySettings() {
@@ -1364,13 +1320,7 @@ function saveSalarySettings() {
 
   state.salary.reference = salary;
   state.salary.hasAdvance = settingsSalarySplit === "yes";
-  
-  if (state.salary.hasAdvance) {
-    const advVal = parseMoneyInput($("settings-advance-val")?.value);
-    state.salary.advanceAmount = advVal;
-  } else {
-    state.salary.advanceAmount = 0;
-  }
+  state.salary.advanceAmount = state.salary.hasAdvance ? parseMoneyInput($("settings-advance-val")?.value) : 0;
 
   if (state.currentCycle) {
     state.currentCycle.salaryReceived = roundMoney(salary);
@@ -1387,6 +1337,7 @@ function saveCycleSettings() {
 
   state.settings.cycleDay = newDay;
   saveState();
+  renderApplication();
   customAlert("Alteração será aplicada no próximo ciclo.");
 }
 
@@ -1395,9 +1346,7 @@ function saveNewPassword() {
   const newPass = $("new-password")?.value;
   const confirmPass = $("confirm-new-password")?.value;
 
-  if (current !== state.security.password) {
-    return showElement("password-error", "Senha atual incorreta.");
-  }
+  if (current !== state.security.password) return showElement("password-error", "Senha atual incorreta.");
   if (!newPass) return showElement("password-error", "Digite a nova senha.");
   if (newPass !== confirmPass) return showElement("password-error", "Senhas não coincidem.");
 
@@ -1411,12 +1360,8 @@ function deleteAllData() {
   const pass = $("delete-password")?.value;
   const confirmText = $("delete-confirmation")?.value.trim();
 
-  if (pass !== state.security.password) {
-    return showElement("delete-error", "Senha incorreta.");
-  }
-  if (confirmText !== "APAGAR") {
-    return showElement("delete-error", "Digite APAGAR para confirmar.");
-  }
+  if (pass !== state.security.password) return showElement("delete-error", "Senha incorreta.");
+  if (confirmText !== "APAGAR") return showElement("delete-error", "Digite APAGAR para confirmar.");
 
   localStorage.removeItem(STORAGE_KEY);
   state = null;
@@ -1433,14 +1378,16 @@ function lockApp() {
   renderLockPasswordIcon();
   hideElement("unlock-error");
   
+  const initial = (state && state.user && state.user.displayName) ? state.user.displayName.charAt(0).toUpperCase() : "FX";
+  setText("lock-avatar", initial);
+  setText("lock-user-greeting", `Olá, ${state?.user?.displayName || "Usuário"}`);
+
   const bioTrigger = $("biometric-unlock-icon");
   if (state && state.security && state.security.biometricId) {
     if (bioTrigger) bioTrigger.classList.remove("hidden");
     saveState();
     showScreen("lock", false);
-    setTimeout(() => {
-      authenticateBiometric();
-    }, 300);
+    setTimeout(() => { authenticateBiometric(); }, 300);
   } else {
     if (bioTrigger) bioTrigger.classList.add("hidden");
     saveState();
@@ -1481,7 +1428,7 @@ function customConfirm(message, onConfirm) {
 
 function renderApplication() {
   if (!state) return;
-  setText("user-display-name", state.user?.name || "Usuário");
+  setText("user-display-name", state.user?.displayName || "Usuário");
   renderHideBalancesIcon();
   renderBalances();
   renderCategories();
@@ -1613,10 +1560,17 @@ function renderExpensesGrouped() {
 }
 
 function renderSettingsValues() {
-  if ($("settings-username")) $("settings-username").value = state.user?.name || "";
+  if ($("settings-fullname")) $("settings-fullname").value = state.user?.fullName || "";
+  if ($("settings-displayname")) $("settings-displayname").value = state.user?.displayName || "";
   if ($("settings-salary")) $("settings-salary").value = Number(state.salary.reference).toFixed(2);
   if ($("settings-cycle-day")) $("settings-cycle-day").value = state.settings.cycleDay;
   if ($("settings-advance-val")) $("settings-advance-val").value = Number(state.salary.advanceAmount || 0).toFixed(2);
+
+  setText("status-profile", state.user?.displayName || "Ajustar");
+  setText("status-salary", formatMoney(state.salary.reference));
+  setText("status-cycle", `Dia ${state.settings.cycleDay}`);
+  setText("status-security", state.security.biometricId ? "Biometria Ativa" : "Protegido");
+
   settingsSalarySplit = state.salary.hasAdvance ? "yes" : "no";
   updateSalarySplitButtons();
 }
@@ -1630,18 +1584,13 @@ function updateSalarySplitButtons() {
 
 function parseMoneyInput(value) {
   if (value === null || value === undefined) return 0;
-  let text = String(value).trim();
-  if (!text) return 0;
-  text = text.replace(/\s/g, "");
+  let text = String(value).trim().replace(/\s/g, "");
 
   const hasComma = text.includes(",");
   const hasDot = text.includes(".");
 
   if (hasComma && hasDot) {
-    const commaIndex = text.lastIndexOf(",");
-    const dotIndex = text.lastIndexOf(".");
-    if (commaIndex > dotIndex) text = text.replace(/\./g, "").replace(",", ".");
-    else text = text.replace(/,/g, "");
+    text = text.lastIndexOf(",") > text.lastIndexOf(".") ? text.replace(/\./g, "").replace(",", ".") : text.replace(/,/g, "");
   } else if (hasComma) {
     text = text.replace(",", ".");
   }
@@ -1683,6 +1632,21 @@ function bindEvents() {
 
   $("biometric-unlock-icon")?.addEventListener("click", authenticateBiometric);
   $("register-biometrics-button")?.addEventListener("click", registerBiometrics);
+  $("forgot-password-button")?.addEventListener("click", openForgotPasswordModal);
+  $("confirm-recovery-button")?.addEventListener("click", confirmPasswordRecovery);
+  $("setup-recovery-question-button")?.addEventListener("click", openRecoveryQuestionSetupModal);
+  $("save-sec-q-button")?.addEventListener("click", saveRecoveryQuestionSetup);
+
+  /* PADRONIZAÇÃO TOUCH: ABERTURA DIRETA AO TOCAR NO CARD EXTRA OU SALÁRIO */
+  $("extra-card-trigger")?.addEventListener("click", () => {
+    openModal("extra-modal");
+  });
+
+  $("salary-card-trigger")?.addEventListener("click", () => {
+    showScreen("settings");
+    const panel = $("salary-settings");
+    if (panel) panel.classList.remove("hidden");
+  });
 
   $("edit-expense-origin-trigger")?.addEventListener("click", () => {
     const opts = [
@@ -1853,7 +1817,6 @@ function bindEvents() {
   $("create-category-button")?.addEventListener("click", () => openCategoryEditorModal());
   $("save-category-button")?.addEventListener("click", saveCategory);
 
-  $("add-extra-button")?.addEventListener("click", () => openModal("extra-modal"));
   $("confirm-extra-button")?.addEventListener("click", () => {
     const val = parseMoneyInput($("extra-value")?.value);
     if (val <= 0) return showElement("extra-error", "Valor inválido.");
@@ -1905,9 +1868,7 @@ function switchTab(tab, recordHistory = true) {
   $("nav-home-button").classList.toggle("active", tab === "home");
   $("nav-extrato-button").classList.toggle("active", tab === "extrato");
 
-  if (recordHistory) {
-    pushNavigationState("tab", tab);
-  }
+  if (recordHistory) pushNavigationState("tab", tab);
 }
 
 function openExpenseModal(catId) {
@@ -1936,12 +1897,8 @@ function updateExpenseModalOriginButtons() {
   const salaryBtn = $("expense-origin-salary-btn");
   const extraBtn = $("expense-origin-extra-btn");
 
-  if (salaryBtn) {
-    salaryBtn.classList.toggle("selected", selectedExpenseOrigin === "salary");
-  }
-  if (extraBtn) {
-    extraBtn.classList.toggle("selected", selectedExpenseOrigin === "extra");
-  }
+  if (salaryBtn) salaryBtn.classList.toggle("selected", selectedExpenseOrigin === "salary");
+  if (extraBtn) extraBtn.classList.toggle("selected", selectedExpenseOrigin === "extra");
 
   setText("expense-salary-available", formatMoneyOrMask(getSalaryBalance()));
   setText("expense-extra-available", formatMoneyOrMask(getExtraBalance()));
@@ -1952,9 +1909,7 @@ function showScreen(name, recordHistory = true) {
   Object.values(screens).forEach((s) => s?.classList.add("hidden"));
   screens[name]?.classList.remove("hidden");
 
-  if (recordHistory) {
-    pushNavigationState("screen", name);
-  }
+  if (recordHistory) pushNavigationState("screen", name);
 }
 
 function openModal(id) {
