@@ -1,13 +1,15 @@
 {
-  "name": "com.fx.app",
+  "name": "com.fx.finance",
   "version": "1.1.0",
-  "description": "FX.01 — Controle Financeiro",
+  "description": "FX Finance — Controle Financeiro",
   "main": "index.html",
   "scripts": {
     "build": "mkdir -p www && cp index.html style.css app.js manifest.json service-worker.js icon-192.png icon-512.png www/"
   },
   "dependencies": {
+    "@capgo/capacitor-native-biometric": "6.0.0",
     "@capacitor/android": "6.2.1",
+    "@capacitor/app": "6.0.0",
     "@capacitor/core": "6.2.1"
   },
   "devDependencies": {
