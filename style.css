@@ -1034,17 +1034,14 @@ label {
   border: 1px solid var(--border);
 }
 
-/* ELEVAÇÃO DE CAMADA PARA SELETORES E ALERTAS */
 #picker-modal, 
 #custom-alert-modal, 
 #custom-confirm-modal {
   z-index: 200;
 }
 
-
 /* ============================================================
    FX.01 1.1 — SISTEMA DE TEMAS + APARÊNCIA
-   Identidades completas, mantendo o Tema 1 como base original.
    ============================================================ */
 
 html[data-appearance="light"] {
@@ -1118,7 +1115,6 @@ html[data-theme="emerald"] {
   --texture-b: rgba(255,255,255,.022);
 }
 
-/* Aparência clara: mesma identidade cromática, superfícies e contraste invertidos. */
 html[data-appearance="light"][data-theme="fx"] {
   --bg: #f2f0eb;
   --surface: #ffffff;
@@ -1174,7 +1170,6 @@ body {
   background: color-mix(in srgb, var(--surface) 88%, transparent);
 }
 
-/* Cabeçalho/identidade vetorial */
 .brand-mark {
   display:flex;
   align-items:center;
@@ -1295,7 +1290,6 @@ body {
   .theme-preview { grid-row:span 2; }
 }
 
-/* Inputs de recuperação e cadastro */
 #recovery-question-label {
   padding:12px;
   border:1px solid var(--border);
