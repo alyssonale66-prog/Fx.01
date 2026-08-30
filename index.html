@@ -44,7 +44,7 @@
               <input id="setup-password-confirm" type="password" autocomplete="new-password" maxlength="100" placeholder="Repita sua senha">
               <button type="button" id="toggle-setup-password-confirm" class="input-icon-button" aria-label="Mostrar senha"><span id="setup-password-confirm-eye"></span></button>
             </div>
-            <p id="setup-credentials-error" class="error-message hidden" role="alert"></p>
+            <p id="setup-credentials-error" class="error-message hidden" role="alert" aria-live="polite"></p>
           </div>
 
           <div class="setup-step" data-step="2">
@@ -54,7 +54,7 @@
             <input id="setup-full-name" type="text" autocomplete="name" maxlength="100" placeholder="Seu nome completo">
             <label for="setup-display-name">Como gostaria de ser chamado</label>
             <input id="setup-display-name" type="text" autocomplete="nickname" maxlength="30" placeholder="Ex: Alisson">
-            <p id="setup-personal-error" class="error-message hidden" role="alert"></p>
+            <p id="setup-personal-error" class="error-message hidden" role="alert" aria-live="polite"></p>
           </div>
 
           <div class="setup-step" data-step="3">
@@ -95,22 +95,16 @@
           <div class="setup-step" data-step="7">
             <span class="step-kicker">ETAPA 7 · RECUPERAÇÃO</span>
             <h2>Proteja a recuperação da conta</h2>
-            <label for="setup-recovery-question">Pergunta de recuperação</label>
-            <select id="setup-recovery-question">
-              <option value="">Selecione uma pergunta</option>
-              <option value="pet">Qual era o nome do seu primeiro animal de estimação?</option>
-              <option value="city">Em qual cidade você nasceu?</option>
-              <option value="school">Qual era o nome da sua primeira escola?</option>
-              <option value="nickname">Qual era seu apelido de infância?</option>
-              <option value="custom">Outra pergunta</option>
-            </select>
-            <div id="setup-custom-question-wrap" class="hidden">
+            <label>Pergunta de recuperação</label>
+            <button type="button" id="setup-recovery-question-trigger" class="custom-select-button">Selecione uma pergunta</button>
+            
+            <div id="setup-custom-question-wrap" class="hidden" style="margin-top:10px;">
               <label for="setup-custom-question">Sua pergunta</label>
               <input id="setup-custom-question" type="text" maxlength="120" placeholder="Digite sua pergunta">
             </div>
-            <label for="setup-recovery-answer">Resposta</label>
+            <label for="setup-recovery-answer" style="margin-top:10px;">Resposta</label>
             <input id="setup-recovery-answer" type="text" autocomplete="off" maxlength="120" placeholder="Digite a resposta">
-            <p id="setup-recovery-error" class="error-message hidden" role="alert"></p>
+            <p id="setup-recovery-error" class="error-message hidden" role="alert" aria-live="polite"></p>
           </div>
         </main>
 
@@ -121,16 +115,13 @@
       </div>
     </section>
 
-    <!-- TELA DE BLOQUEIO -->
+    <!-- TELA DE BLOQUEIO (MODO NUBANK) -->
     <section id="lock-screen" class="screen hidden" aria-labelledby="lock-title">
       <div class="lock-container">
         <div class="lock-card glass-panel">
           <header class="lock-header">
-            <div class="lock-brand-row">
+            <div class="lock-brand-row" style="margin-bottom: 12px;">
               <div class="brand-logo-glow">FX</div>
-              <button type="button" id="biometric-unlock-icon" class="icon-button hidden" title="Autenticar com Biometria" aria-label="Autenticar com Biometria">
-                <span aria-hidden="true">⌾</span>
-              </button>
             </div>
             <p class="lock-subtitle" id="lock-title">Acesso Protegido</p>
           </header>
@@ -147,9 +138,14 @@
               </button>
             </div>
 
-            <button id="unlock-button" type="button" class="primary-button glow-on-hover">Desbloquear</button>
-            <button id="forgot-password-button" type="button" class="text-button">Esqueci minha senha</button>
-            <p id="unlock-error" class="error-message hidden" role="alert"></p>
+            <div style="display: flex; gap: 10px; margin-top: 6px;">
+              <button id="unlock-button" type="button" class="primary-button glow-on-hover" style="flex: 1;">Desbloquear</button>
+              <button type="button" id="biometric-unlock-icon" class="icon-button hidden" title="Usar Biometria" aria-label="Usar Biometria" style="width: 48px; height: 48px; border-radius: 12px; flex-shrink: 0; background: var(--surface-3); color: var(--accent);">
+              </button>
+            </div>
+
+            <button id="forgot-password-button" type="button" class="text-button" style="margin-top: 10px;">Esqueci minha senha</button>
+            <p id="unlock-error" class="error-message hidden" role="alert" aria-live="polite" style="margin-top: 8px;"></p>
           </main>
         </div>
       </div>
@@ -464,7 +460,7 @@
           <label for="edit-expense-description">Descrição</label>
           <input id="edit-expense-description" type="text" maxlength="100" placeholder="Opcional">
 
-          <p id="edit-expense-error" class="error-message hidden" role="alert"></p>
+          <p id="edit-expense-error" class="error-message hidden" role="alert" aria-live="polite"></p>
         </main>
         <footer class="modal-footer modal-footer-dual">
           <button id="delete-expense-button" type="button" class="danger-button">Excluir</button>
@@ -500,7 +496,7 @@
           <label for="expense-description">Descrição</label>
           <input id="expense-description" type="text" maxlength="100" placeholder="Opcional">
 
-          <p id="expense-error" class="error-message hidden" role="alert"></p>
+          <p id="expense-error" class="error-message hidden" role="alert" aria-live="polite"></p>
         </main>
         <footer class="modal-footer">
           <button id="confirm-expense-button" type="button" class="primary-button">Lançar</button>
@@ -521,7 +517,7 @@
           <label for="extra-description">Descrição</label>
           <input id="extra-description" type="text" maxlength="100" placeholder="Opcional">
 
-          <p id="extra-error" class="error-message hidden" role="alert"></p>
+          <p id="extra-error" class="error-message hidden" role="alert" aria-live="polite"></p>
         </main>
         <footer class="modal-footer">
           <button id="confirm-extra-button" type="button" class="primary-button">Salvar</button>
@@ -573,7 +569,7 @@
             <button id="confirm-withdraw-button" type="button" class="primary-button">Confirmar retirada</button>
           </div>
 
-          <p id="reserve-error" class="error-message hidden" role="alert"></p>
+          <p id="reserve-error" class="error-message hidden" role="alert" aria-live="polite"></p>
         </main>
       </div>
     </div>
@@ -614,7 +610,7 @@
             <input id="category-limit-value" class="hero-input" type="text" inputmode="decimal" placeholder="0,00">
           </div>
 
-          <p id="category-editor-error" class="error-message hidden" role="alert"></p>
+          <p id="category-editor-error" class="error-message hidden" role="alert" aria-live="polite"></p>
         </main>
         <footer class="modal-footer">
           <button id="save-category-button" type="button" class="primary-button">Salvar</button>
@@ -650,7 +646,7 @@
           <input id="recovery-new-password" type="password" autocomplete="new-password">
           <label for="recovery-confirm-password">Repetir nova senha</label>
           <input id="recovery-confirm-password" type="password" autocomplete="new-password">
-          <p id="recovery-error" class="error-message hidden" role="alert"></p>
+          <p id="recovery-error" class="error-message hidden" role="alert" aria-live="polite"></p>
         </main>
         <footer class="modal-footer">
           <button id="recover-password-button" type="button" class="primary-button">Redefinir senha</button>
@@ -674,7 +670,7 @@
           <label for="confirm-new-password">Confirmar nova senha</label>
           <input id="confirm-new-password" type="password" autocomplete="new-password">
 
-          <p id="password-error" class="error-message hidden" role="alert"></p>
+          <p id="password-error" class="error-message hidden" role="alert" aria-live="polite"></p>
         </main>
         <footer class="modal-footer">
           <button id="save-password-button" type="button" class="primary-button">Salvar</button>
@@ -696,7 +692,7 @@
           <label for="delete-confirmation">Digite APAGAR para confirmar</label>
           <input id="delete-confirmation" type="text" autocomplete="off">
 
-          <p id="delete-error" class="error-message hidden" role="alert"></p>
+          <p id="delete-error" class="error-message hidden" role="alert" aria-live="polite"></p>
         </main>
         <footer class="modal-footer">
           <button id="confirm-delete-data-button" type="button" class="danger-button">Apagar todos os dados</button>
@@ -706,6 +702,7 @@
 
     <script src="app.js"></script>
     <script>
+      // Service Worker desativado em plataformas nativas do Capacitor para evitar duplicidade de cache
       if ('serviceWorker' in navigator && !window.Capacitor?.isNativePlatform()) {
         window.addEventListener('load', () => {
           navigator.serviceWorker.register('./service-worker.js')
