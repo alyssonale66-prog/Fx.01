@@ -27,27 +27,46 @@ jobs:
 
       - name: Configurar Android SDK
         uses: android-actions/setup-android@v3
-        with:
-          api-level: 33
 
       - name: Instalar dependências NPM
         run: npm ci || npm install
 
       - name: Preparar web assets
         run: |
-          npm run build --if-present || echo "sem build script, usando www/"
+          mkdir -p www/icons
+          npm run build --if-present || true
+          
+          # Copia tudo que pode existir (com ou sem acento)
+          cp index.html www/ 2>/dev/null || true
+          cp app.js www/ 2>/dev/null || true
+          cp style.css www/ 2>/dev/null || true
+          cp manifest.json www/ 2>/dev/null || true
+          cp service-worker.js www/ 2>/dev/null || true
+          
+          # Ícones - tenta todos os nomes possíveis
+          cp icons/*.png www/icons/ 2>/dev/null || true
+          cp icon-*.png www/icons/ 2>/dev/null || true
+          cp ícone-*.png www/icons/ 2>/dev/null || true
+          cp Icone-*.png www/icons/ 2>/dev/null || true
+          
+          # Normaliza nomes para o manifest.json
+          cd www/icons || exit 0
+          for f in *.png; do
+            case "$f" in
+              *192*) cp "$f" icon-192.png 2>/dev/null || true ;;
+              *512*) cp "$f" icon-512.png 2>/dev/null || true ;;
+            esac
+          done
           ls -la
-          ls -la www || mkdir -p www
-          if [ -d "js" ]; then mkdir -p www/js && cp -r js/* www/js/ 2>/dev/null || true; fi
-          if [ -f "crypto.js" ]; then cp crypto.js www/ 2>/dev/null || true; fi
-          if [ -f "app.js" ]; then cp app.js www/ 2>/dev/null || true; fi
-          if [ -f "style.css" ]; then cp style.css www/ 2>/dev/null || true; fi
-          if [ -f "index.html" ]; then cp index.html www/ 2>/dev/null || true; fi
 
       - name: Sincronizar e Gerar Plataforma Android
         run: |
-          if [ ! -f "capacitor.config.json" ] && [ ! -f "capacitor.config.ts" ]; then
-            npx cap init FX com.fx.app --web-dir www
+          if [ ! -f "capacitor.config.json" ]; then
+            echo '{"appId":"com.fx.app","appName":"FX.01","webDir":"www"}' > capacitor.config.json
+          fi
+          # Se android existe mas está vazio (só .gitkeep), apaga e recria
+          if [ ! -f "android/gradlew" ]; then
+            rm -rf android
           fi
           if [ ! -d "android" ]; then
             npx cap add android
@@ -55,25 +74,25 @@ jobs:
           npx cap sync android
           npx cap copy android
 
-      - name: Dar permissão de execução ao Gradlew
+      - name: Dar permissão ao Gradlew
         run: chmod +x android/gradlew
 
-      - name: Compilar Debug APK (Para Testes)
+      - name: Compilar Debug APK
         working-directory: android
         run: ./gradlew assembleDebug --stacktrace
 
-      - name: Disponibilizar APK como Artefato
+      - name: Disponibilizar APK
         uses: actions/upload-artifact@v4
         with:
           name: FX01-APK-Debug
           path: android/app/build/outputs/apk/debug/app-debug.apk
           retention-days: 14
 
-      - name: Compilar Release AAB (Para a Play Store)
+      - name: Compilar Release AAB
         working-directory: android
         run: ./gradlew bundleRelease --stacktrace || ./gradlew bundleDebug --stacktrace
 
-      - name: Disponibilizar AAB como Artefato
+      - name: Disponibilizar AAB
         uses: actions/upload-artifact@v4
         with:
           name: FX01-AAB-Release
