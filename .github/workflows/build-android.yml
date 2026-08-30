@@ -27,17 +27,24 @@ jobs:
       - name: Instalar dependências NPM
         run: npm install
 
-      - name: Sincronizar arquivos Web e Capacitor
+      - name: Sincronizar e Gerar Plataforma Android
         run: |
           npm run build
           if [ -d "js" ]; then cp -r js/ www/js/; fi
           if [ -f "crypto.js" ]; then cp crypto.js www/; fi
-          npx cap sync android || true
+          npx cap init FX com.fx.app --web-dir www || true
+          
+          # Se a pasta android não possuir o Wrapper do Gradle, limpa o diretório e recria
+          if [ ! -f "android/gradlew" ]; then
+            rm -rf android
+            npx cap add android
+          fi
+          npx cap sync android
 
       - name: Dar permissão de execução ao Gradlew
-        run: chmod +x android/gradlew || true
+        run: chmod +x android/gradlew
 
-      - name: Compilar Debug APK (Para Teste)
+      - name: Compilar Debug APK (Para Testes)
         working-directory: android
         run: ./gradlew assembleDebug --stacktrace
 
@@ -48,7 +55,7 @@ jobs:
           path: android/app/build/outputs/apk/debug/app-debug.apk
           retention-days: 14
 
-      - name: Compilar Release AAB (Para Play Store)
+      - name: Compilar Release AAB (Para a Play Store)
         working-directory: android
         run: ./gradlew bundleRelease --stacktrace
 
@@ -57,4 +64,5 @@ jobs:
         with:
           name: FX01-AAB-Release
           path: android/app/build/outputs/bundle/release/*.aab
+          if-no-files-found: warn
           retention-days: 14
