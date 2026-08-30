@@ -1,42 +1,60 @@
-name: Build FX.01 Android APK
+name: Build FX.01 Android APK & AAB
+
 on:
   push:
-    branches: [ main, master ]
+    branches: [ main, master, principal ]
   workflow_dispatch:
+
 jobs:
-  build-apk:
+  build-android:
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with: { node-version: 20, cache: 'npm' }
-      - uses: actions/setup-java@v4
-        with: { distribution: 'temurin', java-version: '17' }
-      - uses: android-actions/setup-android@v3
-      - name: Install deps
-        run: npm ci || npm install
-      - name: Build web
-        run: npm run build --if-present; ls -la
-      - name: Cap sync
-        run: npx cap sync android || npx cap copy android || true; npx cap sync || true
-      - name: Make gradlew executable
+      - name: Checkout do código
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Configurar Java JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Instalar dependências NPM
+        run: npm install
+
+      - name: Sincronizar arquivos Web e Capacitor
+        run: |
+          npm run build
+          if [ -d "js" ]; then cp -r js/ www/js/; fi
+          if [ -f "crypto.js" ]; then cp crypto.js www/; fi
+          npx cap sync android || true
+
+      - name: Dar permissão de execução ao Gradlew
         run: chmod +x android/gradlew || true
-      - name: Build Debug APK
+
+      - name: Compilar Debug APK (Para Teste)
         working-directory: android
-        run:./gradlew assembleDebug --stacktrace
-      - name: Upload APK
+        run: ./gradlew assembleDebug --stacktrace
+
+      - name: Disponibilizar APK como Artefato
         uses: actions/upload-artifact@v4
         with:
-          name: fx01-apk-debug
+          name: FX01-APK-Debug
           path: android/app/build/outputs/apk/debug/app-debug.apk
           retention-days: 14
-      - name: Build AAB Release
+
+      - name: Compilar Release AAB (Para Play Store)
         working-directory: android
-        run:./gradlew bundleRelease --stacktrace || true
-      - name: Upload AAB
+        run: ./gradlew bundleRelease --stacktrace
+
+      - name: Disponibilizar AAB como Artefato
         uses: actions/upload-artifact@v4
         with:
-          name: fx01-aab-release
+          name: FX01-AAB-Release
           path: android/app/build/outputs/bundle/release/*.aab
-          if-no-files-found: warn
           retention-days: 14
