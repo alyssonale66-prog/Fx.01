@@ -1,62 +1,34 @@
-/* ============================================================
-   FX Service Worker — Estratégia Network-First com Fallback Offline
-   ============================================================ */
+const FX_CACHE_VERSION = "fx01-v1.3.0";
+const FX_CACHE_NAME = `fx01-${FX_CACHE_VERSION}`;
+const ASSETS = ["./","./index.html","./style.css","./app.js","./manifest.json","./icons/icon-192.png","./icons/icon-512.png"];
 
-const CACHE_NAME = "fx-cache-v2";
-const ASSETS = [
-  "./",
-  "./index.html",
-  "./style.css",
-  "./app.js",
-  "./manifest.json"
-];
-
-self.addEventListener("install", (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(ASSETS);
-    })
-  );
-  self.skipWaiting();
+self.addEventListener("install", e => {
+  e.waitUntil(caches.open(FX_CACHE_NAME).then(c=>c.addAll(ASSETS)).then(()=>self.skipWaiting()));
 });
-
-self.addEventListener("activate", (event) => {
-  event.waitUntil(
-    caches.keys().then((keys) => {
-      return Promise.all(
-        keys.map((key) => {
-          if (key !== CACHE_NAME) {
-            return caches.delete(key);
-          }
-        })
-      );
-    })
+self.addEventListener("activate", e => {
+  e.waitUntil(
+    caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith("fx01-")&&k!==FX_CACHE_NAME).map(k=>caches.delete(k)))).then(()=>self.clients.claim())
   );
-  self.clients.claim();
 });
-
-/* BUG-03: ESTRATÉGIA NETWORK-FIRST PARA GARANTIR ATUALIZAÇÕES INSTANTÂNEAS SEM QUEBRAR OFFLINE */
-self.addEventListener("fetch", (event) => {
-  if (event.request.method !== "GET") return;
-
-  event.respondWith(
-    fetch(event.request)
-      .then((networkResponse) => {
-        if (networkResponse && networkResponse.status === 200 && networkResponse.type === "basic") {
-          const responseToCache = networkResponse.clone();
-          caches.open(CACHE_NAME).then((cache) => {
-            cache.put(event.request, responseToCache);
-          });
+self.addEventListener("fetch", e => {
+  if(e.request.method!=="GET") return;
+  if(e.request.url.includes("chrome-extension")) return;
+  if(!e.request.url.startsWith(self.location.origin) &&!e.request.url.startsWith(self.location.protocol)) return;
+  e.respondWith(
+    caches.match(e.request).then(cached=>{
+      if(cached){
+        e.waitUntil(fetch(e.request).then(r=>{
+          if(r&&r.ok) caches.open(FX_CACHE_NAME).then(c=>c.put(e.request,r.clone()));
+        }).catch(()=>{}));
+        return cached;
+      }
+      return fetch(e.request).then(r=>{
+        if(r&&r.ok && e.request.url.startsWith(self.location.origin)){
+          const cl=r.clone();
+          caches.open(FX_CACHE_NAME).then(c=>c.put(e.request,cl));
         }
-        return networkResponse;
-      })
-      .catch(() => {
-        return caches.match(event.request).then((cachedResponse) => {
-          if (cachedResponse) return cachedResponse;
-          if (event.request.headers.get("accept")?.includes("text/html")) {
-            return caches.match("./index.html");
-          }
-        });
-      })
+        return r;
+      }).catch(()=>cached);
+    })
   );
 });
