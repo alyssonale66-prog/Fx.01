@@ -35,7 +35,6 @@ jobs:
       - name: Criar configuração do Capacitor - FX Finance
         run: |
           echo '{"appId":"com.fx.finance","appName":"FX Finance","webDir":"www","bundledWebRuntime":false}' > capacitor.config.json
-          cat capacitor.config.json
 
       - name: Preparar plataforma Android - RECRIAR DO ZERO
         run: |
@@ -51,7 +50,7 @@ jobs:
           cd android
           ./gradlew assembleDebug --stacktrace
 
-      - name: Renomear APK
+      - name: Renomear e Mover APK
         run: |
           cp android/app/build/outputs/apk/debug/app-debug.apk "FX-Finance.apk"
 
