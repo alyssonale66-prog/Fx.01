@@ -1,11 +1,12 @@
 /* ============================================================
-   FX.01 — Versão Completa e Auditada (Otimizada para APK/Capacitor)
+   FX.01 — Versão Profissional Auditada & Criptografada
    ============================================================ */
 
 "use strict";
 
 const FX_VERSION = "1.1.0";
-const STORAGE_KEY = "fx01_data";
+const STORAGE_KEY = "fx01_sec_data";
+const DEVICE_KEY_SECRET = "FX_KEY_SALT_v1";
 
 /* MAPA DE ÍCONES SVG PADRONIZADOS */
 const CATEGORY_ICONS = {
@@ -37,6 +38,14 @@ const DEFAULT_CATEGORIES = [
   { id: "other", name: "Outros", icon: "other", hasLimit: false, limit: null, protected: true }
 ];
 
+const RECOVERY_QUESTIONS = [
+  { value: "pet", label: "Qual era o nome do seu primeiro animal de estimação?" },
+  { value: "city", label: "Em qual cidade você nasceu?" },
+  { value: "school", label: "Qual era o nome da sua primeira escola?" },
+  { value: "nickname", label: "Qual era seu apelido de infância?" },
+  { value: "custom", label: "Outra pergunta" }
+];
+
 let state = null;
 let currentCategoryId = null;
 let currentEditingCategoryId = null;
@@ -44,6 +53,7 @@ let currentEditingExpenseId = null;
 let currentSetupStep = 1;
 let setupSalarySplit = null;
 let setupCategories = [];
+let setupRecoveryQuestionKey = "";
 let settingsSalarySplit = null;
 let categoryEditorHasLimit = false;
 let selectedReserveOrigin = null;
@@ -66,42 +76,174 @@ const screens = {
   settings: $("settings-screen")
 };
 
-document.addEventListener("DOMContentLoaded", () => {
+/* CAMADA DE CRIPTOGRAFIA EM REPOUSO (WEB CRYPTO API - AES-GCM & SHA-256) */
+async function getCryptoKey() {
+  const enc = new TextEncoder();
+  const keyMaterial = await crypto.subtle.importKey(
+    "raw",
+    enc.encode(DEVICE_KEY_SECRET),
+    "PBKDF2",
+    false,
+    ["deriveKey"]
+  );
+  return crypto.subtle.deriveKey(
+    {
+      name: "PBKDF2",
+      salt: enc.encode("FX_FINANCE_SALT_2026"),
+      iterations: 100000,
+      hash: "SHA-256"
+    },
+    keyMaterial,
+    { name: "AES-GCM", length: 256 },
+    false,
+    ["encrypt", "decrypt"]
+  );
+}
+
+async function hashString(str) {
+  if (!str) return "";
+  const enc = new TextEncoder();
+  const buf = await crypto.subtle.digest("SHA-256", enc.encode(str.trim().toLowerCase()));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+async function encryptData(dataObj) {
+  try {
+    const key = await getCryptoKey();
+    const enc = new TextEncoder();
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const encodedData = enc.encode(JSON.stringify(dataObj));
+
+    const encryptedContent = await crypto.subtle.encrypt(
+      { name: "AES-GCM", iv: iv },
+      key,
+      encodedData
+    );
+
+    const combined = new Uint8Array(iv.length + encryptedContent.byteLength);
+    combined.set(iv);
+    combined.set(new Uint8Array(encryptedContent), iv.length);
+
+    return btoa(String.fromCharCode.apply(null, combined));
+  } catch (err) {
+    console.error("Erro ao criptografar dados:", err);
+    return null;
+  }
+}
+
+async function decryptData(cipherBase64) {
+  try {
+    const key = await getCryptoKey();
+    const binaryStr = atob(cipherBase64);
+    const combined = new Uint8Array(binaryStr.length);
+    for (let i = 0; i < binaryStr.length; i++) {
+      combined[i] = binaryStr.charCodeAt(i);
+    }
+
+    const iv = combined.slice(0, 12);
+    const data = combined.slice(12);
+
+    const decryptedContent = await crypto.subtle.decrypt(
+      { name: "AES-GCM", iv: iv },
+      key,
+      data
+    );
+
+    const dec = new TextDecoder();
+    return JSON.parse(dec.decode(decryptedContent));
+  } catch (err) {
+    console.error("Erro ao decriptografar dados:", err);
+    return null;
+  }
+}
+
+document.addEventListener("DOMContentLoaded", async () => {
   initInitialIcons();
   bindEvents();
-  loadApplication();
+  initNativeLifecycle();
+  await loadApplication();
 });
 
 function initInitialIcons() {
   if ($("setup-password-eye")) $("setup-password-eye").innerHTML = SVG_EYE_OPEN;
   if ($("setup-password-confirm-eye")) $("setup-password-confirm-eye").innerHTML = SVG_EYE_OPEN;
+  if ($("biometric-unlock-icon")) $("biometric-unlock-icon").innerHTML = CATEGORY_ICONS.biometrics;
 }
 
-function saveState() {
+function initNativeLifecycle() {
+  const App = window.Capacitor?.Plugins?.App;
+  if (!App) return;
+
+  // Gerenciamento do botão físico "Voltar" do Android
+  App.addListener("backButton", () => {
+    const openModals = document.querySelectorAll(".modal:not(.hidden)");
+    if (openModals.length > 0) {
+      const topModal = openModals[openModals.length - 1];
+      topModal.classList.add("hidden");
+      return;
+    }
+
+    if (!screens.settings.classList.contains("hidden")) {
+      showScreen("main");
+      return;
+    }
+
+    if (!screens.main.classList.contains("hidden")) {
+      lockApp();
+      return;
+    }
+
+    App.exitApp();
+  });
+
+  // Bloqueio automático e autenticação ao minimizar / retornar do background
+  App.addListener("appStateChange", ({ isActive }) => {
+    if (!isActive) {
+      if (state && state.setupCompleted && !state.security.locked) {
+        lockApp();
+      }
+    } else {
+      if (state && state.security && state.security.locked && state.security.biometricId) {
+        setTimeout(() => { authenticateBiometric(); }, 250);
+      }
+    }
+  });
+}
+
+async function saveState() {
   if (!state) return;
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    const encrypted = await encryptData(state);
+    if (encrypted) {
+      localStorage.setItem(STORAGE_KEY, encrypted);
+    }
   } catch (e) {
-    console.error("Erro ao salvar no LocalStorage:", e);
+    console.error("Erro ao salvar dados no LocalStorage:", e);
   }
 }
 
-function loadApplication() {
-  const stored = localStorage.getItem(STORAGE_KEY);
+async function loadApplication() {
+  const stored = localStorage.getItem(STORAGE_KEY) || localStorage.getItem("fx01_data");
   if (!stored) {
     startInitialSetup();
     return;
   }
 
   try {
-    const parsed = JSON.parse(stored);
+    let parsed = null;
+    if (stored.startsWith("{")) {
+      parsed = JSON.parse(stored);
+    } else {
+      parsed = await decryptData(stored);
+    }
+
     if (parsed && typeof parsed === "object") {
       state = parsed;
     } else {
       state = createEmptyState();
     }
   } catch (error) {
-    console.error("Erro ao ler JSON corrompido:", error);
+    console.error("Erro ao ler dados corrompidos:", error);
     state = createEmptyState();
   }
 
@@ -136,10 +278,7 @@ function normalizeState() {
   if (typeof state.user.name !== "string") state.user.name = "";
   if (!state.user.displayName && state.user.name) state.user.displayName = state.user.name;
   if (!state.user.name && state.user.displayName) state.user.name = state.user.displayName;
-  if (!state.user.username) {
-    const legacyUsername = String(state.user.displayName || state.user.name || "fxuser").trim().toLowerCase().replace(/[^a-z0-9._-]/g, "");
-    state.user.username = legacyUsername || "fxuser";
-  }
+  
   if (!Array.isArray(state.categories)) state.categories = [];
   if (!Array.isArray(state.cycles)) state.cycles = [];
   if (!state.currentCycle) state.currentCycle = null;
@@ -151,19 +290,12 @@ function normalizeState() {
   state.salary.reference = roundMoney(state.salary.reference || 0);
   state.salary.advanceAmount = roundMoney(state.salary.advanceAmount || 0);
   if (typeof state.salary.hasAdvance !== "boolean") state.salary.hasAdvance = false;
-  if (!state.salary.advanceDay) state.salary.advanceDay = 20;
 
   if (!state.extra) state.extra = { balance: 0 };
   state.extra.balance = roundMoney(state.extra.balance || 0);
 
-  if (!state.security) state.security = { password: "", locked: false, lastCycleNotificationDate: "", biometricId: null, biometricType: null, recoveryQuestion: "", recoveryAnswer: "" };
-  if (typeof state.security.recoveryQuestion !== "string") state.security.recoveryQuestion = "";
-  if (typeof state.security.recoveryAnswer !== "string") state.security.recoveryAnswer = "";
+  if (!state.security) state.security = { passwordHash: "", locked: false, lastCycleNotificationDate: "", biometricId: null, biometricType: null, recoveryQuestion: "", recoveryAnswerHash: "" };
   if (!state.settings) state.settings = { cycleDay: 5, hideBalances: false, appearance: "dark", theme: "fx" };
-  if (!["dark", "light"].includes(state.settings.appearance)) state.settings.appearance = "dark";
-  if (!["fx", "graphite", "emerald"].includes(state.settings.theme)) state.settings.theme = "fx";
-
-  if (typeof state.settings.hideBalances !== "boolean") state.settings.hideBalances = false;
 
   normalizeCycle(state.currentCycle);
   state.cycles.forEach(normalizeCycle);
@@ -194,7 +326,7 @@ function createEmptyState() {
     version: FX_VERSION,
     setupCompleted: false,
     user: { username: "", fullName: "", displayName: "", name: "" },
-    security: { password: "", locked: false, lastCycleNotificationDate: "", biometricId: null, biometricType: null, recoveryQuestion: "", recoveryAnswer: "" },
+    security: { passwordHash: "", locked: false, lastCycleNotificationDate: "", biometricId: null, biometricType: null, recoveryQuestion: "", recoveryAnswerHash: "" },
     salary: { reference: 0, hasAdvance: false, advanceAmount: 0, advanceDay: 20 },
     extra: { balance: 0 },
     reserve: { balance: 0 },
@@ -218,21 +350,11 @@ function checkCycleNotification() {
     const todayStr = now.toISOString().slice(0, 10);
     if (state.security.lastCycleNotificationDate !== todayStr) {
       if (Notification.permission === "granted") {
-        new Notification("FX — Aviso de Fechamento de Ciclo", {
-          body: `Seu ciclo financeiro encerra em ${diffDays} ${diffDays === 1 ? 'dia' : 'dias'}. Prepare-se!`
+        new Notification("FX — Fechamento de Ciclo", {
+          body: `Seu ciclo financeiro encerra em ${diffDays} ${diffDays === 1 ? 'dia' : 'dias'}.`
         });
         state.security.lastCycleNotificationDate = todayStr;
         saveState();
-      } else if (Notification.permission !== "denied") {
-        Notification.requestPermission().then(permission => {
-          if (permission === "granted") {
-            new Notification("FX — Aviso de Fechamento de Ciclo", {
-              body: `Seu ciclo financeiro encerra em ${diffDays} ${diffDays === 1 ? 'dia' : 'dias'}. Prepare-se!`
-            });
-            state.security.lastCycleNotificationDate = todayStr;
-            saveState();
-          }
-        });
       }
     }
   }
@@ -279,6 +401,7 @@ function startInitialSetup() {
   setupCategories = DEFAULT_CATEGORIES.map((c) => ({ ...c }));
   currentSetupStep = 1;
   setupSalarySplit = null;
+  setupRecoveryQuestionKey = "";
   showScreen("setup");
   applyPersonalization();
   renderSetupStep();
@@ -372,18 +495,18 @@ function saveSetupLimit() {
   renderSetupCategories();
 }
 
-function handleSetupNext() {
+async function handleSetupNext() {
   if (currentSetupStep === 1) {
     const username = $("setup-username")?.value.trim();
     const password = $("setup-password")?.value || "";
     const confirm = $("setup-password-confirm")?.value || "";
     if (!username) return showSetupError("setup-credentials-error", "Digite um usuário.");
-    if (!/^[a-zA-Z0-9._-]{3,40}$/.test(username)) return showSetupError("setup-credentials-error", "Use de 3 a 40 caracteres: letras, números, ponto, hífen ou sublinhado.");
+    if (!/^[a-zA-Z0-9._-]{3,40}$/.test(username)) return showSetupError("setup-credentials-error", "Use de 3 a 40 caracteres.");
     if (!password) return showSetupError("setup-credentials-error", "Crie uma senha.");
-    if (password.length < 4) return showSetupError("setup-credentials-error", "A senha precisa ter pelo menos 4 caracteres.");
+    if (password.length < 4) return showSetupError("setup-credentials-error", "A senha precisa ter no mínimo 4 caracteres.");
     if (password !== confirm) return showSetupError("setup-credentials-error", "As senhas não coincidem.");
     state.user.username = username;
-    state.security.password = password;
+    state.security.passwordHash = await hashString(password);
     hideElement("setup-credentials-error");
   }
 
@@ -422,16 +545,22 @@ function handleSetupNext() {
   }
 
   if (currentSetupStep === 7) {
-    const questionType = $("setup-recovery-question")?.value;
     const answer = $("setup-recovery-answer")?.value.trim();
-    let question = questionType;
-    if (questionType === "custom") question = $("setup-custom-question")?.value.trim();
+    let question = setupRecoveryQuestionKey;
+    if (setupRecoveryQuestionKey === "custom") {
+      question = $("setup-custom-question")?.value.trim();
+    } else {
+      const found = RECOVERY_QUESTIONS.find(q => q.value === setupRecoveryQuestionKey);
+      if (found) question = found.label;
+    }
+
     const errorId = "setup-recovery-error";
-    if (!questionType) return showSetupError(errorId, "Selecione uma pergunta de recuperação.");
-    if (questionType === "custom" && !question) return showSetupError(errorId, "Digite sua pergunta.");
+    if (!setupRecoveryQuestionKey) return showSetupError(errorId, "Selecione uma pergunta de recuperação.");
+    if (setupRecoveryQuestionKey === "custom" && !question) return showSetupError(errorId, "Digite sua pergunta.");
     if (!answer) return showSetupError(errorId, "Digite a resposta de recuperação.");
+    
     state.security.recoveryQuestion = question;
-    state.security.recoveryAnswer = normalizeRecoveryAnswer(answer);
+    state.security.recoveryAnswerHash = await hashString(answer);
     hideElement(errorId);
   }
 
@@ -441,25 +570,21 @@ function handleSetupNext() {
     return;
   }
 
-  completeInitialSetup();
+  await completeInitialSetup();
 }
 
 function showSetupError(id, message) {
   showElement(id, message);
 }
 
-function normalizeRecoveryAnswer(value) {
-  return String(value || "").trim().toLocaleLowerCase("pt-BR").normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-}
-
-function completeInitialSetup() {
+async function completeInitialSetup() {
   state.categories = setupCategories.map((c) => ({ ...c }));
   state.user.name = state.user.displayName || state.user.name;
   state.setupCompleted = true;
   state.security.locked = false;
 
   createInitialCycle();
-  saveState();
+  await saveState();
   showScreen("main");
   renderApplication();
 }
@@ -809,12 +934,8 @@ function updateReserveModalOriginButtons() {
   const salaryBtn = $("reserve-origin-salary-btn");
   const extraBtn = $("reserve-origin-extra-btn");
 
-  if (salaryBtn) {
-    salaryBtn.classList.toggle("selected", selectedReserveOrigin === "salary");
-  }
-  if (extraBtn) {
-    extraBtn.classList.toggle("selected", selectedReserveOrigin === "extra");
-  }
+  if (salaryBtn) salaryBtn.classList.toggle("selected", selectedReserveOrigin === "salary");
+  if (extraBtn) extraBtn.classList.toggle("selected", selectedReserveOrigin === "extra");
 
   setText("reserve-salary-available", formatMoneyOrMask(getSalaryBalance()));
   setText("reserve-extra-available", formatMoneyOrMask(getExtraBalance()));
@@ -988,7 +1109,7 @@ function importBackup(event) {
   if (!file) return;
 
   const reader = new FileReader();
-  reader.onload = function (e) {
+  reader.onload = async function (e) {
     try {
       const importedState = JSON.parse(e.target.result);
       if (!importedState || typeof importedState !== "object" || !importedState.version) {
@@ -997,7 +1118,7 @@ function importBackup(event) {
 
       state = importedState;
       normalizeState();
-      saveState();
+      await saveState();
       renderApplication();
       customAlert("Backup importado com sucesso!");
     } catch (err) {
@@ -1009,11 +1130,17 @@ function importBackup(event) {
   reader.readAsText(file);
 }
 
+/* INTEGRAÇÃO NATIVA DE BIOMETRIA */
+function getBiometricPlugin() {
+  return window.Capacitor?.Plugins?.NativeBiometric;
+}
+
 async function checkBiometricSupport() {
-  if (window.Capacitor?.Plugins?.NativeBiometric) {
+  const plugin = getBiometricPlugin();
+  if (plugin) {
     try {
-      const result = await window.Capacitor.Plugins.NativeBiometric.isAvailable();
-      return { type: "capacitor", available: !!result.isAvailable };
+      const result = await plugin.isAvailable();
+      return { type: "capacitor", available: !!(result && result.isAvailable) };
     } catch {
       return { type: "none", available: false };
     }
@@ -1025,46 +1152,43 @@ async function registerBiometrics() {
   const support = await checkBiometricSupport();
 
   if (!support.available) {
-    return customAlert("Seu dispositivo não possui biometria configurada ou ativa.");
+    return customAlert("Seu dispositivo não possui sensor de biometria ativo nas configurações do sistema.");
   }
 
-  if (support.type === "capacitor") {
-    try {
-      await window.Capacitor.Plugins.NativeBiometric.verifyIdentity({
-        reason: "Cadastrar biometria no FX",
-        title: "Biometria FX",
-        subtitle: "Confirme sua digital ou face"
-      });
-      state.security.biometricId = "native_capacitor";
-      state.security.biometricType = "capacitor";
-      saveState();
-      customAlert("Biometria cadastrada com sucesso!");
-    } catch (err) {
-      customAlert("Não foi possível cadastrar a biometria: " + (err.message || "Cancelado."));
-    }
+  const plugin = getBiometricPlugin();
+  try {
+    await plugin.verifyIdentity({
+      reason: "Cadastrar e testar a biometria no FX",
+      title: "Biometria FX",
+      subtitle: "Confirme sua digital ou face"
+    });
+    state.security.biometricId = "enabled";
+    state.security.biometricType = "capacitor";
+    await saveState();
+    customAlert("Biometria cadastrada com sucesso! Ela será solicitada automaticamente na abertura do app.");
+  } catch (err) {
+    customAlert("Não foi possível confirmar a biometria: " + (err.message || "Cancelado."));
   }
 }
 
 async function authenticateBiometric() {
   if (!state || !state.security || !state.security.biometricId) return;
 
-  const support = await checkBiometricSupport();
-
-  if (support.type === "capacitor") {
+  const plugin = getBiometricPlugin();
+  if (plugin) {
     try {
-      await window.Capacitor.Plugins.NativeBiometric.verifyIdentity({
+      await plugin.verifyIdentity({
         reason: "Acesse sua conta FX",
         title: "Desbloqueio FX",
         subtitle: "Confirme sua digital ou face"
       });
       unlockSuccess();
     } catch (err) {
-      showElement("unlock-error", "Biometria não reconhecida. Use sua senha.");
+      showElement("unlock-error", "Biometria não reconhecida ou cancelada. Use sua senha.");
     }
-    return;
+  } else {
+    showElement("unlock-error", "Biometria indisponível. Use sua senha.");
   }
-
-  showElement("unlock-error", "Biometria indisponível. Use sua senha.");
 }
 
 function unlockSuccess() {
@@ -1099,6 +1223,12 @@ function updateCustomSelectTriggers() {
       other: "Outros (Caixa)"
     };
     catIconBtn.textContent = labels[selectedCategoryIcon] || "Outros";
+  }
+
+  const recQuestBtn = $("setup-recovery-question-trigger");
+  if (recQuestBtn) {
+    const found = RECOVERY_QUESTIONS.find(q => q.value === setupRecoveryQuestionKey);
+    recQuestBtn.textContent = found ? found.label : "Selecione uma pergunta";
   }
 }
 
@@ -1186,6 +1316,10 @@ function saveCategory() {
     const limitVal = parseMoneyInput($("category-limit-value").value);
 
     if (!name) throw new Error("Digite o nome da categoria.");
+
+    // Validação de unicidade de nome para evitar duplicações de categorias
+    const duplicate = state.categories.find(c => c.name.toLowerCase() === name.toLowerCase() && c.id !== currentEditingCategoryId);
+    if (duplicate) throw new Error("Já existe uma categoria cadastrada com esse nome.");
 
     if (currentEditingCategoryId) {
       const cat = state.categories.find((c) => c.id === currentEditingCategoryId);
@@ -1359,28 +1493,31 @@ function saveCycleSettings() {
   customAlert("Alteração será aplicada no próximo ciclo.");
 }
 
-function saveNewPassword() {
+async function saveNewPassword() {
   const current = $("current-password")?.value;
   const newPass = $("new-password")?.value;
   const confirmPass = $("confirm-new-password")?.value;
 
-  if (current !== state.security.password) {
+  const currentHash = await hashString(current);
+  if (state.security.passwordHash && currentHash !== state.security.passwordHash) {
     return showElement("password-error", "Senha atual incorreta.");
   }
   if (!newPass) return showElement("password-error", "Digite a nova senha.");
+  if (newPass.length < 4) return showElement("password-error", "Senha com mínimo de 4 caracteres.");
   if (newPass !== confirmPass) return showElement("password-error", "Senhas não coincidem.");
 
-  state.security.password = newPass;
+  state.security.passwordHash = await hashString(newPass);
   saveState();
   closeModal("password-modal");
   customAlert("Senha alterada com sucesso.");
 }
 
-function deleteAllData() {
+async function deleteAllData() {
   const pass = $("delete-password")?.value;
   const confirmText = $("delete-confirmation")?.value.trim();
 
-  if (pass !== state.security.password) {
+  const passHash = await hashString(pass);
+  if (state.security.passwordHash && passHash !== state.security.passwordHash) {
     return showElement("delete-error", "Senha incorreta.");
   }
   if (confirmText !== "APAGAR") {
@@ -1388,6 +1525,7 @@ function deleteAllData() {
   }
 
   localStorage.removeItem(STORAGE_KEY);
+  localStorage.removeItem("fx01_data");
   state = null;
   closeModal("delete-data-modal");
   startInitialSetup();
@@ -1404,13 +1542,15 @@ function lockApp() {
   hideElement("unlock-error");
 
   const bioTrigger = $("biometric-unlock-icon");
+  
   if (state && state.security && state.security.biometricId) {
     if (bioTrigger) bioTrigger.classList.remove("hidden");
     saveState();
     showScreen("lock");
+    
     setTimeout(() => {
       authenticateBiometric();
-    }, 300);
+    }, 250);
   } else {
     if (bioTrigger) bioTrigger.classList.add("hidden");
     saveState();
@@ -1601,33 +1741,28 @@ function updateSalarySplitButtons() {
   $("salary-split-info")?.classList.toggle("hidden", settingsSalarySplit !== "yes");
 }
 
+/* PARSER MONETÁRIO DE ALTA PRECISÃO COM EXPRESSÃO REGULAR ESTRITA */
 function parseMoneyInput(value) {
   if (value === null || value === undefined) return 0;
-  let text = String(value).trim();
+  let text = String(value).trim().replace(/\s/g, "");
   if (!text) return 0;
-  text = text.replace(/\s/g, "");
 
-  const hasComma = text.includes(",");
-  const hasDot = text.includes(".");
-
-  if (hasComma && hasDot) {
-    const commaIndex = text.lastIndexOf(",");
-    const dotIndex = text.lastIndexOf(".");
-    if (commaIndex > dotIndex) text = text.replace(/\./g, "").replace(",", ".");
-    else text = text.replace(/,/g, "");
-  } else if (hasComma) {
+  // Trata formatos com vírgula e múltiplos pontos (ex: 1.500,50)
+  if (text.includes(",") && text.includes(".")) {
+    text = text.replace(/\./g, "").replace(",", ".");
+  } else if (text.includes(",")) {
     text = text.replace(",", ".");
   }
 
-  const number = Number(text);
+  const number = parseFloat(text.replace(/[^0-9.-]/g, ""));
   return Number.isFinite(number) ? roundMoney(number) : 0;
 }
 
 function openRecoveryModal() {
   hideElement("recovery-error");
   const question = state?.security?.recoveryQuestion || "";
-  if (!question || !state?.security?.recoveryAnswer) {
-    return customAlert("Esta conta não possui uma pergunta de recuperação configurada. Use a senha cadastrada ou importe um backup que contenha a recuperação.");
+  if (!question || !state?.security?.recoveryAnswerHash) {
+    return customAlert("Esta conta não possui pergunta de recuperação cadastrada.");
   }
   setText("recovery-question-label", question);
   if ($("recovery-username")) $("recovery-username").value = state.user?.username || "";
@@ -1637,20 +1772,24 @@ function openRecoveryModal() {
   openModal("recovery-modal");
 }
 
-function recoverPassword() {
+async function recoverPassword() {
   const username = $("recovery-username")?.value.trim() || "";
-  const answer = normalizeRecoveryAnswer($("recovery-answer")?.value || "");
+  const answer = $("recovery-answer")?.value || "";
   const newPass = $("recovery-new-password")?.value || "";
   const confirm = $("recovery-confirm-password")?.value || "";
+
+  const answerHash = await hashString(answer);
+
   if (username.toLowerCase() !== String(state.user?.username || "").toLowerCase()) return showElement("recovery-error", "Usuário incorreto.");
-  if (answer !== state.security.recoveryAnswer) return showElement("recovery-error", "Resposta de recuperação incorreta.");
-  if (newPass.length < 4) return showElement("recovery-error", "A nova senha precisa ter pelo menos 4 caracteres.");
+  if (answerHash !== state.security.recoveryAnswerHash) return showElement("recovery-error", "Resposta de recuperação incorreta.");
+  if (newPass.length < 4) return showElement("recovery-error", "A nova senha precisa ter no mínimo 4 caracteres.");
   if (newPass !== confirm) return showElement("recovery-error", "As novas senhas não coincidem.");
-  state.security.password = newPass;
+
+  state.security.passwordHash = await hashString(newPass);
   state.security.locked = false;
-  saveState();
+  await saveState();
   closeModal("recovery-modal");
-  customAlert("Senha redefinida com sucesso. Entre com sua nova senha.");
+  customAlert("Senha redefinida com sucesso.");
 }
 
 function bindEvents() {
@@ -1661,9 +1800,19 @@ function bindEvents() {
       renderSetupStep();
     }
   });
-  $("setup-recovery-question")?.addEventListener("change", (e) => {
-    $("setup-custom-question-wrap")?.classList.toggle("hidden", e.target.value !== "custom");
+
+  $("setup-recovery-question-trigger")?.addEventListener("click", () => {
+    const opts = RECOVERY_QUESTIONS.map(q => ({
+      label: q.label,
+      value: q.value,
+      selected: q.value === setupRecoveryQuestionKey
+    }));
+    openCustomPicker("Pergunta de Recuperação", opts, (val) => {
+      setupRecoveryQuestionKey = val;
+      $("setup-custom-question-wrap")?.classList.toggle("hidden", val !== "custom");
+    });
   });
+
   $("toggle-setup-password")?.addEventListener("click", () => togglePasswordField("setup-password", "setup-password-eye"));
   $("toggle-setup-password-confirm")?.addEventListener("click", () => togglePasswordField("setup-password-confirm", "setup-password-confirm-eye"));
   $("setup-limit-yes")?.addEventListener("click", () => { setupLimitHasLimit = true; updateSetupLimitButtons(); });
@@ -1847,12 +1996,15 @@ function bindEvents() {
     }
   });
 
-  $("unlock-button")?.addEventListener("click", () => {
+  $("unlock-button")?.addEventListener("click", async () => {
     const username = $("unlock-username")?.value.trim() || "";
     const pass = $("unlock-password")?.value || "";
     const storedUsername = String(state?.user?.username || "").trim();
     const usernameOk = !storedUsername || username.toLowerCase() === storedUsername.toLowerCase();
-    if (usernameOk && pass === state.security.password) {
+    
+    const inputHash = await hashString(pass);
+
+    if (usernameOk && state.security.passwordHash && inputHash === state.security.passwordHash) {
       unlockSuccess();
     } else {
       showElement("unlock-error", "Usuário ou senha incorretos.");
@@ -1947,12 +2099,8 @@ function updateExpenseModalOriginButtons() {
   const salaryBtn = $("expense-origin-salary-btn");
   const extraBtn = $("expense-origin-extra-btn");
 
-  if (salaryBtn) {
-    salaryBtn.classList.toggle("selected", selectedExpenseOrigin === "salary");
-  }
-  if (extraBtn) {
-    extraBtn.classList.toggle("selected", selectedExpenseOrigin === "extra");
-  }
+  if (salaryBtn) salaryBtn.classList.toggle("selected", selectedExpenseOrigin === "salary");
+  if (extraBtn) extraBtn.classList.toggle("selected", selectedExpenseOrigin === "extra");
 
   setText("expense-salary-available", formatMoneyOrMask(getSalaryBalance()));
   setText("expense-extra-available", formatMoneyOrMask(getExtraBalance()));
