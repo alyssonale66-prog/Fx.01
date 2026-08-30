@@ -1,9 +1,15 @@
-name: Crie o APK e o AAB do FX.01 para Android.
+name: Crie o APK e o AAB do FX para Android
 
 on:
   push:
-    branches: [ main, master, principal ]
+    branches:
+      - main
+      - master
+      - principal
   workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   build-android:
@@ -13,10 +19,11 @@ jobs:
       - name: Checkout do código
         uses: actions/checkout@v4
 
-      - name: Configurar Node.js 22
+      - name: Configurar Node.js 20
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: '20'
+          cache: 'npm'
 
       - name: Configurar Java JDK 17
         uses: actions/setup-java@v4
@@ -27,67 +34,88 @@ jobs:
       - name: Configurar Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Instalar dependências NPM
+      - name: Instalar dependências
         run: npm install
 
       - name: Preparar web assets
         run: |
-          mkdir -p www/icons
-          npm run build --if-present || true
-          cp index.html www/ 2>/dev/null || true
-          cp app.js www/ 2>/dev/null || true
-          cp style.css www/ 2>/dev/null || true
-          cp manifest.json www/ 2>/dev/null || true
-          cp service-worker.js www/ 2>/dev/null || true
-          cp icons/*.png www/icons/ 2>/dev/null || true
-          cp icon-*.png www/icons/ 2>/dev/null || true
-          cd www/icons || exit 0
-          for f in *.png; do
-            case "$f" in
-              *192*) cp "$f" icon-192.png 2>/dev/null || true ;;
-              *512*) cp "$f" icon-512.png 2>/dev/null || true ;;
-            esac
-          done
-          ls -la
+          rm -rf www
+          mkdir -p www
 
-      - name: Sincronizar e Gerar Plataforma Android
+          npm run build
+
+          test -f www/index.html
+          test -f www/app.js
+          test -f www/style.css
+          test -f www/manifest.json
+          test -f www/service-worker.js
+
+          if [ -f icon-192.png ]; then
+            cp icon-192.png www/
+          fi
+
+          if [ -f icon-512.png ]; then
+            cp icon-512.png www/
+          fi
+
+          echo "Conteúdo final de www:"
+          find www -maxdepth 2 -type f -print
+
+      - name: Criar configuração do Capacitor
         run: |
-          if [ ! -f "capacitor.config.json" ]; then
-            echo '{"appId":"com.fx.app","appName":"FX.01","webDir":"www"}' > capacitor.config.json
+          if [ ! -f capacitor.config.json ]; then
+            cat > capacitor.config.json <<'EOF'
+          {
+            "appId": "com.fx.app",
+            "appName": "FX.01",
+            "webDir": "www"
+          }
+          EOF
           fi
-          if [ ! -f "android/gradlew" ]; then
-            rm -rf android
-          fi
-          if [ ! -d "android" ]; then
+
+          cat capacitor.config.json
+
+      - name: Preparar plataforma Android
+        run: |
+          if [ ! -d android ]; then
             npx cap add android
           fi
-          npx cap sync android
-          npx cap copy android
 
-      - name: Dar permissão ao Gradlew
+          npx cap sync android
+
+      - name: Dar permissão ao Gradle
         run: chmod +x android/gradlew
 
-      - name: Compilar Debug APK
+      - name: Verificar versão do Gradle
+        working-directory: android
+        run: ./gradlew --version
+
+      - name: Compilar APK Debug
         working-directory: android
         run: ./gradlew assembleDebug --stacktrace
+
+      - name: Renomear APK
+        run: |
+          mkdir -p artifacts
+          cp android/app/build/outputs/apk/debug/app-debug.apk \
+             artifacts/FX.01-v1.1.0-debug.apk
 
       - name: Disponibilizar APK
         uses: actions/upload-artifact@v4
         with:
-          name: FX01-APK-Debug
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          name: FX-APK-v1.1.0
+          path: artifacts/FX.01-v1.1.0-debug.apk
+          if-no-files-found: error
           retention-days: 14
 
-      - name: Compilar Release AAB
+      - name: Compilar AAB Release
         working-directory: android
-        run: ./gradlew bundleRelease --stacktrace || ./gradlew bundleDebug --stacktrace
+        run: ./gradlew bundleRelease --stacktrace
 
       - name: Disponibilizar AAB
         uses: actions/upload-artifact@v4
         with:
-          name: FX01-AAB-Release
-          path: |
-            android/app/build/outputs/bundle/release/*.aab
-            android/app/build/outputs/bundle/debug/*.aab
-          if-no-files-found: warn
+          name: FX01-AAB-v1.1.0
+          path: android/app/build/outputs/bundle/release/*.aab
+          if-no-files-found: error
           retention-days: 14
