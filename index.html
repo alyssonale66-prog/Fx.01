@@ -1,696 +1,106 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-BR" data-appearance="dark" data-theme="theme1">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <meta name="theme-color" content="#0a0a0a">
-  <meta name="description" content="FX — Seu dinheiro. Suas regras.">
-  <title>FX — Controle Financeiro</title>
-
-  <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="style.css">
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>FX.01</title><link rel="manifest" href="manifest.json"><link rel="stylesheet" href="style.css">
 </head>
 <body>
-
-  <div id="app">
-
-    <!-- TELA DE CONFIGURAÇÃO INICIAL -->
-    <section id="setup-screen" class="screen hidden" aria-labelledby="setup-title">
-      <div class="setup-container">
-        <header class="screen-header">
-          <h1 id="setup-title" class="brand-logo-glow">FX</h1>
-          <p>Configuração inicial</p>
-        </header>
-
-        <main>
-          <div class="setup-step" data-step="1">
-            <h2>Sua Identidade</h2>
-            <label for="setup-fullname">Nome Completo (para registros)</label>
-            <input id="setup-fullname" type="text" autocomplete="name" maxlength="60" placeholder="Ex: Alysson Ferreira">
-            
-            <label for="setup-displayname" style="margin-top: 12px;">Como quer ser chamado? (Apelido)</label>
-            <input id="setup-displayname" type="text" autocomplete="nickname" maxlength="20" placeholder="Ex: Alysson">
-          </div>
-
-          <div class="setup-step" data-step="2">
-            <h2>Senha e Segurança</h2>
-            <label for="setup-password">Crie sua senha de acesso</label>
-            <input id="setup-password" type="password" autocomplete="new-password" maxlength="100" placeholder="Digite sua senha">
-
-            <label for="setup-security-question" style="margin-top: 12px;">Pergunta de Segurança (para recuperar a senha)</label>
-            <input id="setup-security-question" type="text" maxlength="80" placeholder="Ex: Qual o nome do meu primeiro pet?">
-
-            <label for="setup-security-answer" style="margin-top: 12px;">Resposta Secreta</label>
-            <input id="setup-security-answer" type="text" maxlength="50" placeholder="Sua resposta">
-          </div>
-
-          <div class="setup-step" data-step="3">
-            <h2>Salário</h2>
-            <label for="setup-salary">Valor do salário</label>
-            <input id="setup-salary" class="hero-input" type="text" inputmode="decimal" placeholder="0,00">
-          </div>
-
-          <div class="setup-step" data-step="4">
-            <h2>Adiantamento / Vale</h2>
-            <p>Você recebe adiantamento/vale no dia 20?</p>
-            <div class="choice-group">
-              <button type="button" class="choice-button" data-choice="salary-split" data-value="yes">Sim</button>
-              <button type="button" class="choice-button" data-choice="salary-split" data-value="no">Não</button>
-            </div>
-            <div id="setup-advance-container" class="hidden" style="margin-top: 10px;">
-              <label for="setup-advance-val">Valor do Adiantamento/Vale (R$)</label>
-              <input id="setup-advance-val" class="hero-input" type="text" inputmode="decimal" placeholder="0,00">
-            </div>
-          </div>
-
-          <div class="setup-step" data-step="5">
-            <h2>Ciclo</h2>
-            <label for="setup-cycle-day">Dia de início</label>
-            <input id="setup-cycle-day" type="number" min="1" max="28" value="5">
-          </div>
-
-          <div class="setup-step" data-step="6">
-            <h2>Categorias</h2>
-            <p>Toque em uma categoria para ajustar o limite antes de concluir.</p>
-            <div id="setup-categories" class="setup-category-list"></div>
-          </div>
-        </main>
-
-        <footer class="setup-footer">
-          <button id="setup-next-button" type="button" class="primary-button">Continuar</button>
-        </footer>
-      </div>
-    </section>
-
-    <!-- TELA DE BLOQUEIO REDESENHADA -->
-    <section id="lock-screen" class="screen hidden" aria-labelledby="lock-title">
-      <div class="lock-container">
-        <div class="lock-card glass-panel">
-          <header class="lock-header">
-            <div class="user-avatar-badge" id="lock-avatar">FX</div>
-            <h2 id="lock-user-greeting" class="welcome-title" style="margin-top:8px;">Olá!</h2>
-            <p class="lock-subtitle" id="lock-title">Acesso Protegido</p>
-          </header>
-
-          <main class="lock-form">
-            <label for="unlock-password">Senha de Acesso</label>
-            <div class="password-input-wrapper">
-              <input id="unlock-password" type="password" autocomplete="current-password" placeholder="Digite sua senha">
-              <button type="button" id="toggle-lock-password" class="input-icon-button" aria-label="Mostrar senha">
-                <span id="eye-icon-container"></span>
-              </button>
-            </div>
-
-            <button id="unlock-button" type="button" class="primary-button glow-on-hover">
-              Desbloquear
-            </button>
-
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-top:14px;">
-              <button type="button" id="forgot-password-button" class="text-link-button">Esqueci minha senha</button>
-              <button type="button" id="biometric-unlock-icon" class="icon-button hidden" title="Autenticar com Biometria" aria-label="Autenticar com Biometria" style="border-color: var(--border-gold); color: var(--accent);">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04C4.05 16.148 3 13.686 3 11c0-4.97 4.03-9 9-9s9 4.03 9 9c0 4.015-2.631 7.41-6.284 8.571M12 7v8m0 0a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/></svg>
-              </button>
-            </div>
-
-            <p id="unlock-error" class="error-message hidden" role="alert" style="margin-top:10px;"></p>
-          </main>
-        </div>
-      </div>
-    </section>
-
-    <!-- TELA PRINCIPAL -->
-    <section id="main-screen" class="screen hidden" aria-labelledby="main-title">
-      
-      <header class="main-header">
-        <div style="display: flex; gap: 8px;">
-          <button id="lock-button" type="button" class="icon-button" aria-label="Bloquear aplicativo" title="Bloquear aplicativo">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-          </button>
-          
-          <button id="toggle-hide-balances-button" type="button" class="icon-button" aria-label="Ocultar saldos" title="Ocultar saldos">
-            <span id="hide-balances-icon-container"></span>
-          </button>
-        </div>
-
-        <h1 id="main-title" class="brand-title">FX</h1>
-
-        <button id="settings-button" type="button" class="icon-button" aria-label="Abrir configurações" title="Configurações">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-        </button>
-      </header>
-
-      <main class="main-content">
-
-        <!-- ABA 1: INÍCIO -->
-        <div id="tab-home" class="tab-content">
-          
-          <div class="welcome-header">
-            <span class="welcome-subtitle">Que bom te ver de novo,</span>
-            <h2 class="welcome-title">Olá, <span id="user-display-name">Usuário</span> 👋</h2>
-          </div>
-
-          <section class="balance-card glass-panel" aria-label="Saldo disponível">
-            <span class="balance-label">Valor disponível</span>
-            <strong id="available-balance" class="balance-value">R$ 0,00</strong>
-
-            <div class="balance-sources">
-              <div id="salary-card-trigger" class="balance-source interactive-card">
-                <span>Salário</span>
-                <strong id="salary-balance">R$ 0,00</strong>
-              </div>
-
-              <div id="extra-card-trigger" class="balance-source extra-source interactive-card">
-                <div class="extra-source-top">
-                  <span>Extra</span>
-                  <span class="extra-button">+ Add</span>
-                </div>
-                <strong id="extra-balance">R$ 0,00</strong>
-              </div>
-            </div>
-          </section>
-
-          <section class="categories-section" aria-labelledby="categories-title">
-            <div class="section-heading">
-              <h2 id="categories-title">Categorias</h2>
-            </div>
-            <div id="categories-list" class="categories-list"></div>
-          </section>
-        </div>
-
-        <!-- ABA 2: EXTRATO -->
-        <div id="tab-extrato" class="tab-content hidden">
-          <section class="expenses-section" aria-labelledby="expenses-title">
-            <div class="section-heading">
-              <h2 id="expenses-title">Extrato do Mês</h2>
-            </div>
-            <div id="expenses-list" class="expenses-grouped-container"></div>
-          </section>
-        </div>
-
-      </main>
-
-      <!-- BARRA DE NAVEGAÇÃO INFERIOR -->
-      <nav class="bottom-nav">
-        <button type="button" id="nav-home-button" class="nav-button active">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-          <span>Início</span>
-        </button>
-
-        <button type="button" id="nav-extrato-button" class="nav-button">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-          <span>Extrato</span>
-        </button>
-      </nav>
-
-    </section>
-
-    <!-- TELA DE CONFIGURAÇÕES -->
-    <section id="settings-screen" class="screen hidden" aria-labelledby="settings-title">
-      <header class="screen-header settings-header">
-        <button id="settings-back-button" type="button" class="icon-button" aria-label="Voltar">←</button>
-        <div>
-          <h1 id="settings-title">Configurações</h1>
-        </div>
-      </header>
-
-      <main class="settings-content">
-        <section class="settings-section">
-          <button type="button" class="settings-item" data-settings-toggle="profile-settings">
-            <div class="settings-item-title">
-              <span>Perfil & Identidade</span>
-              <span id="status-profile" class="settings-status-badge">Nome e Apelido</span>
-            </div>
-            <span class="chevron">⌄</span>
-          </button>
-          <div id="profile-settings" class="settings-panel hidden">
-            <label for="settings-fullname">Nome Completo</label>
-            <input id="settings-fullname" type="text" maxlength="60" placeholder="Seu nome completo">
-
-            <label for="settings-displayname" style="margin-top:10px;">Como quer ser chamado? (Apelido)</label>
-            <input id="settings-displayname" type="text" maxlength="20" placeholder="Apelido de exibição">
-
-            <button id="save-profile-settings" type="button" class="primary-button" style="margin-top:12px;">Salvar Identidade</button>
-          </div>
-        </section>
-
-        <section class="settings-section">
-          <button type="button" class="settings-item" data-settings-toggle="categories-settings">
-            <div class="settings-item-title">
-              <span>Categorias</span>
-              <span id="status-categories" class="settings-status-badge">Gerenciar</span>
-            </div>
-            <span class="chevron">⌄</span>
-          </button>
-          <div id="categories-settings" class="settings-panel hidden">
-            <div id="settings-categories-list" class="settings-category-list"></div>
-            <button id="create-category-button" type="button" class="secondary-button">Criar categoria</button>
-          </div>
-        </section>
-
-        <section class="settings-section">
-          <button type="button" class="settings-item" data-settings-toggle="salary-settings">
-            <div class="settings-item-title">
-              <span>Salário & Vale</span>
-              <span id="status-salary" class="settings-status-badge">Ajustar</span>
-            </div>
-            <span class="chevron">⌄</span>
-          </button>
-          <div id="salary-settings" class="settings-panel hidden">
-            <label for="settings-salary">Valor do Salário (R$)</label>
-            <input id="settings-salary" class="hero-input" type="text" inputmode="decimal" placeholder="0,00">
-            <p style="margin-top:10px;">Adiantamento / Vale</p>
-            <div class="choice-group">
-              <button type="button" class="choice-button" data-settings-salary-split="yes">Sim</button>
-              <button type="button" class="choice-button" data-settings-salary-split="no">Não</button>
-            </div>
-            <div id="salary-split-info" class="hidden" style="margin-top:10px;">
-              <label for="settings-advance-val">Valor do Adiantamento/Vale (R$)</label>
-              <input id="settings-advance-val" class="hero-input" type="text" inputmode="decimal" placeholder="0,00">
-            </div>
-            <button id="save-salary-settings" type="button" class="primary-button" style="margin-top:12px;">Salvar Salário</button>
-          </div>
-        </section>
-
-        <section class="settings-section">
-          <button type="button" class="settings-item" data-settings-toggle="cycle-settings">
-            <div class="settings-item-title">
-              <span>Ciclo Mensal</span>
-              <span id="status-cycle" class="settings-status-badge">Dia 5</span>
-            </div>
-            <span class="chevron">⌄</span>
-          </button>
-          <div id="cycle-settings" class="settings-panel hidden">
-            <label for="settings-cycle-day">Dia de início do ciclo</label>
-            <input id="settings-cycle-day" type="number" min="1" max="28">
-            <button id="save-cycle-settings" type="button" class="primary-button" style="margin-top:12px;">Salvar Ciclo</button>
-          </div>
-        </section>
-
-        <section class="settings-section">
-          <button id="previous-cycle-button" type="button" class="settings-item">
-            <span>Histórico de Ciclos</span>
-            <span>→</span>
-          </button>
-        </section>
-
-        <section class="settings-section">
-          <button id="chart-button" type="button" class="settings-item">
-            <span>Gráfico do Mês</span>
-            <span>→</span>
-          </button>
-        </section>
-
-        <section class="settings-section">
-          <button type="button" class="settings-item" data-settings-toggle="security-settings">
-            <div class="settings-item-title">
-              <span>Segurança & Backup</span>
-              <span id="status-security" class="settings-status-badge">Protegido</span>
-            </div>
-            <span class="chevron">⌄</span>
-          </button>
-          <div id="security-settings" class="settings-panel hidden">
-            <button id="register-biometrics-button" type="button" class="secondary-button">Cadastrar Biometria (Digital/Face)</button>
-            <button id="change-password-button" type="button" class="secondary-button">Alterar Senha</button>
-            <button id="setup-recovery-question-button" type="button" class="secondary-button">Pergunta de Segurança</button>
-            <button id="export-csv-button" type="button" class="secondary-button">Exportar Extrato (CSV)</button>
-            <button id="export-backup-button" type="button" class="secondary-button">Exportar Backup (JSON)</button>
-            <button id="import-backup-button" type="button" class="secondary-button">Importar Backup (JSON)</button>
-            <input type="file" id="import-backup-file" accept=".json" class="hidden">
-            <button id="delete-all-data-button" type="button" class="danger-button" style="margin-top:10px;">Apagar todos os dados</button>
-          </div>
-        </section>
-
-        <section class="settings-section">
-          <button id="logout-button" type="button" class="settings-item" style="color:var(--danger);">
-            <span>Sair / Bloquear Aplicativo</span>
-            <span>🔒</span>
-          </button>
-        </section>
-      </main>
-    </section>
-
-    <!-- MODAL DE RECUPERAÇÃO DE SENHA -->
-    <div id="forgot-password-modal" class="modal hidden" role="dialog" aria-modal="true">
-      <div class="modal-content glass-panel">
-        <header class="modal-header">
-          <h2>Recuperação de Senha</h2>
-          <button type="button" class="modal-close" data-close-modal="forgot-password-modal">×</button>
-        </header>
-        <main class="modal-body">
-          <p id="recovery-question-display" style="font-weight:700; color:var(--accent); text-align:center;"></p>
-          
-          <label for="recovery-answer-input">Sua Resposta Secreta</label>
-          <input id="recovery-answer-input" type="text" placeholder="Digite sua resposta">
-
-          <label for="recovery-new-password" style="margin-top:10px;">Nova Senha</label>
-          <input id="recovery-new-password" type="password" placeholder="Digite a nova senha">
-
-          <p id="recovery-error" class="error-message hidden" role="alert"></p>
-        </main>
-        <footer class="modal-footer">
-          <button id="confirm-recovery-button" type="button" class="primary-button">Redefinir Senha</button>
-        </footer>
-      </div>
-    </div>
-
-    <!-- MODAIS DE SISTEMA -->
-    <div id="picker-modal" class="modal hidden" role="dialog" aria-modal="true">
-      <div class="modal-content glass-panel">
-        <header class="modal-header">
-          <h2 id="picker-title">Selecione</h2>
-          <button type="button" class="modal-close" data-close-modal="picker-modal">×</button>
-        </header>
-        <main class="modal-body">
-          <div id="picker-options" class="custom-picker-list"></div>
-        </main>
-      </div>
-    </div>
-
-    <div id="custom-confirm-modal" class="modal hidden" role="dialog" aria-modal="true">
-      <div class="modal-content glass-panel" style="max-width:380px; text-align:center;">
-        <main class="modal-body" style="padding-top:24px;">
-          <p id="custom-confirm-message" style="font-size:15px; font-weight:600; color:var(--text);"></p>
-        </main>
-        <footer class="modal-footer modal-footer-dual" style="margin-top:10px;">
-          <button id="custom-confirm-cancel" type="button" class="secondary-button">Cancelar</button>
-          <button id="custom-confirm-ok" type="button" class="danger-button">Confirmar</button>
-        </footer>
-      </div>
-    </div>
-
-    <div id="custom-alert-modal" class="modal hidden" role="dialog" aria-modal="true">
-      <div class="modal-content glass-panel" style="max-width:380px; text-align:center;">
-        <main class="modal-body" style="padding-top:24px;">
-          <p id="custom-alert-message" style="font-size:15px; font-weight:600; color:var(--text);"></p>
-        </main>
-        <footer class="modal-footer" style="margin-top:10px;">
-          <button id="custom-alert-ok" type="button" class="primary-button">Entender</button>
-        </footer>
-      </div>
-    </div>
-
-    <div id="setup-limit-modal" class="modal hidden" role="dialog" aria-modal="true">
-      <div class="modal-content glass-panel">
-        <header class="modal-header">
-          <h2 id="setup-limit-title">Ajustar Limite</h2>
-          <button type="button" class="modal-close" data-close-modal="setup-limit-modal">×</button>
-        </header>
-        <main class="modal-body">
-          <p style="color:var(--text-secondary); font-size:13px;">Definir teto de gastos para esta categoria:</p>
-          <div class="choice-group">
-            <button type="button" class="choice-button" id="setup-limit-yes">Com Limite</button>
-            <button type="button" class="choice-button" id="setup-limit-no">Sem Limite</button>
-          </div>
-          <div id="setup-limit-input-container" class="hidden">
-            <label for="setup-limit-val">Valor do Limite (R$)</label>
-            <input id="setup-limit-val" class="hero-input" type="text" inputmode="decimal" placeholder="0,00">
-          </div>
-        </main>
-        <footer class="modal-footer">
-          <button id="save-setup-limit-button" type="button" class="primary-button">Salvar Limite</button>
-        </footer>
-      </div>
-    </div>
-
-    <div id="history-modal" class="modal hidden" role="dialog" aria-modal="true">
-      <div class="modal-content glass-panel">
-        <header class="modal-header">
-          <h2>Histórico de Meses</h2>
-          <button type="button" class="modal-close" data-close-modal="history-modal">×</button>
-        </header>
-        <main class="modal-body">
-          <div id="history-container"></div>
-        </main>
-      </div>
-    </div>
-
-    <div id="expense-edit-modal" class="modal hidden" role="dialog" aria-modal="true">
-      <div class="modal-content glass-panel">
-        <header class="modal-header">
-          <h2>Detalhes do Gasto</h2>
-          <button type="button" class="modal-close" data-close-modal="expense-edit-modal">×</button>
-        </header>
-        <main class="modal-body">
-          <label for="edit-expense-value">Valor (R$)</label>
-          <input id="edit-expense-value" class="hero-input" type="text" inputmode="decimal" placeholder="0,00">
-
-          <label>Categoria</label>
-          <button type="button" id="edit-expense-category-trigger" class="custom-select-button"></button>
-
-          <label>Origem</label>
-          <button type="button" id="edit-expense-origin-trigger" class="custom-select-button"></button>
-
-          <label for="edit-expense-description">Descrição</label>
-          <input id="edit-expense-description" type="text" maxlength="100" placeholder="Opcional">
-
-          <p id="edit-expense-error" class="error-message hidden" role="alert"></p>
-        </main>
-        <footer class="modal-footer modal-footer-dual">
-          <button id="delete-expense-button" type="button" class="danger-button">Excluir</button>
-          <button id="save-expense-edit-button" type="button" class="primary-button">Salvar Alterações</button>
-        </footer>
-      </div>
-    </div>
-
-    <!-- MODAL DE LANÇAR GASTO -->
-    <div id="expense-modal" class="modal hidden" role="dialog" aria-modal="true">
-      <div class="modal-content glass-panel">
-        <header class="modal-header">
-          <h2 id="expense-modal-title">Lançar gasto</h2>
-          <button type="button" class="modal-close" data-close-modal="expense-modal">×</button>
-        </header>
-        <main class="modal-body">
-          <label for="expense-value">Quanto deseja lançar? (R$)</label>
-          <input id="expense-value" class="hero-input" type="text" inputmode="decimal" placeholder="0,00">
-
-          <div id="expense-origin-section" class="reserve-origin-section">
-            <p class="reserve-origin-title" style="margin-bottom: 6px; font-weight: 600; color: var(--text-secondary); font-size: 13px;">De onde retirar?</p>
-            <div class="reserve-origin-options">
-              <button type="button" id="expense-origin-salary-btn" class="reserve-origin-option selected">
-                <span class="reserve-origin-name">Salário</span>
-                <strong id="expense-salary-available" class="reserve-origin-balance">R$ 0,00</strong>
-              </button>
-              <button type="button" id="expense-origin-extra-btn" class="reserve-origin-option">
-                <span class="reserve-origin-name">Extra</span>
-                <strong id="expense-extra-available" class="reserve-origin-balance">R$ 0,00</strong>
-              </button>
-            </div>
-          </div>
-
-          <label for="expense-description">Descrição</label>
-          <input id="expense-description" type="text" maxlength="100" placeholder="Opcional">
-
-          <p id="expense-error" class="error-message hidden" role="alert"></p>
-        </main>
-        <footer class="modal-footer">
-          <button id="confirm-expense-button" type="button" class="primary-button">Lançar</button>
-        </footer>
-      </div>
-    </div>
-
-    <div id="extra-modal" class="modal hidden" role="dialog" aria-modal="true">
-      <div class="modal-content glass-panel">
-        <header class="modal-header">
-          <h2>Adicionar Extra</h2>
-          <button type="button" class="modal-close" data-close-modal="extra-modal">×</button>
-        </header>
-        <main class="modal-body">
-          <label for="extra-value">Valor (R$)</label>
-          <input id="extra-value" class="hero-input" type="text" inputmode="decimal" placeholder="0,00">
-
-          <label for="extra-description">Descrição</label>
-          <input id="extra-description" type="text" maxlength="100" placeholder="Opcional">
-
-          <p id="extra-error" class="error-message hidden" role="alert"></p>
-        </main>
-        <footer class="modal-footer">
-          <button id="confirm-extra-button" type="button" class="primary-button">Salvar</button>
-        </footer>
-      </div>
-    </div>
-
-    <div id="reserve-modal" class="modal hidden" role="dialog" aria-modal="true">
-      <div class="modal-content glass-panel">
-        <header class="modal-header">
-          <h2>Reserva</h2>
-          <button type="button" class="modal-close" data-close-modal="reserve-modal">×</button>
-        </header>
-        <main class="modal-body">
-          <div class="reserve-balance">
-            <span>Saldo acumulado</span>
-            <strong id="reserve-balance">R$ 0,00</strong>
-          </div>
-
-          <div class="reserve-actions">
-            <button id="reserve-save-button" type="button" class="secondary-button">Guardar</button>
-            <button id="reserve-withdraw-button" type="button" class="secondary-button">Retirar</button>
-          </div>
-
-          <div id="reserve-form" class="reserve-form hidden">
-            <label for="reserve-value">Quanto deseja guardar? (R$)</label>
-            <input id="reserve-value" class="hero-input" type="text" inputmode="decimal" placeholder="0,00">
-
-            <div id="reserve-origin-section" class="reserve-origin-section hidden">
-              <p class="reserve-origin-title" style="margin-bottom: 6px; font-weight: 600; color: var(--text-secondary); font-size: 13px;">De onde retirar?</p>
-              <div id="reserve-origin-options" class="reserve-origin-options">
-                <button type="button" id="reserve-origin-salary-btn" class="reserve-origin-option selected">
-                  <span class="reserve-origin-name">Salário</span>
-                  <strong id="reserve-salary-available" class="reserve-origin-balance">R$ 0,00</strong>
-                </button>
-                <button type="button" id="reserve-origin-extra-btn" class="reserve-origin-option">
-                  <span class="reserve-origin-name">Extra</span>
-                  <strong id="reserve-extra-available" class="reserve-origin-balance">R$ 0,00</strong>
-                </button>
-              </div>
-            </div>
-
-            <button id="confirm-reserve-button" type="button" class="primary-button">Guardar na Reserva</button>
-          </div>
-
-          <div id="withdraw-form" class="reserve-form hidden">
-            <label for="withdraw-value">Valor (R$)</label>
-            <input id="withdraw-value" class="hero-input" type="text" inputmode="decimal" placeholder="0,00">
-            <button id="confirm-withdraw-button" type="button" class="primary-button">Confirmar retirada</button>
-          </div>
-
-          <p id="reserve-error" class="error-message hidden" role="alert"></p>
-        </main>
-      </div>
-    </div>
-
-    <div id="category-modal" class="modal hidden" role="dialog" aria-modal="true">
-      <div class="modal-content glass-panel">
-        <header class="modal-header">
-          <h2>Categoria</h2>
-          <button type="button" class="modal-close" data-close-modal="category-modal">×</button>
-        </header>
-        <main class="modal-body">
-          <div id="category-details"></div>
-        </main>
-      </div>
-    </div>
-
-    <div id="category-editor-modal" class="modal hidden" role="dialog" aria-modal="true">
-      <div class="modal-content glass-panel">
-        <header class="modal-header">
-          <h2 id="category-editor-title">Categoria</h2>
-          <button type="button" class="modal-close" data-close-modal="category-editor-modal">×</button>
-        </header>
-        <main class="modal-body">
-          <label for="category-name">Nome</label>
-          <input id="category-name" type="text" maxlength="40" placeholder="Nome da categoria">
-
-          <label>Ícone</label>
-          <button type="button" id="category-icon-trigger" class="custom-select-button"></button>
-
-          <p style="margin-top:10px;">Limite</p>
-          <div class="choice-group">
-            <button type="button" class="choice-button" data-category-limit="yes">Sim</button>
-            <button type="button" class="choice-button" data-category-limit="no">Não</button>
-          </div>
-
-          <div id="category-limit-value-container" class="hidden" style="margin-top:12px;">
-            <label for="category-limit-value">Valor do limite (R$)</label>
-            <input id="category-limit-value" class="hero-input" type="text" inputmode="decimal" placeholder="0,00">
-          </div>
-
-          <p id="category-editor-error" class="error-message hidden" role="alert"></p>
-        </main>
-        <footer class="modal-footer">
-          <button id="save-category-button" type="button" class="primary-button">Salvar</button>
-        </footer>
-      </div>
-    </div>
-
-    <div id="chart-modal" class="modal hidden" role="dialog" aria-modal="true">
-      <div class="modal-content glass-panel">
-        <header class="modal-header">
-          <h2>Gráfico do Mês</h2>
-          <button type="button" class="modal-close" data-close-modal="chart-modal">×</button>
-        </header>
-        <main class="modal-body">
-          <div id="chart-container" class="pizza-container"></div>
-        </main>
-      </div>
-    </div>
-
-    <div id="password-modal" class="modal hidden" role="dialog" aria-modal="true">
-      <div class="modal-content glass-panel">
-        <header class="modal-header">
-          <h2>Alterar Senha</h2>
-          <button type="button" class="modal-close" data-close-modal="password-modal">×</button>
-        </header>
-        <main class="modal-body">
-          <label for="current-password">Senha atual</label>
-          <input id="current-password" type="password" autocomplete="current-password">
-
-          <label for="new-password">Nova senha</label>
-          <input id="new-password" type="password" autocomplete="new-password">
-
-          <label for="confirm-new-password">Confirmar nova senha</label>
-          <input id="confirm-new-password" type="password" autocomplete="new-password">
-
-          <p id="password-error" class="error-message hidden" role="alert"></p>
-        </main>
-        <footer class="modal-footer">
-          <button id="save-password-button" type="button" class="primary-button">Salvar</button>
-        </footer>
-      </div>
-    </div>
-
-    <div id="recovery-question-setup-modal" class="modal hidden" role="dialog" aria-modal="true">
-      <div class="modal-content glass-panel">
-        <header class="modal-header">
-          <h2>Pergunta de Segurança</h2>
-          <button type="button" class="modal-close" data-close-modal="recovery-question-setup-modal">×</button>
-        </header>
-        <main class="modal-body">
-          <label for="setup-sec-q-input">Sua Pergunta Secreta</label>
-          <input id="setup-sec-q-input" type="text" maxlength="80" placeholder="Ex: Nome da primeira escola?">
-
-          <label for="setup-sec-a-input" style="margin-top:10px;">Resposta Secreta</label>
-          <input id="setup-sec-a-input" type="text" maxlength="50" placeholder="Sua resposta">
-
-          <p id="sec-q-error" class="error-message hidden" role="alert"></p>
-        </main>
-        <footer class="modal-footer">
-          <button id="save-sec-q-button" type="button" class="primary-button">Salvar Pergunta</button>
-        </footer>
-      </div>
-    </div>
-
-    <div id="delete-data-modal" class="modal hidden" role="dialog" aria-modal="true">
-      <div class="modal-content glass-panel">
-        <header class="modal-header">
-          <h2>Apagar todos os dados</h2>
-          <button type="button" class="modal-close" data-close-modal="delete-data-modal">×</button>
-        </header>
-        <main class="modal-body">
-          <p>Esta ação apagará todos os dados do FX e fará o aplicativo voltar ao estado inicial.</p>
-          <label for="delete-password">Senha atual</label>
-          <input id="delete-password" type="password" autocomplete="current-password">
-
-          <label for="delete-confirmation">Digite APAGAR para confirmar</label>
-          <input id="delete-confirmation" type="text" autocomplete="off">
-
-          <p id="delete-error" class="error-message hidden" role="alert"></p>
-        </main>
-        <footer class="modal-footer">
-          <button id="confirm-delete-data-button" type="button" class="danger-button">Apagar todos os dados</button>
-        </footer>
-      </div>
-    </div>
-
-    <script src="app.js"></script>
-    <script>
-      if ('serviceWorker' in navigator && !window.Capacitor?.isNativePlatform()) {
-        window.addEventListener('load', () => {
-          navigator.serviceWorker.register('./service-worker.js')
-            .catch(err => console.error('Erro ao registrar Service Worker:', err));
-        });
-      }
-    </script>
-
+<div id="setup-screen" class="screen hidden">
+  <h1>FX.01 Setup</h1>
+  <div class="setup-step" data-step="1">
+    <h2>Etapa 1 - Credenciais</h2>
+    <input id="setup-username" class="input" placeholder="Usuário">
+    <input id="setup-password" class="input" type="password" placeholder="Senha">
+    <input id="setup-repeat-password" class="input" type="password" placeholder="Repetir senha">
   </div>
+  <div class="setup-step hidden" data-step="2">
+    <h2>Etapa 2 - Dados Pessoais</h2>
+    <input id="setup-fullname" class="input" placeholder="Nome completo">
+    <input id="setup-displayname" class="input" placeholder="Como gostaria de ser chamado">
+    <div id="setup-greeting-preview" style="color:var(--text-secondary);margin-top:8px"></div>
+  </div>
+  <div class="setup-step hidden" data-step="3">
+    <h2>Recuperação</h2>
+    <input id="setup-security-question" class="input" placeholder="Pergunta de recuperação ex: Nome do seu primeiro pet?">
+    <input id="setup-security-answer" class="input" placeholder="Resposta secreta">
+  </div>
+  <div class="setup-step hidden" data-step="4">
+    <h2>Salário</h2>
+    <input id="setup-salary" class="input" placeholder="Salário de referência">
+  </div>
+  <div class="setup-step hidden" data-step="5">
+    <h2>Tem adiantamento?</h2>
+    <button data-choice="salary-split" data-value="yes" class="secondary-button">Sim</button>
+    <button data-choice="salary-split" data-value="no" class="secondary-button">Não</button>
+    <div id="setup-advance-container" class="hidden"><input id="setup-advance-val" class="input" placeholder="Valor adiantamento"></div>
+  </div>
+  <div class="setup-step hidden" data-step="6">
+    <h2>Dia do ciclo</h2>
+    <input id="setup-cycle-day" class="input" type="number" min="1" max="28" placeholder="Dia 1-28">
+  </div>
+  <div class="setup-step hidden" data-step="7">
+    <h2>Categorias</h2>
+    <div id="setup-categories"></div>
+  </div>
+  <button id="setup-next-button" class="primary-button" style="margin-top:16px">Continuar</button>
+  <div id="setup-limit-modal" class="modal hidden"><div class="modal-content"><h3 id="setup-limit-title"></h3><button id="setup-limit-yes" class="secondary-button">Com limite</button><button id="setup-limit-no" class="secondary-button">Sem limite</button><div id="setup-limit-input-container"><input id="setup-limit-val" class="input"></div><button id="save-setup-limit-button" class="primary-button">Salvar</button><button data-close-modal="setup-limit-modal" class="secondary-button">Fechar</button></div></div>
+</div>
+
+<div id="lock-screen" class="screen hidden">
+  <div class="card" style="margin-top:40px;text-align:center">
+    <div id="lock-avatar" style="width:60px;height:60px;border-radius:50%;background:var(--accent);color:white;display:flex;align-items:center;justify-content:center;margin:0 auto 12px;font-weight:800">FX</div>
+    <div id="lock-user-greeting">Olá</div>
+    <input id="unlock-password" class="input" type="password" placeholder="Senha" style="margin-top:12px">
+    <div id="eye-icon-container" style="margin-top:8px"><button id="toggle-lock-password" class="secondary-button">👁️</button></div>
+    <button id="unlock-button" class="primary-button" style="margin-top:12px">Desbloquear</button>
+    <div id="unlock-error" class="hidden" style="color:var(--danger);margin-top:8px"></div>
+    <button id="biometric-unlock-icon" class="secondary-button hidden" style="margin-top:8px">Biometria</button>
+    <button id="forgot-password-button" class="secondary-button" style="margin-top:8px">Esqueci senha</button>
+  </div>
+</div>
+
+<div id="main-screen" class="screen hidden">
+  <header style="display:flex;justify-content:space-between"><span id="user-display-name">Titular</span><div><button id="chart-button" class="secondary-button">📊</button><button id="settings-button" class="secondary-button">⚙️</button><button id="lock-button" class="secondary-button">🔒</button></div></header>
+  <div class="card" style="margin-top:12px"><div>Saldo Disponível</div><div id="available-balance" style="font-size:28px;font-weight:800"></div><div style="display:flex;gap:10px;margin-top:12px"><div id="salary-card-trigger" class="card" style="flex:1">Salário: <span id="salary-balance"></span></div><div id="extra-card-trigger" class="card" style="flex:1">Extra: <span id="extra-balance"></span></div></div></div>
+  <div style="margin-top:16px" id="categories-list"></div>
+  <div style="margin-top:16px;display:flex;justify-content:space-between"><span>Extrato</span><button id="previous-cycle-button" class="secondary-button">Histórico</button></div>
+  <div id="expenses-list" style="margin-bottom:80px"></div>
+  <div class="bottom-nav"><button id="nav-home-button" class="active">Home</button><button id="nav-extrato-button">Extrato</button></div>
+  <div id="tab-home"></div><div id="tab-extrato" class="hidden"></div>
+</div>
+
+<div id="settings-screen" class="screen hidden">
+  <button id="settings-back-button" class="secondary-button">← Voltar</button>
+  <h2>Configurações</h2>
+  <div class="card" style="margin-top:12px"><div data-settings-toggle="personalize-panel">Personalizar <span class="chevron">▼</span></div><div id="personalize-panel">
+    <h4>Aparência</h4><div class="theme-picker"><button data-appearance-choice="dark" class="theme-card">🌙 Escuro</button><button data-appearance-choice="light" class="theme-card">☀️ Claro</button></div>
+    <h4 style="margin-top:12px">Tema</h4><div class="theme-picker"><button data-theme-choice="theme1" class="theme-card">Tema 1 - Atual</button><button data-theme-choice="theme2" class="theme-card">Tema 2 - Ocean</button><button data-theme-choice="theme3" class="theme-card">Tema 3 - Forest</button></div>
+  </div></div>
+  <div class="card" style="margin-top:12px"><div data-settings-toggle="profile-settings">Perfil - <span id="status-profile"></span> <span class="chevron">▼</span></div><div id="profile-settings" class="hidden"><input id="settings-fullname" class="input"><input id="settings-displayname" class="input" style="margin-top:8px"><button id="save-profile-settings" class="primary-button" style="margin-top:8px">Salvar</button><button id="logout-button" class="secondary-button" style="margin-top:8px">Bloquear</button></div></div>
+  <div class="card" style="margin-top:12px"><div data-settings-toggle="salary-settings">Salário - <span id="status-salary"></span></div><div id="salary-settings" class="hidden"><input id="settings-salary" class="input"><div style="margin-top:8px"><button data-settings-salary-split="yes" class="secondary-button">Tem adiantamento</button><button data-settings-salary-split="no" class="secondary-button">Não tem</button></div><div id="salary-split-info" class="hidden"><input id="settings-advance-val" class="input" style="margin-top:8px"></div><button id="save-salary-settings" class="primary-button" style="margin-top:8px">Salvar</button></div></div>
+  <div class="card" style="margin-top:12px"><div data-settings-toggle="cycle-settings">Ciclo - <span id="status-cycle"></span></div><div id="cycle-settings" class="hidden"><input id="settings-cycle-day" class="input" type="number"><button id="save-cycle-settings" class="primary-button" style="margin-top:8px">Salvar</button></div></div>
+  <div class="card" style="margin-top:12px"><div data-settings-toggle="security-settings">Segurança - <span id="status-security"></span></div><div id="security-settings" class="hidden"><button id="register-biometrics-button" class="secondary-button">Cadastrar biometria</button><button id="setup-recovery-question-button" class="secondary-button">Pergunta de recuperação</button><button id="change-password-button" class="secondary-button">Trocar senha</button><button id="export-backup-button" class="secondary-button">Exportar backup criptografado</button><button id="export-csv-button" class="secondary-button">Exportar CSV</button><button id="import-backup-button" class="secondary-button">Importar backup</button><input id="import-backup-file" type="file" class="hidden"><button id="delete-all-data-button" class="secondary-button" style="color:var(--danger)">Apagar tudo</button></div></div>
+  <div class="card" style="margin-top:12px"><div data-settings-toggle="categories-settings">Categorias</div><div id="categories-settings"><div id="settings-categories-list"></div><button id="create-category-button" class="primary-button" style="margin-top:8px">Criar categoria</button></div></div>
+</div>
+
+<!-- MODAIS -->
+<div id="custom-alert-modal" class="modal hidden"><div class="modal-content"><div id="custom-alert-message"></div><button id="custom-alert-ok" class="primary-button" style="margin-top:12px">OK</button></div></div>
+<div id="custom-confirm-modal" class="modal hidden"><div class="modal-content"><div id="custom-confirm-message"></div><div style="display:flex;gap:10px;margin-top:12px"><button id="custom-confirm-cancel" class="secondary-button" style="flex:1">Cancelar</button><button id="custom-confirm-ok" class="primary-button" style="flex:1">Confirmar</button></div></div></div>
+<div id="expense-modal" class="modal hidden"><div class="modal-content"><h3 id="expense-modal-title"></h3><input id="expense-value" class="input" placeholder="Valor"><input id="expense-description" class="input" placeholder="Descrição" style="margin-top:8px"><div style="display:flex;gap:8px;margin-top:8px"><button id="expense-origin-salary-btn" class="secondary-button" style="flex:1">Salário (<span id="expense-salary-available"></span>)</button><button id="expense-origin-extra-btn" class="secondary-button" style="flex:1">Extra (<span id="expense-extra-available"></span>)</button></div><div id="expense-error" class="hidden" style="color:var(--danger)"></div><button id="confirm-expense-button" class="primary-button" style="margin-top:8px">Lançar</button><button data-close-modal="expense-modal" class="secondary-button" style="margin-top:8px">Fechar</button></div></div>
+<div id="expense-edit-modal" class="modal hidden"><div class="modal-content"><h3>Editar Gasto</h3><input id="edit-expense-value" class="input"><input id="edit-expense-description" class="input" style="margin-top:8px"><div style="display:flex;gap:8px;margin-top:8px"><button id="edit-expense-origin-trigger" class="secondary-button" style="flex:1"></button><button id="edit-expense-category-trigger" class="secondary-button" style="flex:1"></button></div><div id="edit-expense-error" class="hidden" style="color:var(--danger)"></div><button id="save-expense-edit-button" class="primary-button" style="margin-top:8px">Salvar</button><button id="delete-expense-button" class="secondary-button" style="margin-top:8px;color:var(--danger)">Excluir</button><button data-close-modal="expense-edit-modal" class="secondary-button" style="margin-top:8px">Fechar</button></div></div>
+<div id="reserve-modal" class="modal hidden"><div class="modal-content"><h3>Reserva - Saldo: <span id="reserve-balance"></span></h3><div style="display:flex;gap:8px;margin-top:8px"><button id="reserve-save-button" class="secondary-button" style="flex:1">Guardar</button><button id="reserve-withdraw-button" class="secondary-button" style="flex:1">Retirar</button></div><div id="reserve-origin-section" class="hidden" style="margin-top:8px"><button id="reserve-origin-salary-btn" class="secondary-button" style="flex:1">Salário (<span id="reserve-salary-available"></span>)</button><button id="reserve-origin-extra-btn" class="secondary-button" style="flex:1">Extra (<span id="reserve-extra-available"></span>)</button></div><div id="reserve-form" class="hidden" style="margin-top:8px"><input id="reserve-value" class="input"><button id="confirm-reserve-button" class="primary-button" style="margin-top:8px">Confirmar Guardar</button></div><div id="withdraw-form" class="hidden" style="margin-top:8px"><input id="withdraw-value" class="input"><button id="confirm-withdraw-button" class="primary-button" style="margin-top:8px">Confirmar Retirada</button></div><div id="reserve-error" class="hidden" style="color:var(--danger)"></div><button data-close-modal="reserve-modal" class="secondary-button" style="margin-top:8px">Fechar</button></div></div>
+<div id="category-modal" class="modal hidden"><div class="modal-content"><div id="category-details"></div><button data-close-modal="category-modal" class="secondary-button" style="margin-top:8px">Fechar</button></div></div>
+<div id="history-modal" class="modal hidden"><div class="modal-content"><h3>Histórico</h3><div id="history-container"></div><button data-close-modal="history-modal" class="secondary-button" style="margin-top:8px">Fechar</button></div></div>
+<div id="chart-modal" class="modal hidden"><div class="modal-content"><h3>Gráfico</h3><div id="chart-container"></div><button data-close-modal="chart-modal" class="secondary-button" style="margin-top:8px">Fechar</button></div></div>
+<div id="picker-modal" class="modal hidden"><div class="modal-content"><h3 id="picker-title"></h3><div id="picker-options"></div><button data-close-modal="picker-modal" class="secondary-button" style="margin-top:8px">Fechar</button></div></div>
+<div id="category-editor-modal" class="modal hidden"><div class="modal-content"><h3 id="category-editor-title">Categoria</h3><input id="category-name" class="input" placeholder="Nome"><button id="category-icon-trigger" class="secondary-button" style="margin-top:8px;width:100%"></button><div style="display:flex;gap:8px;margin-top:8px"><button data-category-limit="yes" class="secondary-button" style="flex:1">Com limite</button><button data-category-limit="no" class="secondary-button" style="flex:1">Sem limite</button></div><div id="category-limit-value-container" class="hidden" style="margin-top:8px"><input id="category-limit-value" class="input" placeholder="Valor limite"></div><div id="category-editor-error" class="hidden" style="color:var(--danger)"></div><button id="save-category-button" class="primary-button" style="margin-top:8px">Salvar</button><button data-close-modal="category-editor-modal" class="secondary-button" style="margin-top:8px">Fechar</button></div></div>
+<div id="extra-modal" class="modal hidden"><div class="modal-content"><h3>Adicionar Extra</h3><input id="extra-value" class="input"><div id="extra-error" class="hidden" style="color:var(--danger)"></div><button id="confirm-extra-button" class="primary-button" style="margin-top:8px">Confirmar</button><button data-close-modal="extra-modal" class="secondary-button" style="margin-top:8px">Fechar</button></div></div>
+<div id="password-modal" class="modal hidden"><div class="modal-content"><h3>Trocar senha</h3><input id="current-password" type="password" class="input" placeholder="Atual"><input id="new-password" type="password" class="input" placeholder="Nova" style="margin-top:8px"><input id="confirm-new-password" type="password" class="input" placeholder="Confirmar nova" style="margin-top:8px"><div id="password-error" class="hidden" style="color:var(--danger)"></div><button id="save-password-button" class="primary-button" style="margin-top:8px">Salvar</button><button data-close-modal="password-modal" class="secondary-button" style="margin-top:8px">Fechar</button></div></div>
+<div id="forgot-password-modal" class="modal hidden"><div class="modal-content"><h3>Recuperar</h3><div id="recovery-question-display" style="color:var(--text-secondary)"></div><input id="recovery-answer-input" class="input" placeholder="Resposta" style="margin-top:8px"><input id="recovery-new-password" type="password" class="input" placeholder="Nova senha" style="margin-top:8px"><div id="recovery-error" class="hidden" style="color:var(--danger)"></div><button id="confirm-recovery-button" class="primary-button" style="margin-top:8px">Confirmar</button><button data-close-modal="forgot-password-modal" class="secondary-button" style="margin-top:8px">Fechar</button></div></div>
+<div id="recovery-question-setup-modal" class="modal hidden"><div class="modal-content"><h3>Pergunta de segurança</h3><input id="setup-sec-q-input" class="input"><input id="setup-sec-a-input" class="input" style="margin-top:8px"><div id="sec-q-error" class="hidden" style="color:var(--danger)"></div><button id="save-sec-q-button" class="primary-button" style="margin-top:8px">Salvar</button><button data-close-modal="recovery-question-setup-modal" class="secondary-button" style="margin-top:8px">Fechar</button></div></div>
+<div id="delete-data-modal" class="modal hidden"><div class="modal-content"><h3>Apagar tudo - Digite APAGAR e sua senha</h3><input id="delete-password" type="password" class="input" placeholder="Senha"><input id="delete-confirmation" class="input" placeholder="APAGAR" style="margin-top:8px"><div id="delete-error" class="hidden" style="color:var(--danger)"></div><button id="confirm-delete-data-button" class="primary-button" style="margin-top:8px;color:white;background:var(--danger)">Apagar</button><button data-close-modal="delete-data-modal" class="secondary-button" style="margin-top:8px">Cancelar</button></div></div>
+
+<script src="app.js"></script>
+<script>if('serviceWorker' in navigator && location.protocol.startsWith('http')){navigator.serviceWorker.register('service-worker.js').catch(()=>{});}</script>
 </body>
-</html>
+                                             </html>
