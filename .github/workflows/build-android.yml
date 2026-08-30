@@ -14,7 +14,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          # SEM cache: 'npm' - remove essa linha
 
       - name: Configurar Java JDK 17
         uses: actions/setup-java@v4
@@ -26,7 +25,9 @@ jobs:
         uses: android-actions/setup-android@v3
 
       - name: Instalar dependências
-        run: npm install --legacy-peer-deps
+        run: |
+          npm install --legacy-peer-deps
+          npm install @capacitor/cli@latest @capacitor/core@latest @capacitor/android@latest --legacy-peer-deps
 
       - name: Preparar web assets
         run: |
@@ -35,43 +36,38 @@ jobs:
           [ -f "icon-512.png" ] && cp icon-512.png icons/icon-512.png || true
           [ -f "icons/icon-192.png" ] && [ ! -f "icon-192.png" ] && cp icons/icon-192.png icon-192.png || true
           [ -f "icons/icon-512.png" ] && [ ! -f "icon-512.png" ] && cp icons/icon-512.png icon-512.png || true
-          ls -la *.png || true
-          ls -la icons/ || true
 
-      - name: Criar configuração do Capacitor
+      - name: Criar configuração do Capacitor - FX Finance
         run: |
-          if [ ! -f "capacitor.config.json" ] && [ ! -f "capacitor.config.ts" ]; then
-            echo '{"appId":"com.fx.app","appName":"FX","webDir":".","bundledWebRuntime":false}' > capacitor.config.json
-          fi
-          cat capacitor.config.json || cat capacitor.config.ts || echo "sem config"
+          echo '{"appId":"com.fx.finance","appName":"FX Finance","webDir":".","bundledWebRuntime":false}' > capacitor.config.json
+          cat capacitor.config.json
 
-      - name: Preparar plataforma Android
+      - name: Preparar plataforma Android - RECRIAR DO ZERO
         run: |
-          npx cap add android || true
-          npx cap sync android || true
+          rm -rf android
+          npx cap add android
+          npx cap sync android
 
       - name: Dar permissão ao Gradle
-        run: chmod +x android/gradlew || true
+        run: chmod +x android/gradlew
 
-      - name: Verificar versão do Gradle
-        run: cd android && ./gradlew --version || true
-
-      - name: Compilar APK Debug
+      - name: Compilar APK Debug - FX Finance
         run: |
           cd android
           ./gradlew assembleDebug --stacktrace
 
-      - name: Renomear APK
+      - name: Renomear APK para FX Finance
         run: |
-          cp android/app/build/outputs/apk/debug/app-debug.apk FX-v${{ github.run_number }}.apk || true
-          ls -lh android/app/build/outputs/apk/debug/ || true
-          ls -lh *.apk || true
+          cp android/app/build/outputs/apk/debug/app-debug.apk "FX Finance-v${{ github.run_number }}.apk"
+          cp android/app/build/outputs/apk/debug/app-debug.apk "FX-Finance.apk"
+          ls -lh android/app/build/outputs/apk/debug/
+          ls -lh *.apk
 
-      - name: Disponibilizar APK
+      - name: Disponibilizar APK FX Finance
         uses: actions/upload-artifact@v4
         with:
-          name: FX-APK-${{ github.run_number }}
+          name: FX-Finance-APK-${{ github.run_number }}
           path: |
             android/app/build/outputs/apk/debug/app-debug.apk
-            *.apk
-          if-no-files-found: warn
+            FX Finance-v${{ github.run_number }}.apk
+            FX-Finance.apk
