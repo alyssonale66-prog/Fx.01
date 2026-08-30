@@ -67,9 +67,15 @@ const screens = {
 };
 
 document.addEventListener("DOMContentLoaded", () => {
+  initInitialIcons();
   bindEvents();
   loadApplication();
 });
+
+function initInitialIcons() {
+  if ($("setup-password-eye")) $("setup-password-eye").innerHTML = SVG_EYE_OPEN;
+  if ($("setup-password-confirm-eye")) $("setup-password-confirm-eye").innerHTML = SVG_EYE_OPEN;
+}
 
 function saveState() {
   if (!state) return;
@@ -199,7 +205,6 @@ function createEmptyState() {
   };
 }
 
-/* SISTEMA DE NOTIFICAÇÃO 3 DIAS ANTES DO TÉRMINO DO CICLO */
 function checkCycleNotification() {
   if (!state || !state.currentCycle || !state.currentCycle.endDate) return;
   if (!("Notification" in window)) return;
@@ -233,7 +238,6 @@ function checkCycleNotification() {
   }
 }
 
-/* TRANSIÇÃO DE MÊS COM PROCESSAMENTO DE MÚLTIPLOS CICLOS ATRASADOS */
 function checkCycleRollover() {
   if (!state || !state.currentCycle || !state.currentCycle.endDate) return;
 
@@ -911,15 +915,13 @@ async function exportBackup() {
       return;
     }
 
-    const blob = new Blob([jsonStr], { type: "application/json;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
+    const encodedData = "data:application/json;charset=utf-8," + encodeURIComponent(jsonStr);
     const downloadAnchor = document.createElement("a");
-    downloadAnchor.href = url;
+    downloadAnchor.href = encodedData;
     downloadAnchor.download = fileName;
     document.body.appendChild(downloadAnchor);
     downloadAnchor.click();
     downloadAnchor.remove();
-    URL.revokeObjectURL(url);
   } catch (err) {
     if (err.name !== "AbortError") {
       customAlert("Erro ao exportar backup: " + err.message);
@@ -967,15 +969,13 @@ async function exportCSV() {
       return;
     }
 
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
+    const encodedData = "data:text/csv;charset=utf-8," + encodeURIComponent(csvContent);
     const downloadAnchor = document.createElement("a");
-    downloadAnchor.href = url;
+    downloadAnchor.href = encodedData;
     downloadAnchor.download = fileName;
     document.body.appendChild(downloadAnchor);
     downloadAnchor.click();
     downloadAnchor.remove();
-    URL.revokeObjectURL(url);
   } catch (err) {
     if (err.name !== "AbortError") {
       customAlert("Erro ao exportar planilha CSV: " + err.message);
@@ -1009,7 +1009,6 @@ function importBackup(event) {
   reader.readAsText(file);
 }
 
-/* SISTEMA BIOMÉTRICO HÍBRIDO (CAPACITOR NATIVO APK + WEBAUTHN NAVEGADOR) */
 async function checkBiometricSupport() {
   if (window.Capacitor?.Plugins?.NativeBiometric) {
     try {
@@ -1019,13 +1018,6 @@ async function checkBiometricSupport() {
       return { type: "none", available: false };
     }
   }
-
-  /*
-   * WebAuthn requires verification of the assertion's signature and challenge.
-   * This app is intentionally offline/local and has no trusted server verifier.
-   * Do not treat navigator.credentials.get() success alone as authentication.
-   * Native Capacitor biometric remains the supported biometric unlock path.
-   */
   return { type: "none", available: false };
 }
 
@@ -1050,13 +1042,7 @@ async function registerBiometrics() {
     } catch (err) {
       customAlert("Não foi possível cadastrar a biometria: " + (err.message || "Cancelado."));
     }
-    return;
   }
-
-  if (support.type === "webauthn") {
-    return customAlert("A biometria do navegador não pode ser usada com segurança neste modo offline. No APK, use a biometria nativa.");
-  }
-
 }
 
 async function authenticateBiometric() {
@@ -1077,12 +1063,6 @@ async function authenticateBiometric() {
     }
     return;
   }
-
-  if (support.type === "webauthn" && state.security.biometricType === "webauthn") {
-    showElement("unlock-error", "A biometria do navegador não está disponível neste modo offline. Use sua senha.");
-    return;
-  }
-
 
   showElement("unlock-error", "Biometria indisponível. Use sua senha.");
 }
@@ -1206,17 +1186,24 @@ function saveCategory() {
     const limitVal = parseMoneyInput($("category-limit-value").value);
 
     if (!name) throw new Error("Digite o nome da categoria.");
-    if (categoryEditorHasLimit && limitVal <= 0) throw new Error("Informe um valor de limite válido.");
 
     if (currentEditingCategoryId) {
       const cat = state.categories.find((c) => c.id === currentEditingCategoryId);
       if (cat) {
+        if (cat.immutable) throw new Error("Esta categoria é protegida pelo sistema e não pode ser alterada.");
         cat.name = name;
         cat.icon = icon;
-        cat.hasLimit = categoryEditorHasLimit;
-        cat.limit = categoryEditorHasLimit ? limitVal : null;
+        if (!cat.protected) {
+          if (categoryEditorHasLimit && limitVal <= 0) throw new Error("Informe um valor de limite válido.");
+          cat.hasLimit = categoryEditorHasLimit;
+          cat.limit = categoryEditorHasLimit ? limitVal : null;
+        } else {
+          cat.hasLimit = false;
+          cat.limit = null;
+        }
       }
     } else {
+      if (categoryEditorHasLimit && limitVal <= 0) throw new Error("Informe um valor de limite válido.");
       const newCat = {
         id: createId(),
         name,
@@ -1346,7 +1333,7 @@ function saveSalarySettings() {
 
   state.salary.reference = salary;
   state.salary.hasAdvance = settingsSalarySplit === "yes";
-  
+
   if (state.salary.hasAdvance) {
     const advVal = parseMoneyInput($("settings-advance-val")?.value);
     state.salary.advanceAmount = advVal;
@@ -1415,7 +1402,7 @@ function lockApp() {
   }
   renderLockPasswordIcon();
   hideElement("unlock-error");
-  
+
   const bioTrigger = $("biometric-unlock-icon");
   if (state && state.security && state.security.biometricId) {
     if (bioTrigger) bioTrigger.classList.remove("hidden");
@@ -1714,11 +1701,9 @@ function bindEvents() {
   $("edit-expense-origin-trigger")?.addEventListener("click", () => {
     const opts = [
       { label: "Salário", value: "salary", selected: selectedEditExpenseOrigin === "salary" },
-      { label: "Extra", value: "extra", selected: selectedEditExpenseOrigin === "extra" }
+      { label: "Extra", value: "extra", selected: selectedEditExpenseOrigin === "extra" },
+      { label: "Reserva", value: "reserve", selected: selectedEditExpenseOrigin === "reserve" }
     ];
-    if (selectedEditExpenseOrigin === "reserve") {
-      opts.push({ label: "Reserva", value: "reserve", selected: true });
-    }
     openCustomPicker("Origem do Gasto", opts, (val) => { selectedEditExpenseOrigin = val; });
   });
 
