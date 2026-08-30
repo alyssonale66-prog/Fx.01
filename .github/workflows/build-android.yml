@@ -1,4 +1,4 @@
-name: Build FX.01 Android APK & AAB
+name: Crie o APK e o AAB do FX.01 para Android.
 
 on:
   push:
@@ -13,11 +13,10 @@ jobs:
       - name: Checkout do código
         uses: actions/checkout@v4
 
-      - name: Configurar Node.js 20
+      - name: Configurar Node.js 22
         uses: actions/setup-node@v4
         with:
-          node-version: 20
-          cache: 'npm'
+          node-version: 22
 
       - name: Configurar Java JDK 17
         uses: actions/setup-java@v4
@@ -29,27 +28,19 @@ jobs:
         uses: android-actions/setup-android@v3
 
       - name: Instalar dependências NPM
-        run: npm ci || npm install
+        run: npm install
 
       - name: Preparar web assets
         run: |
           mkdir -p www/icons
           npm run build --if-present || true
-          
-          # Copia tudo que pode existir (com ou sem acento)
           cp index.html www/ 2>/dev/null || true
           cp app.js www/ 2>/dev/null || true
           cp style.css www/ 2>/dev/null || true
           cp manifest.json www/ 2>/dev/null || true
           cp service-worker.js www/ 2>/dev/null || true
-          
-          # Ícones - tenta todos os nomes possíveis
           cp icons/*.png www/icons/ 2>/dev/null || true
           cp icon-*.png www/icons/ 2>/dev/null || true
-          cp ícone-*.png www/icons/ 2>/dev/null || true
-          cp Icone-*.png www/icons/ 2>/dev/null || true
-          
-          # Normaliza nomes para o manifest.json
           cd www/icons || exit 0
           for f in *.png; do
             case "$f" in
@@ -64,7 +55,6 @@ jobs:
           if [ ! -f "capacitor.config.json" ]; then
             echo '{"appId":"com.fx.app","appName":"FX.01","webDir":"www"}' > capacitor.config.json
           fi
-          # Se android existe mas está vazio (só .gitkeep), apaga e recria
           if [ ! -f "android/gradlew" ]; then
             rm -rf android
           fi
