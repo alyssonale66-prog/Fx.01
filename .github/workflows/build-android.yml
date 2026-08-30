@@ -1,4 +1,4 @@
-name: Crie o APK e o AAB do FX para Android
+name: Crie o APK e o AAB do FX.01 para Android
 
 on:
   push:
@@ -103,7 +103,7 @@ jobs:
       - name: Disponibilizar APK
         uses: actions/upload-artifact@v4
         with:
-          name: FX-APK-v1.1.0
+          name: FX01-APK-v1.1.0
           path: artifacts/FX.01-v1.1.0-debug.apk
           if-no-files-found: error
           retention-days: 14
