@@ -1,0 +1,6 @@
+{
+  "appId": "com.fx.finance",
+  "appName": "FX Finance",
+  "webDir": "www",
+  "bundledWebRuntime": false
+}
