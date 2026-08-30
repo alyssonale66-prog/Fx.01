@@ -706,7 +706,6 @@
 
     <script src="app.js"></script>
     <script>
-      // Registra o Service Worker apenas na Web e PWA, desativando dentro do APK nativo para evitar conflitos
       if ('serviceWorker' in navigator && !window.Capacitor?.isNativePlatform()) {
         window.addEventListener('load', () => {
           navigator.serviceWorker.register('./service-worker.js')
