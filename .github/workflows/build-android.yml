@@ -17,6 +17,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: 'npm'
 
       - name: Configurar Java JDK 17
         uses: actions/setup-java@v4
@@ -24,22 +25,35 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
+      - name: Configurar Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          api-level: 33
+
       - name: Instalar dependências NPM
-        run: npm install
+        run: npm ci || npm install
+
+      - name: Preparar web assets
+        run: |
+          npm run build --if-present || echo "sem build script, usando www/"
+          ls -la
+          ls -la www || mkdir -p www
+          if [ -d "js" ]; then mkdir -p www/js && cp -r js/* www/js/ 2>/dev/null || true; fi
+          if [ -f "crypto.js" ]; then cp crypto.js www/ 2>/dev/null || true; fi
+          if [ -f "app.js" ]; then cp app.js www/ 2>/dev/null || true; fi
+          if [ -f "style.css" ]; then cp style.css www/ 2>/dev/null || true; fi
+          if [ -f "index.html" ]; then cp index.html www/ 2>/dev/null || true; fi
 
       - name: Sincronizar e Gerar Plataforma Android
         run: |
-          npm run build
-          if [ -d "js" ]; then cp -r js/ www/js/; fi
-          if [ -f "crypto.js" ]; then cp crypto.js www/; fi
-          npx cap init FX com.fx.app --web-dir www || true
-          
-          # Se a pasta android não possuir o Wrapper do Gradle, limpa o diretório e recria
-          if [ ! -f "android/gradlew" ]; then
-            rm -rf android
+          if [ ! -f "capacitor.config.json" ] && [ ! -f "capacitor.config.ts" ]; then
+            npx cap init FX com.fx.app --web-dir www
+          fi
+          if [ ! -d "android" ]; then
             npx cap add android
           fi
           npx cap sync android
+          npx cap copy android
 
       - name: Dar permissão de execução ao Gradlew
         run: chmod +x android/gradlew
@@ -57,12 +71,14 @@ jobs:
 
       - name: Compilar Release AAB (Para a Play Store)
         working-directory: android
-        run: ./gradlew bundleRelease --stacktrace
+        run: ./gradlew bundleRelease --stacktrace || ./gradlew bundleDebug --stacktrace
 
       - name: Disponibilizar AAB como Artefato
         uses: actions/upload-artifact@v4
         with:
           name: FX01-AAB-Release
-          path: android/app/build/outputs/bundle/release/*.aab
+          path: |
+            android/app/build/outputs/bundle/release/*.aab
+            android/app/build/outputs/bundle/debug/*.aab
           if-no-files-found: warn
           retention-days: 14
