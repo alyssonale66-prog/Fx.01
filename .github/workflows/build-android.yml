@@ -51,19 +51,12 @@ jobs:
           cd android
           ./gradlew assembleDebug --stacktrace
 
-      - name: Renomear APK para FX Finance
+      - name: Renomear APK
         run: |
-          cp android/app/build/outputs/apk/debug/app-debug.apk "FX-Finance-v${{ github.run_number }}.apk"
           cp android/app/build/outputs/apk/debug/app-debug.apk "FX-Finance.apk"
-          ls -lh android/app/build/outputs/apk/debug/
-          ls -lh *.apk
 
       - name: Disponibilizar APK FX Finance
         uses: actions/upload-artifact@v4
         with:
-          name: FX-Finance-APK-${{ github.run_number }}
-          path: |
-            android/app/build/outputs/apk/debug/app-debug.apk
-            FX-Finance-v${{ github.run_number }}.apk
-            FX-Finance.apk
-
+          name: FX-Finance-v${{ github.run_number }}
+          path: FX-Finance.apk
