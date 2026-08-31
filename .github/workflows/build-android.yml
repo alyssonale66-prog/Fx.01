@@ -44,7 +44,7 @@ jobs:
 
       - name: Gerar Ícones e Splash do App
         run: |
-          npx @capacitor/assets generate --android --iconPath assets/icon.png
+          npx @capacitor/assets generate --android
 
       - name: Dar permissão ao Gradle
         run: chmod +x android/gradlew
