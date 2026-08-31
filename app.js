@@ -960,7 +960,7 @@ function openReserveModal() {
   hideElement("reserve-error");
   hideElement("reserve-form");
   hideElement("withdraw-form");
-  hideElement("reserve-origin-section-alt");
+  hideElement("reserve-origin-section");
 
   updateReserveModalOriginButtons();
   setText("reserve-balance", formatMoneyOrMask(getReserveBalance()));
@@ -982,13 +982,13 @@ function updateReserveModalOriginButtons() {
 function showReserveSaveForm() {
   hideElement("withdraw-form");
   showElement("reserve-form");
-  showElement("reserve-origin-section-alt");
+  showElement("reserve-origin-section");
   updateReserveModalOriginButtons();
 }
 
 function showWithdrawForm() {
   hideElement("reserve-form");
-  hideElement("reserve-origin-section-alt");
+  hideElement("reserve-origin-section");
   showElement("withdraw-form");
 }
 
@@ -1446,6 +1446,7 @@ function openChartModal() {
   openModal("chart-modal");
 }
 
+/* LÓGICA CORRIGIDA: SEPARAÇÃO ENTRE TEMAS E MODO ESCURO/CLARO */
 function applyPersonalization() {
   const appearance = state?.settings?.appearance || "dark";
   const theme = state?.settings?.theme || "fx";
@@ -1480,6 +1481,8 @@ function renderPersonalizationControls() {
 function saveAppearance(value) {
   if (!["dark", "light"].includes(value)) return;
   state.settings.appearance = value;
+  // Modo claro/escuro redefine para o tema padrão "fx" para evitar conflito visual
+  state.settings.theme = "fx";
   applyPersonalization();
   renderPersonalizationControls();
   saveState();
@@ -1488,6 +1491,8 @@ function saveAppearance(value) {
 function saveTheme(value) {
   if (!["fx", "graphite", "emerald"].includes(value)) return;
   state.settings.theme = value;
+  // Ao escolher um tema customizado, força o modo escuro padrão do tema escolhido
+  state.settings.appearance = "dark";
   applyPersonalization();
   renderPersonalizationControls();
   saveState();
