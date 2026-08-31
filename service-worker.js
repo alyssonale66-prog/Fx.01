@@ -1,71 +1,56 @@
-const FX_CACHE_VERSION = "fx01-v1.3.1";
-const FX_CACHE_NAME = `fx01-${FX_CACHE_VERSION}`;
-const ASSETS = [
-  "./",
-  "./index.html",
-  "./style.css",
-  "./app.js",
-  "./manifest.json",
-  "./icon-192.png",
-  "./icon-512.png"
+/* ============================================================
+   FX — Service Worker (Invalidação Dinâmica por Versão)
+   ============================================================ */
+
+const CACHE_NAME = 'fx-cache-v1.1.0';
+const ASSETS_TO_CACHE = [
+  './',
+  './index.html',
+  './style.css',
+  './app.js',
+  './manifest.json'
 ];
 
-self.addEventListener("install", (e) => {
-  e.waitUntil(
-    caches
-      .open(FX_CACHE_NAME)
-      .then((c) => c.addAll(ASSETS))
-      .then(() => self.skipWaiting())
+self.addEventListener('install', (event) => {
+  event.waitUntil(
+    caches.open(CACHE_NAME).then((cache) => {
+      return cache.addAll(ASSETS_TO_CACHE);
+    }).then(() => self.skipWaiting())
   );
 });
 
-self.addEventListener("activate", (e) => {
-  e.waitUntil(
-    caches
-      .keys()
-      .then((keys) =>
-        Promise.all(
-          keys
-            .filter((k) => k.startsWith("fx01-") && k !== FX_CACHE_NAME)
-            .map((k) => caches.delete(k))
-        )
-      )
-      .then(() => self.clients.claim())
-  );
-});
-
-self.addEventListener("fetch", (e) => {
-  if (e.request.method !== "GET") return;
-  if (e.request.url.includes("chrome-extension")) return;
-  if (
-    !e.request.url.startsWith(self.location.origin) &&
-    !e.request.url.startsWith(self.location.protocol)
-  )
-    return;
-
-  e.respondWith(
-    caches.match(e.request).then((cached) => {
-      if (cached) {
-        e.waitUntil(
-          fetch(e.request)
-            .then((r) => {
-              if (r && r.ok) {
-                caches.open(FX_CACHE_NAME).then((c) => c.put(e.request, r.clone()));
-              }
-            })
-            .catch(() => {})
-        );
-        return cached;
-      }
-      return fetch(e.request)
-        .then((r) => {
-          if (r && r.ok && e.request.url.startsWith(self.location.origin)) {
-            const cl = r.clone();
-            caches.open(FX_CACHE_NAME).then((c) => c.put(e.request, cl));
+self.addEventListener('activate', (event) => {
+  event.waitUntil(
+    caches.keys().then((cacheNames) => {
+      return Promise.all(
+        cacheNames.map((cache) => {
+          if (cache !== CACHE_NAME) {
+            console.log('SW: Removendo cache antigo:', cache);
+            return caches.delete(cache);
           }
-          return r;
         })
-        .catch(() => cached);
+      );
+    }).then(() => self.clients.claim())
+  );
+});
+
+self.addEventListener('fetch', (event) => {
+  if (event.request.method !== 'GET') return;
+
+  event.respondWith(
+    caches.match(event.request).then((cachedResponse) => {
+      if (cachedResponse) {
+        fetch(event.request).then((networkResponse) => {
+          if (networkResponse && networkResponse.status === 200) {
+            caches.open(CACHE_NAME).then((cache) => {
+              cache.put(event.request, networkResponse);
+            });
+          }
+        }).catch(() => { /* Offline fallback */ });
+        return cachedResponse;
+      }
+
+      return fetch(event.request);
     })
   );
 });
