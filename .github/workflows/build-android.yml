@@ -45,17 +45,19 @@ jobs:
       - name: Dar permissão ao Gradle
         run: chmod +x android/gradlew
 
-      - name: Compilar APK Debug - FX Finance
+      - name: Compilar APK Debug e AAB Release - FX Finance
         run: |
           cd android
-          ./gradlew assembleDebug --stacktrace
+          ./gradlew assembleDebug bundleRelease --stacktrace
 
-      - name: Renomear e Mover APK
+      - name: Organizar Artefatos de Saída
         run: |
-          cp android/app/build/outputs/apk/debug/app-debug.apk "FX-Finance.apk"
+          mkdir -p dist-artifacts
+          cp android/app/build/outputs/apk/debug/app-debug.apk dist-artifacts/FX-Finance.apk
+          cp android/app/build/outputs/bundle/release/app-release.aab dist-artifacts/FX-Finance-Release.aab
 
-      - name: Disponibilizar APK FX Finance
+      - name: Disponibilizar Artefatos (APK + AAB)
         uses: actions/upload-artifact@v4
         with:
-          name: FX-Finance-v${{ github.run_number }}
-          path: FX-Finance.apk
+          name: FX-Financas-v${{ github.run_number }}
+          path: dist-artifacts/
