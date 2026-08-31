@@ -83,7 +83,7 @@
             <span class="step-kicker">ETAPA 5 · CICLO</span>
             <h2>Ciclo financeiro</h2>
             <label for="setup-cycle-day">Dia de início</label>
-            <input id="setup-cycle-day" type="number" min="1" max="28" value="5">
+            <input id="setup-cycle-day" type="text" inputmode="numeric" pattern="[0-9]*" value="5">
           </div>
 
           <div class="setup-step" data-step="6">
@@ -330,7 +330,7 @@
             </button>
             <div id="cycle-settings" class="settings-panel hidden">
               <label for="settings-cycle-day">Dia de início</label>
-              <input id="settings-cycle-day" type="number" min="1" max="28">
+              <input id="settings-cycle-day" type="text" inputmode="numeric" pattern="[0-9]*">
               <button id="save-cycle-settings" type="button" class="primary-button">Salvar</button>
             </div>
           </section>
@@ -364,6 +364,15 @@
               <span class="chevron">⌄</span>
             </button>
             <div id="security-settings" class="settings-panel hidden">
+              <p class="settings-label" style="margin-top:12px;">Capturas de Tela (Print)</p>
+              <p class="settings-help" style="margin-bottom:8px;">Desative para bloquear prints e gravação de tela, aumentando sua segurança.</p>
+              <div class="choice-group">
+                <button type="button" class="choice-button" data-screenshot-allow="yes">Permitir</button>
+                <button type="button" class="choice-button" data-screenshot-allow="no">Bloquear</button>
+              </div>
+
+              <div style="border-top:1px solid var(--border); margin:12px 0;"></div>
+
               <button id="register-biometrics-button" type="button" class="secondary-button">Cadastrar Biometria (Digital/Face)</button>
               <button id="change-password-button" type="button" class="secondary-button">Alterar senha</button>
               <button id="export-csv-button" type="button" class="secondary-button">Exportar Extrato (CSV / Excel)</button>
@@ -714,6 +723,39 @@
         </main>
         <footer class="modal-footer">
           <button id="confirm-delete-data-button" type="button" class="danger-button">Apagar todos os dados</button>
+        </footer>
+      </div>
+    </div>
+
+    <div id="backup-password-modal" class="modal hidden" role="dialog" aria-modal="true">
+      <div class="modal-content glass-panel">
+        <header class="modal-header">
+          <h2 id="backup-password-title">Senha do Backup</h2>
+          <button type="button" class="modal-close" data-close-modal="backup-password-modal">×</button>
+        </header>
+        <main class="modal-body">
+          <p id="backup-password-desc" class="settings-help"></p>
+          <input id="backup-action-password" type="password" placeholder="Digite a senha">
+          <p id="backup-password-error" class="error-message hidden" role="alert"></p>
+        </main>
+        <footer class="modal-footer">
+          <button id="confirm-backup-action-button" type="button" class="primary-button">Confirmar</button>
+        </footer>
+      </div>
+    </div>
+
+    <div id="corrupted-backup-modal" class="modal hidden" role="dialog" aria-modal="true">
+      <div class="modal-content glass-panel">
+        <header class="modal-header">
+          <h2>Backup Corrompido</h2>
+          <button type="button" class="modal-close" data-close-modal="corrupted-backup-modal">×</button>
+        </header>
+        <main class="modal-body">
+          <p class="settings-help">Ocorreu uma falha crítica na leitura de um backup anterior. O arquivo foi isolado para evitar a perda de dados.</p>
+        </main>
+        <footer class="modal-footer modal-footer-dual">
+          <button id="discard-corrupted-button" type="button" class="danger-button">Descartar</button>
+          <button id="download-corrupted-button" type="button" class="primary-button">Baixar Log (.txt)</button>
         </footer>
       </div>
     </div>
