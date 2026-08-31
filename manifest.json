@@ -1,7 +1,7 @@
 {
-  "id": "com.fx01.app",
-  "name": "FX.01 — Controle Financeiro",
-  "short_name": "FX.01",
+  "id": "com.fx.finance",
+  "name": "FX — Controle Financeiro",
+  "short_name": "FX",
   "description": "Seu dinheiro. Suas regras.",
   "start_url": "/index.html",
   "scope": "/",
