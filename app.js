@@ -269,7 +269,6 @@ async function loadApplication() {
   normalizeState();
   applyPersonalization();
   checkCycleRollover();
-  checkCycleNotification();
 
   if (!state.setupCompleted) {
     startInitialSetup();
@@ -287,6 +286,10 @@ async function loadApplication() {
 
 function migrateStateSchema() {
   if (!state) return;
+
+  if (state.settings && state.settings.appearance) {
+    delete state.settings.appearance;
+  }
 
   if (!state.version || state.version !== FX_VERSION) {
     if (!state.categories) state.categories = DEFAULT_CATEGORIES.map(c => ({ ...c }));
@@ -329,7 +332,7 @@ function normalizeState() {
   state.extra.balance = roundMoney(state.extra.balance || 0);
 
   if (!state.security) state.security = { passwordHash: "", locked: false, lastCycleNotificationDate: "", biometricId: null, biometricType: null, recoveryQuestion: "", recoveryAnswerHash: "" };
-  if (!state.settings) state.settings = { cycleDay: 5, hideBalances: false, appearance: "dark", theme: "fx" };
+  if (!state.settings) state.settings = { cycleDay: 5, hideBalances: false, theme: "fx" };
 
   normalizeCycle(state.currentCycle);
   state.cycles.forEach(normalizeCycle);
@@ -364,34 +367,11 @@ function createEmptyState() {
     salary: { reference: 0, hasAdvance: false, advanceAmount: 0, advanceDay: 20 },
     extra: { balance: 0 },
     reserve: { balance: 0 },
-    settings: { cycleDay: 5, hideBalances: false, appearance: "dark", theme: "fx" },
+    settings: { cycleDay: 5, hideBalances: false, theme: "fx" },
     categories: [],
     cycles: [],
     currentCycle: null
   };
-}
-
-function checkCycleNotification() {
-  if (!state || !state.currentCycle || !state.currentCycle.endDate) return;
-  if (!("Notification" in window)) return;
-
-  const now = new Date();
-  const endDate = new Date(state.currentCycle.endDate);
-  const diffTime = endDate - now;
-  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-  if (diffDays > 0 && diffDays <= 3) {
-    const todayStr = now.toISOString().slice(0, 10);
-    if (state.security.lastCycleNotificationDate !== todayStr) {
-      if (Notification.permission === "granted") {
-        new Notification("FX — Fechamento de Ciclo", {
-          body: `Seu ciclo financeiro encerra em ${diffDays} ${diffDays === 1 ? 'dia' : 'dias'}.`
-        });
-        state.security.lastCycleNotificationDate = todayStr;
-        saveState();
-      }
-    }
-  }
 }
 
 function checkCycleRollover() {
@@ -1056,9 +1036,13 @@ async function exportBackup() {
     const jsonStr = JSON.stringify(state, null, 2);
     const dateStr = new Date().toISOString().slice(0, 10);
     const fileName = `fx_backup_${dateStr}.json`;
-    const file = new File([jsonStr], fileName, { type: "application/json" });
+    
+    // Convert to Blob to bypass Android WebView URI size limits
+    const blob = new Blob([jsonStr], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
 
     let canShare = false;
+    const file = new File([blob], fileName, { type: "application/json" });
     try {
       canShare = !!(navigator.canShare && navigator.canShare({ files: [file] }));
     } catch (e) {
@@ -1074,13 +1058,13 @@ async function exportBackup() {
       return;
     }
 
-    const encodedData = "data:application/json;charset=utf-8," + encodeURIComponent(jsonStr);
     const downloadAnchor = document.createElement("a");
-    downloadAnchor.href = encodedData;
+    downloadAnchor.href = url;
     downloadAnchor.download = fileName;
     document.body.appendChild(downloadAnchor);
     downloadAnchor.click();
-    downloadAnchor.remove();
+    document.body.removeChild(downloadAnchor);
+    setTimeout(() => URL.revokeObjectURL(url), 100);
   } catch (err) {
     if (err.name !== "AbortError") {
       customAlert("Erro ao exportar backup: " + err.message);
@@ -1110,9 +1094,13 @@ async function exportCSV() {
 
     const dateStr = new Date().toISOString().slice(0, 10);
     const fileName = `fx_extrato_${dateStr}.csv`;
-    const file = new File([csvContent], fileName, { type: "text/csv" });
+    
+    // Blob fix for Android WebViews
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8," });
+    const url = URL.createObjectURL(blob);
 
     let canShare = false;
+    const file = new File([blob], fileName, { type: "text/csv" });
     try {
       canShare = !!(navigator.canShare && navigator.canShare({ files: [file] }));
     } catch (e) {
@@ -1128,13 +1116,13 @@ async function exportCSV() {
       return;
     }
 
-    const encodedData = "data:text/csv;charset=utf-8," + encodeURIComponent(csvContent);
     const downloadAnchor = document.createElement("a");
-    downloadAnchor.href = encodedData;
+    downloadAnchor.href = url;
     downloadAnchor.download = fileName;
     document.body.appendChild(downloadAnchor);
     downloadAnchor.click();
-    downloadAnchor.remove();
+    document.body.removeChild(downloadAnchor);
+    setTimeout(() => URL.revokeObjectURL(url), 100);
   } catch (err) {
     if (err.name !== "AbortError") {
       customAlert("Erro ao exportar planilha CSV: " + err.message);
@@ -1446,20 +1434,14 @@ function openChartModal() {
   openModal("chart-modal");
 }
 
-/* LÓGICA CORRIGIDA: SEPARAÇÃO ENTRE TEMAS E MODO ESCURO/CLARO */
 function applyPersonalization() {
-  const appearance = state?.settings?.appearance || "dark";
   const theme = state?.settings?.theme || "fx";
 
-  document.documentElement.setAttribute("data-appearance", appearance);
   document.documentElement.setAttribute("data-theme", theme);
   
   if (document.body) {
-    document.body.setAttribute("data-appearance", appearance);
     document.body.setAttribute("data-theme", theme);
   }
-
-  document.documentElement.style.colorScheme = appearance;
 
   renderHideBalancesIcon();
   renderLockPasswordIcon();
@@ -1469,30 +1451,16 @@ function applyPersonalization() {
 }
 
 function renderPersonalizationControls() {
-  const appearance = state?.settings?.appearance || "dark";
   const theme = state?.settings?.theme || "fx";
-  document.querySelectorAll("[data-appearance]").forEach((btn) => btn.classList.toggle("selected", btn.dataset.appearance === appearance));
   document.querySelectorAll("[data-theme-choice]").forEach((btn) => {
     btn.classList.toggle("selected", btn.dataset.themeChoice === theme);
     btn.setAttribute("aria-pressed", String(btn.dataset.themeChoice === theme));
   });
 }
 
-function saveAppearance(value) {
-  if (!["dark", "light"].includes(value)) return;
-  state.settings.appearance = value;
-  // Modo claro/escuro redefine para o tema padrão "fx" para evitar conflito visual
-  state.settings.theme = "fx";
-  applyPersonalization();
-  renderPersonalizationControls();
-  saveState();
-}
-
 function saveTheme(value) {
-  if (!["fx", "graphite", "emerald"].includes(value)) return;
+  if (!["fx", "graphite", "emerald", "pearl"].includes(value)) return;
   state.settings.theme = value;
-  // Ao escolher um tema customizado, força o modo escuro padrão do tema escolhido
-  state.settings.appearance = "dark";
   applyPersonalization();
   renderPersonalizationControls();
   saveState();
@@ -2070,7 +2038,6 @@ function bindEvents() {
   });
 
   $("save-profile-settings")?.addEventListener("click", saveProfileSettings);
-  document.querySelectorAll("[data-appearance]").forEach((btn) => btn.addEventListener("click", () => saveAppearance(btn.dataset.appearance)));
   document.querySelectorAll("[data-theme-choice]").forEach((btn) => btn.addEventListener("click", () => saveTheme(btn.dataset.themeChoice)));
   $("forgot-password-button")?.addEventListener("click", openRecoveryModal);
   $("recover-password-button")?.addEventListener("click", recoverPassword);
