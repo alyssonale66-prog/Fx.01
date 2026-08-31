@@ -497,13 +497,18 @@ function saveSetupLimit() {
 
 async function handleSetupNext() {
   if (currentSetupStep === 1) {
-    const username = $("setup-username")?.value.trim();
+    const username = $("setup-username")?.value.trim().toLowerCase();
     const password = $("setup-password")?.value || "";
     const confirm = $("setup-password-confirm")?.value || "";
     if (!username) return showSetupError("setup-credentials-error", "Digite um usuário.");
-    if (!/^[a-zA-Z0-9._-]{3,40}$/.test(username)) return showSetupError("setup-credentials-error", "Use de 3 a 40 caracteres.");
+    if (!/^[a-z0-9_]{3,40}$/.test(username)) return showSetupError("setup-credentials-error", "Use de 3 a 40 caracteres com letras minúsculas, números ou '_'.");
     if (!password) return showSetupError("setup-credentials-error", "Crie uma senha.");
-    if (password.length < 4) return showSetupError("setup-credentials-error", "A senha precisa ter no mínimo 4 caracteres.");
+    
+    // Regra de validação reforçada: Mínimo 8 caracteres, 1 maiúscula e 1 número
+    if (!/^(?=.*[A-Z])(?=.*\d).{8,}$/.test(password)) {
+      return showSetupError("setup-credentials-error", "A senha precisa ter no mínimo 8 caracteres, com ao menos 1 letra MAIÚSCULA e 1 número.");
+    }
+    
     if (password !== confirm) return showSetupError("setup-credentials-error", "As senhas não coincidem.");
     state.user.username = username;
     state.security.passwordHash = await hashString(password);
@@ -1503,7 +1508,9 @@ async function saveNewPassword() {
     return showElement("password-error", "Senha atual incorreta.");
   }
   if (!newPass) return showElement("password-error", "Digite a nova senha.");
-  if (newPass.length < 4) return showElement("password-error", "Senha com mínimo de 4 caracteres.");
+  if (!/^(?=.*[A-Z])(?=.*\d).{8,}$/.test(newPass)) {
+    return showElement("password-error", "Senha com mínimo de 8 caracteres, 1 maiúscula e 1 número.");
+  }
   if (newPass !== confirmPass) return showElement("password-error", "Senhas não coincidem.");
 
   state.security.passwordHash = await hashString(newPass);
@@ -1782,7 +1789,7 @@ async function recoverPassword() {
 
   if (username.toLowerCase() !== String(state.user?.username || "").toLowerCase()) return showElement("recovery-error", "Usuário incorreto.");
   if (answerHash !== state.security.recoveryAnswerHash) return showElement("recovery-error", "Resposta de recuperação incorreta.");
-  if (newPass.length < 4) return showElement("recovery-error", "A nova senha precisa ter no mínimo 4 caracteres.");
+  if (!/^(?=.*[A-Z])(?=.*\d).{8,}$/.test(newPass)) return showElement("recovery-error", "A nova senha precisa ter no mínimo 8 caracteres, 1 maiúscula e 1 número.");
   if (newPass !== confirm) return showElement("recovery-error", "As novas senhas não coincidem.");
 
   state.security.passwordHash = await hashString(newPass);
@@ -1875,6 +1882,13 @@ function bindEvents() {
   });
 
   document.addEventListener("click", (e) => {
+    // Interatividade do Card Extra: clicar na área do card abre o modal
+    const extraCard = e.target.closest(".extra-source");
+    if (extraCard && !e.target.closest("#add-extra-button")) {
+      openModal("extra-modal");
+      return;
+    }
+
     const historyItem = e.target.closest("[data-history-cycle-id]");
     if (historyItem) {
       openHistoryModal(historyItem.dataset.historyCycleId);
