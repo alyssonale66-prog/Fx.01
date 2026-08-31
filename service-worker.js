@@ -1,5 +1,5 @@
 /* ============================================================
-   FX — Service Worker (Invalidação Dinâmica por Versão)
+   FX — Service Worker (Cache-First)
    ============================================================ */
 
 const CACHE_NAME = 'fx-cache-v1.1.0';
@@ -8,7 +8,9 @@ const ASSETS_TO_CACHE = [
   './index.html',
   './style.css',
   './app.js',
-  './manifest.json'
+  './manifest.json',
+  './icon-192.png',
+  './icon-512.png'
 ];
 
 self.addEventListener('install', (event) => {
@@ -39,18 +41,17 @@ self.addEventListener('fetch', (event) => {
 
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
-      if (cachedResponse) {
-        fetch(event.request).then((networkResponse) => {
-          if (networkResponse && networkResponse.status === 200) {
-            caches.open(CACHE_NAME).then((cache) => {
-              cache.put(event.request, networkResponse);
-            });
-          }
-        }).catch(() => { /* Offline fallback */ });
-        return cachedResponse;
-      }
-
-      return fetch(event.request);
-    })
+      if (cachedResponse) return cachedResponse;
+      
+      return fetch(event.request).then((networkResponse) => {
+        if (networkResponse && networkResponse.status === 200) {
+          const responseToCache = networkResponse.clone();
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(event.request, responseToCache);
+          });
+        }
+        return networkResponse;
+      });
+    }).catch(() => { /* Offline fallback */ })
   );
 });
