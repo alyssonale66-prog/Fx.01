@@ -4,7 +4,7 @@
   "description": "FX Finance — Controle Financeiro",
   "main": "index.html",
   "scripts": {
-    "build": "mkdir -p www && cp index.html style.css app.js manifest.json service-worker.js icon-192.png icon-512.png www/"
+    "build": "npx capacitor-assets generate --android && mkdir -p www && cp index.html style.css app.js manifest.json service-worker.js icon-192.png icon-512.png www/"
   },
   "dependencies": {
     "@capgo/capacitor-native-biometric": "6.0.0",
@@ -13,6 +13,7 @@
     "@capacitor/core": "6.2.1"
   },
   "devDependencies": {
-    "@capacitor/cli": "6.2.1"
+    "@capacitor/cli": "6.2.1",
+    "@capacitor/assets": "^3.0.5"
   }
 }
