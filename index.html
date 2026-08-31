@@ -2,506 +2,716 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>FX Finance</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#0a0a0a">
+  <meta name="description" content="FX — Seu dinheiro. Suas regras.">
+  <title>FX — Controle Financeiro</title>
 
-  <!-- PWA -->
   <link rel="manifest" href="manifest.json">
-  <meta name="theme-color" content="#121212">
-  <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="FX Finance">
-  <link rel="apple-touch-icon" href="icons/icon-192.png">
-
-  <!-- Estilos -->
   <link rel="stylesheet" href="style.css">
-  
-  <!-- Fonte Google -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
 
-  <!-- TELA DE AUTENTICAÇÃO / BOAS-VINDAS (SETUP INICIAL) -->
-  <div id="screen-setup" class="screen active">
-    <div class="setup-container">
-      <div class="brand">
-        <h1>FX<span>.</span></h1>
-        <p class="subtitle">Configuração inicial</p>
-        <div class="step-indicator">ETAPA <span id="setup-step-num">1</span> DE 7</div>
-      </div>
+  <div id="app">
 
-      <!-- ETAPA 1: CREDENCIAIS -->
-      <div id="step-1" class="setup-card step-content active">
-        <div class="card-header">
-          <span class="badge">ETAPA 1 · CREDENCIAIS</span>
-          <h2>Crie seu acesso</h2>
-        </div>
-        
-        <div class="form-group">
-          <label for="setup-username">Usuário</label>
-          <input type="text" id="setup-username" placeholder="Ex: user_fx" autocomplete="off" required>
-          <small id="setup-user-error" class="error-msg"></small>
-        </div>
-
-        <div class="form-group">
-          <label for="setup-password">Senha</label>
-          <div class="input-password-wrapper">
-            <input type="password" id="setup-password" placeholder="Digite sua senha" required>
-            <button type="button" class="btn-toggle-eye" data-target="setup-password">
-              <svg class="icon-eye" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
-            </button>
+    <!-- TELA DE CONFIGURAÇÃO INICIAL -->
+    <section id="setup-screen" class="screen hidden" aria-labelledby="setup-title">
+      <div class="setup-container">
+        <header class="screen-header">
+          <div class="brand-mark" aria-hidden="true">
+            <span class="brand-logo-glow">FX</span>
+            <span class="brand-logo-dot"></span>
           </div>
-          <small class="hint-msg">Mínimo 8 caracteres, 1 maiúscula e 1 número.</small>
-          <small id="setup-pass-error" class="error-msg"></small>
-        </div>
+          <h1 id="setup-title" class="setup-title">Configuração inicial</h1>
+          <p id="setup-progress" class="setup-progress">Etapa 1 de 7</p>
+        </header>
 
-        <div class="form-group">
-          <label for="setup-confirm-password">Repetir senha</label>
-          <div class="input-password-wrapper">
-            <input type="password" id="setup-confirm-password" placeholder="Repita sua senha" required>
-            <button type="button" class="btn-toggle-eye" data-target="setup-confirm-password">
-              <svg class="icon-eye" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
-            </button>
+        <main>
+          <div class="setup-step" data-step="1">
+            <span class="step-kicker">ETAPA 1 · CREDENCIAIS</span>
+            <h2>Crie seu acesso</h2>
+            <label for="setup-username">Usuário</label>
+            <input id="setup-username" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="40" placeholder="Ex: user_fx">
+
+            <label for="setup-password">Senha</label>
+            <div class="password-input-wrapper">
+              <input id="setup-password" type="password" autocomplete="new-password" maxlength="100" placeholder="Digite sua senha">
+              <button type="button" id="toggle-setup-password" class="input-icon-button" aria-label="Mostrar senha"><span id="setup-password-eye"></span></button>
+            </div>
+            <small class="hint-message" style="color:var(--text-muted); font-size:11px; display:block; margin-top:-10px; margin-bottom:10px;">Mínimo 8 caracteres, 1 letra maiúscula e 1 número.</small>
+
+            <label for="setup-password-confirm">Repetir senha</label>
+            <div class="password-input-wrapper">
+              <input id="setup-password-confirm" type="password" autocomplete="new-password" maxlength="100" placeholder="Repita sua senha">
+              <button type="button" id="toggle-setup-password-confirm" class="input-icon-button" aria-label="Mostrar senha"><span id="setup-password-confirm-eye"></span></button>
+            </div>
+            <p id="setup-credentials-error" class="error-message hidden" role="alert" aria-live="polite"></p>
           </div>
-          <small id="setup-confirm-error" class="error-msg"></small>
-        </div>
 
-        <button type="button" id="btn-step-1-next" class="btn btn-primary full-width">Continuar</button>
-      </div>
-
-      <!-- ETAPA 2: SALÁRIO BASE -->
-      <div id="step-2" class="setup-card step-content">
-        <div class="card-header">
-          <span class="badge">ETAPA 2 · RENDA BASE</span>
-          <h2>Qual o seu salário líquido?</h2>
-        </div>
-        <p class="step-desc">Informe o valor que cai na sua conta todos os meses.</p>
-        
-        <div class="form-group">
-          <label for="setup-salario">Valor do Salário (R$)</label>
-          <input type="number" id="setup-salario" placeholder="0,00" step="0.01" required>
-        </div>
-
-        <div class="form-group">
-          <label>Adiantamento / Salário 5° dia útil</label>
-          <div class="toggle-group">
-            <button type="button" class="btn-toggle active" data-vale="nao">Não</button>
-            <button type="button" class="btn-toggle" data-vale="sim">Sim</button>
+          <div class="setup-step" data-step="2">
+            <span class="step-kicker">ETAPA 2 · DADOS PESSOAIS</span>
+            <h2>Como devemos chamar você?</h2>
+            <label for="setup-full-name">Nome completo</label>
+            <input id="setup-full-name" type="text" autocomplete="name" maxlength="100" placeholder="Seu nome completo">
+            <label for="setup-display-name">Como gostaria de ser chamado</label>
+            <input id="setup-display-name" type="text" autocomplete="nickname" maxlength="30" placeholder="Ex: Usuário">
+            <p id="setup-personal-error" class="error-message hidden" role="alert" aria-live="polite"></p>
           </div>
-        </div>
 
-        <div id="group-vale-detalhes" class="form-group hidden">
-          <label for="setup-valor-vale">Valor do Adiantamento (R$)</label>
-          <input type="number" id="setup-valor-vale" placeholder="0,00" step="0.01">
-        </div>
-
-        <div class="btn-group-row">
-          <button type="button" class="btn btn-secondary btn-back" data-to="1">Voltar</button>
-          <button type="button" id="btn-step-2-next" class="btn btn-primary">Avançar</button>
-        </div>
-      </div>
-
-      <!-- ETAPA 3: DIA DO CICLO -->
-      <div id="step-3" class="setup-card step-content">
-        <div class="card-header">
-          <span class="badge">ETAPA 3 · CICLO FINANCEIRO</span>
-          <h2>Qual o dia de início do seu ciclo?</h2>
-        </div>
-        <p class="step-desc">Geralmente é o dia que você recebe o salário (ex: dia 5 ou dia 1).</p>
-        
-        <div class="form-group">
-          <label for="setup-dia-ciclo">Dia do mês (1 a 31)</label>
-          <input type="number" id="setup-dia-ciclo" min="1" max="31" value="5" required>
-        </div>
-
-        <div class="btn-group-row">
-          <button type="button" class="btn btn-secondary btn-back" data-to="2">Voltar</button>
-          <button type="button" id="btn-step-3-next" class="btn btn-primary">Avançar</button>
-        </div>
-      </div>
-
-      <!-- ETAPA 4: GASTO FIXO -->
-      <div id="step-4" class="setup-card step-content">
-        <div class="card-header">
-          <span class="badge">ETAPA 4 · GASTOS FIXOS</span>
-          <h2>Limite para Gastos Fixos</h2>
-        </div>
-        <p class="step-desc">Aluguel, contas de luz, internet e obrigações mensais.</p>
-        
-        <div class="form-group">
-          <label for="setup-gasto-fixo">Teto máximo para Gasto Fixo (R$)</label>
-          <input type="number" id="setup-gasto-fixo" placeholder="0,00" step="0.01" required>
-        </div>
-
-        <div class="btn-group-row">
-          <button type="button" class="btn btn-secondary btn-back" data-to="3">Voltar</button>
-          <button type="button" id="btn-step-4-next" class="btn btn-primary">Avançar</button>
-        </div>
-      </div>
-
-      <!-- ETAPA 5: RESERVA DE EMERGÊNCIA -->
-      <div id="step-5" class="setup-card step-content">
-        <div class="card-header">
-          <span class="badge">ETAPA 5 · RESERVA</span>
-          <h2>Meta da Reserva de Emergência</h2>
-        </div>
-        <p class="step-desc">Quanto você planeja guardar por mês para a sua reserva?</p>
-        
-        <div class="form-group">
-          <label for="setup-reserva">Meta Mensal da Reserva (R$)</label>
-          <input type="number" id="setup-reserva" placeholder="0,00" step="0.01" required>
-        </div>
-
-        <div class="btn-group-row">
-          <button type="button" class="btn btn-secondary btn-back" data-to="4">Voltar</button>
-          <button type="button" id="btn-step-5-next" class="btn btn-primary">Avançar</button>
-        </div>
-      </div>
-
-      <!-- ETAPA 6: CATEGORIAS PERSONALIZADAS -->
-      <div id="step-6" class="setup-card step-content">
-        <div class="card-header">
-          <span class="badge">ETAPA 6 · CATEGORIAS</span>
-          <h2>Suas Categoria de Gastos</h2>
-        </div>
-        <p class="step-desc">Defina o limite para cada área do seu orçamento.</p>
-        
-        <div id="setup-categories-list" class="setup-cat-list">
-          <!-- Categorias Padrão Geradas Via JS -->
-        </div>
-
-        <button type="button" id="btn-add-custom-cat" class="btn btn-outline full-width mb-15">+ Adicionar Categoria</button>
-
-        <div class="btn-group-row">
-          <button type="button" class="btn btn-secondary btn-back" data-to="5">Voltar</button>
-          <button type="button" id="btn-step-6-next" class="btn btn-primary">Avançar</button>
-        </div>
-      </div>
-
-      <!-- ETAPA 7: BIOMETRIA -->
-      <div id="step-7" class="setup-card step-content">
-        <div class="card-header">
-          <span class="badge">ETAPA 7 · SEGURANÇA</span>
-          <h2>Ativar Biometria?</h2>
-        </div>
-        <p class="step-desc">Deseja usar a digital ou reconhecimento facial do celular para acessar o app?</p>
-        
-        <div class="biometry-option">
-          <div class="bio-icon">
-            <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="var(--primary-color)" stroke-width="1.5"><path d="M12 2a10 10 0 0 0-10 10c0 5.52 4.48 10 10 10s10-4.48 10-10A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 0-16 8 8 0 0 1 0 16z"></path><path d="M12 6a6 6 0 0 0-6 6c0 3.31 2.69 6 6 6s6-2.69 6-6a6 6 0 0 0-6-6z"></path></svg>
+          <div class="setup-step" data-step="3">
+            <span class="step-kicker">ETAPA 3 · RENDA</span>
+            <h2>Salário</h2>
+            <label for="setup-salary">Valor do salário</label>
+            <input id="setup-salary" class="hero-input" type="text" inputmode="decimal" placeholder="0,00">
           </div>
-          <p>Você poderá alterar isso depois nas configurações.</p>
-        </div>
 
-        <div class="btn-group-column">
-          <button type="button" id="btn-finish-bio-yes" class="btn btn-primary full-width">Sim, Ativar Biometria</button>
-          <button type="button" id="btn-finish-bio-no" class="btn btn-secondary full-width">Não, Finalizar sem Biometria</button>
-        </div>
-      </div>
-
-    </div>
-  </div>
-
-  <!-- TELA DE LOGIN (ACESSO DIÁRIO) -->
-  <div id="screen-login" class="screen">
-    <div class="login-container">
-      <div class="brand">
-        <h1>FX<span>.</span></h1>
-        <p class="subtitle">Acesse sua conta</p>
-      </div>
-
-      <div class="login-card">
-        <div class="form-group">
-          <label for="login-username">Usuário</label>
-          <input type="text" id="login-username" placeholder="Ex: user_fx" autocomplete="off">
-        </div>
-
-        <div class="form-group">
-          <label for="login-password">Senha</label>
-          <div class="input-password-wrapper">
-            <input type="password" id="login-password" placeholder="Sua senha">
-            <button type="button" class="btn-toggle-eye" data-target="login-password">
-              <svg class="icon-eye" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
-            </button>
+          <div class="setup-step" data-step="4">
+            <span class="step-kicker">ETAPA 4 · ADIANTAMENTO</span>
+            <h2>Adiantamento / Salário 5° dia útil</h2>
+            <p>Você recebe adiantamento/vale no dia 20?</p>
+            <div class="choice-group">
+              <button type="button" class="choice-button" data-choice="salary-split" data-value="yes">Sim</button>
+              <button type="button" class="choice-button" data-choice="salary-split" data-value="no">Não</button>
+            </div>
+            <div id="setup-advance-container" class="hidden" style="margin-top:10px;">
+              <label for="setup-advance-val">Valor do Adiantamento/Vale (R$)</label>
+              <input id="setup-advance-val" class="hero-input" type="text" inputmode="decimal" placeholder="0,00">
+            </div>
           </div>
+
+          <div class="setup-step" data-step="5">
+            <span class="step-kicker">ETAPA 5 · CICLO</span>
+            <h2>Ciclo financeiro</h2>
+            <label for="setup-cycle-day">Dia de início</label>
+            <input id="setup-cycle-day" type="number" min="1" max="28" value="5">
+          </div>
+
+          <div class="setup-step" data-step="6">
+            <span class="step-kicker">ETAPA 6 · CATEGORIAS</span>
+            <h2>Suas categorias</h2>
+            <p>Toque em uma categoria para ajustar o limite antes de concluir.</p>
+            <div id="setup-categories" class="setup-category-list"></div>
+          </div>
+
+          <div class="setup-step" data-step="7">
+            <span class="step-kicker">ETAPA 7 · RECUPERAÇÃO</span>
+            <h2>Proteja a recuperação da conta</h2>
+            <label>Pergunta de recuperação</label>
+            <button type="button" id="setup-recovery-question-trigger" class="custom-select-button">Selecione uma pergunta</button>
+            
+            <div id="setup-custom-question-wrap" class="hidden" style="margin-top:10px;">
+              <label for="setup-custom-question">Sua pergunta</label>
+              <input id="setup-custom-question" type="text" maxlength="120" placeholder="Digite sua pergunta">
+            </div>
+            <label for="setup-recovery-answer" style="margin-top:10px;">Resposta</label>
+            <input id="setup-recovery-answer" type="text" autocomplete="off" maxlength="120" placeholder="Digite a resposta">
+            <p id="setup-recovery-error" class="error-message hidden" role="alert" aria-live="polite"></p>
+          </div>
+        </main>
+
+        <footer class="setup-footer">
+          <button id="setup-back-button" type="button" class="secondary-button hidden">Voltar</button>
+          <button id="setup-next-button" type="button" class="primary-button">Continuar</button>
+        </footer>
+      </div>
+    </section>
+
+    <!-- TELA DE BLOQUEIO (MODO NUBANK) -->
+    <section id="lock-screen" class="screen hidden" aria-labelledby="lock-title">
+      <div class="lock-container">
+        <div class="lock-card glass-panel">
+          <header class="lock-header">
+            <div class="lock-brand-row" style="margin-bottom: 12px;">
+              <div class="brand-logo-glow">FX</div>
+            </div>
+            <p class="lock-subtitle" id="lock-title">Acesso Protegido</p>
+          </header>
+
+          <main class="lock-form">
+            <label for="unlock-username">Usuário</label>
+            <input id="unlock-username" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="Digite seu usuário">
+
+            <label for="unlock-password">Senha de Acesso</label>
+            <div class="password-input-wrapper">
+              <input id="unlock-password" type="password" autocomplete="current-password" placeholder="Digite sua senha">
+              <button type="button" id="toggle-lock-password" class="input-icon-button" aria-label="Mostrar senha">
+                <span id="eye-icon-container"></span>
+              </button>
+            </div>
+
+            <div style="display: flex; gap: 10px; margin-top: 6px;">
+              <button id="unlock-button" type="button" class="primary-button glow-on-hover" style="flex: 1;">Desbloquear</button>
+              <button type="button" id="biometric-unlock-icon" class="icon-button hidden" title="Usar Biometria" aria-label="Usar Biometria" style="width: 48px; height: 48px; border-radius: 12px; flex-shrink: 0; background: var(--surface-3); color: var(--accent);">
+              </button>
+            </div>
+
+            <button id="forgot-password-button" type="button" class="text-button" style="margin-top: 10px;">Esqueci minha senha</button>
+            <p id="unlock-error" class="error-message hidden" role="alert" aria-live="polite" style="margin-top: 8px;"></p>
+          </main>
         </div>
+      </div>
+    </section>
 
-        <button type="button" id="btn-login" class="btn btn-primary full-width">Entrar</button>
-
-        <div id="bio-login-wrapper" class="bio-login-wrapper hidden">
-          <span class="divider-text">ou</span>
-          <button type="button" id="btn-login-bio" class="btn btn-outline full-width">
-            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" class="icon-inline"><path d="M12 2a10 10 0 0 0-10 10c0 5.52 4.48 10 10 10s10-4.48 10-10A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 0-16 8 8 0 0 1 0 16z"></path></svg>
-            Entrar com Biometria
+    <!-- TELA PRINCIPAL -->
+    <section id="main-screen" class="screen hidden" aria-labelledby="main-title">
+      
+      <header class="main-header">
+        <div style="display: flex; gap: 8px;">
+          <button id="lock-button" type="button" class="icon-button" aria-label="Bloquear aplicativo" title="Bloquear aplicativo">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          </button>
+          
+          <button id="toggle-hide-balances-button" type="button" class="icon-button" aria-label="Ocultar saldos" title="Ocultar saldos">
+            <span id="hide-balances-icon-container"></span>
           </button>
         </div>
-      </div>
-    </div>
-  </div>
 
-  <!-- TELA PRINCIPAL DO APLICATIVO -->
-  <div id="screen-app" class="screen">
-    <!-- BARRA SUPERIOR (HEADER) -->
-    <header class="app-header">
-      <div class="header-left">
-        <button id="btn-privacy-toggle" class="btn-icon" title="Ocultar/Exibir Valores">
-          <svg id="icon-eye-open" class="icon-header" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
-          <svg id="icon-eye-closed" class="icon-header hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>
+        <h1 id="main-title" class="brand-title">FX</h1>
+
+        <button id="settings-button" type="button" class="icon-button" aria-label="Abrir configurações" title="Configurações">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
         </button>
-      </div>
+      </header>
 
-      <div class="header-center">
-        <span class="brand-logo">FX<span>.</span></span>
-      </div>
+      <main class="main-content">
 
-      <div class="header-right">
-        <button id="btn-open-settings" class="btn-icon" title="Configurações">
-          <svg class="icon-header" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+        <!-- ABA 1: INÍCIO -->
+        <div id="tab-home" class="tab-content">
+          
+          <div class="welcome-header">
+            <span class="welcome-subtitle">Que bom te ver de novo,</span>
+            <h2 class="welcome-title">Olá, <span id="user-display-name">Usuário</span> 👋</h2>
+          </div>
+
+          <section class="balance-card glass-panel" aria-label="Saldo disponível">
+            <span class="balance-label">Valor disponível</span>
+            <strong id="available-balance" class="balance-value">R$ 0,00</strong>
+
+            <div class="balance-sources">
+              <div class="balance-source">
+                <span>Salário</span>
+                <strong id="salary-balance">R$ 0,00</strong>
+              </div>
+
+              <div class="balance-source extra-source" id="card-extra">
+                <div class="extra-source-top">
+                  <span>Extra</span>
+                  <button id="add-extra-button" type="button" class="extra-button">+ Extra</button>
+                </div>
+                <strong id="extra-balance">R$ 0,00</strong>
+              </div>
+            </div>
+          </section>
+
+          <section class="categories-section" aria-labelledby="categories-title">
+            <div class="section-heading">
+              <h2 id="categories-title">Categorias</h2>
+            </div>
+            <div id="categories-list" class="categories-list"></div>
+          </section>
+        </div>
+
+        <!-- ABA 2: EXTRATO -->
+        <div id="tab-extrato" class="tab-content hidden">
+          <section class="expenses-section" aria-labelledby="expenses-title">
+            <div class="section-heading">
+              <h2 id="expenses-title">Extrato do Mês</h2>
+            </div>
+            <div id="expenses-list" class="expenses-grouped-container"></div>
+          </section>
+        </div>
+
+      </main>
+
+      <!-- BARRA DE NAVEGAÇÃO INFERIOR -->
+      <nav class="bottom-nav">
+        <button type="button" id="nav-home-button" class="nav-button active">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+          <span>Início</span>
         </button>
-      </div>
-    </header>
 
-    <!-- CONTEÚDO PRINCIPAL SCROLLÁVEL -->
-    <main class="app-body">
-      <!-- SAUDAÇÃO -->
-      <section class="welcome-section">
-        <p class="greeting-subtitle">Que bom te ver de novo,</p>
-        <h2 class="greeting-title">Olá, <span id="user-display-name">Usuário</span> 👋</h2>
-      </section>
+        <button type="button" id="nav-extrato-button" class="nav-button">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+          <span>Extrato</span>
+        </button>
+      </nav>
 
-      <!-- CARD PRINCIPAL DE VALOR DISPONÍVEL -->
-      <section class="main-balance-card">
-        <span class="card-label">VALOR DISPONÍVEL</span>
-        <div class="balance-value" id="val-disponivel">R$ 0,00</div>
+    </section>
 
-        <div class="balance-breakdown">
-          <div class="breakdown-item">
-            <span class="b-label">Salário</span>
-            <span class="b-val" id="val-salario-disponivel">R$ 0,00</span>
+    <!-- TELA DE CONFIGURAÇÕES -->
+    <section id="settings-screen" class="screen hidden" aria-labelledby="settings-title">
+      <header class="screen-header settings-header">
+        <button id="settings-back-button" type="button" class="icon-button" aria-label="Voltar">←</button>
+        <div>
+          <h1 id="settings-title">Configurações</h1>
+        </div>
+      </header>
+
+      <main class="settings-content">
+        <section class="settings-section">
+          <button type="button" class="settings-item" data-settings-toggle="profile-settings">
+            <span>Perfil</span>
+            <span>⌄</span>
+          </button>
+          <div id="profile-settings" class="settings-panel hidden">
+            <label for="settings-account-username">Usuário</label>
+            <input id="settings-account-username" type="text" maxlength="40" readonly>
+            <label for="settings-full-name">Nome completo</label>
+            <input id="settings-full-name" type="text" maxlength="100" placeholder="Seu nome completo">
+            <label for="settings-username">Como gostaria de ser chamado</label>
+            <input id="settings-username" type="text" maxlength="30" placeholder="Seu nome de exibição">
+            <button id="save-profile-settings" type="button" class="primary-button">Salvar perfil</button>
           </div>
+        </section>
 
-          <div class="breakdown-item card-extra-interactive" id="card-extra" role="button" tabindex="0">
-            <span class="b-label">Extra</span>
-            <span class="b-val" id="val-extra-disponivel">R$ 0,00</span>
+        <section class="settings-section">
+          <button type="button" class="settings-item" data-settings-toggle="personalization-settings">
+            <span>Personalizar</span>
+            <span>⌄</span>
+          </button>
+          <div id="personalization-settings" class="settings-panel hidden">
+            <div class="personalization-group">
+              <p class="settings-label">Modo de aparência</p>
+              <div class="choice-group">
+                <button type="button" class="choice-button" data-appearance="dark">🌙 Modo escuro</button>
+                <button type="button" class="choice-button" data-appearance="light">☀️ Modo claro</button>
+              </div>
+            </div>
+            <div class="personalization-group">
+              <p class="settings-label">Tema</p>
+              <div class="theme-grid">
+                <button type="button" class="theme-card" data-theme-choice="fx"><span class="theme-preview theme-preview-fx"></span><strong>FX Gold</strong><small>Ouro Imperial</small></button>
+                <button type="button" class="theme-card" data-theme-choice="graphite"><span class="theme-preview theme-preview-graphite"></span><strong>Grafite Titânio</strong><small>Azul Cobalto</small></button>
+                <button type="button" class="theme-card" data-theme-choice="emerald"><span class="theme-preview theme-preview-emerald"></span><strong>Esmeralda Profundo</strong><small>Jade Cyber</small></button>
+              </div>
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      <!-- SEÇÃO DE CATEGORIAS -->
-      <section class="categories-section">
-        <h3 class="section-title">Categorias</h3>
-        <div id="categories-container" class="categories-container">
-          <!-- Categorias renderizadas dinamicamente via JS -->
-        </div>
-      </section>
-    </main>
+        <section class="settings-section">
+          <button type="button" class="settings-item" data-settings-toggle="categories-settings">
+            <span>Categorias</span>
+            <span>⌄</span>
+          </button>
+          <div id="categories-settings" class="settings-panel hidden">
+            <div id="settings-categories-list" class="settings-category-list"></div>
+            <button id="create-category-button" type="button" class="secondary-button">Criar categoria</button>
+          </div>
+        </section>
 
-    <!-- BARRA DE NAVEGAÇÃO INFERIOR (BOTTOM NAV) -->
-    <nav class="bottom-nav">
-      <button class="nav-item active" data-nav="home">
-        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
-        <span>Início</span>
-      </button>
+        <section class="settings-section">
+          <button type="button" class="settings-item" data-settings-toggle="salary-settings">
+            <span>Salário</span>
+            <span>⌄</span>
+          </button>
+          <div id="salary-settings" class="settings-panel hidden">
+            <label for="settings-salary">Valor do Salário (R$)</label>
+            <input id="settings-salary" class="hero-input" type="text" inputmode="decimal" placeholder="0,00">
+            <p style="margin-top:10px;">Adiantamento / Salário 5° dia útil</p>
+            <div class="choice-group">
+              <button type="button" class="choice-button" data-settings-salary-split="yes">Sim</button>
+              <button type="button" class="choice-button" data-settings-salary-split="no">Não</button>
+            </div>
+            <div id="salary-split-info" class="hidden" style="margin-top:10px;">
+              <label for="settings-advance-val">Valor do Adiantamento/Vale (R$)</label>
+              <input id="settings-advance-val" class="hero-input" type="text" inputmode="decimal" placeholder="0,00">
+            </div>
+            <button id="save-salary-settings" type="button" class="primary-button" style="margin-top:12px;">Salvar</button>
+          </div>
+        </section>
 
-      <button class="nav-item" data-nav="extrato">
-        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
-        <span>Extrato</span>
-      </button>
-    </nav>
-  </div>
+        <section class="settings-section">
+          <button type="button" class="settings-item" data-settings-toggle="cycle-settings">
+            <span>Ciclo</span>
+            <span>⌄</span>
+          </button>
+          <div id="cycle-settings" class="settings-panel hidden">
+            <label for="settings-cycle-day">Dia de início</label>
+            <input id="settings-cycle-day" type="number" min="1" max="28">
+            <button id="save-cycle-settings" type="button" class="primary-button">Salvar</button>
+          </div>
+        </section>
 
-  <!-- VISUALIZADOR DE EXTRATO (TELA SEPARADA/OVERLAY) -->
-  <div id="screen-extrato" class="screen">
-    <header class="app-header">
-      <button id="btn-back-extrato" class="btn-icon">
-        <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
-      </button>
-      <h2>Extrato Completo</h2>
-      <div style="width: 24px;"></div>
-    </header>
+        <section class="settings-section">
+          <button id="previous-cycle-button" type="button" class="settings-item">
+            <span id="previous-cycle-label">Histórico de Meses</span>
+            <span>→</span>
+          </button>
+        </section>
 
-    <main class="app-body">
-      <div class="extrato-filter-bar">
-        <select id="extrato-month-select" class="form-select">
-          <!-- Opções de meses preenchidas via JS -->
-        </select>
-      </div>
+        <section class="settings-section">
+          <button id="chart-button" type="button" class="settings-item">
+            <span>Gráfico do Mês</span>
+            <span>→</span>
+          </button>
+        </section>
 
-      <div id="extrato-list" class="extrato-list">
-        <!-- Itens do extrato preenchidos via JS -->
-      </div>
-    </main>
-  </div>
+        <section class="settings-section">
+          <button type="button" class="settings-item" data-settings-toggle="security-settings">
+            <span>Segurança e Backup</span>
+            <span>⌄</span>
+          </button>
+          <div id="security-settings" class="settings-panel hidden">
+            <button id="register-biometrics-button" type="button" class="secondary-button">Cadastrar Biometria (Digital/Face)</button>
+            <button id="change-password-button" type="button" class="secondary-button">Alterar senha</button>
+            <button id="export-csv-button" type="button" class="secondary-button">Exportar Extrato (CSV / Excel)</button>
+            <button id="export-backup-button" type="button" class="secondary-button">Exportar Backup (JSON)</button>
+            <button id="import-backup-button" type="button" class="secondary-button">Importar Backup (JSON)</button>
+            <input type="file" id="import-backup-file" accept=".json" class="hidden">
+            <button id="delete-all-data-button" type="button" class="danger-button">Apagar todos os dados</button>
+          </div>
+        </section>
 
-  <!-- MODAL DE ADICIONAR LANÇAMENTO / GASTO -->
-  <div id="modal-lançamento" class="modal">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h3 id="modal-lançamento-title">Novo Lançamento</h3>
-        <button class="btn-close-modal" data-modal="modal-lançamento">&times;</button>
-      </div>
+        <section class="settings-section">
+          <button id="logout-button" type="button" class="settings-item" style="color:var(--danger);">
+            <span>Sair / Bloquear Aplicativo</span>
+            <span>🔒</span>
+          </button>
+        </section>
+      </main>
+    </section>
 
-      <div class="modal-body">
-        <input type="hidden" id="modal-cat-id">
-
-        <div class="form-group">
-          <label for="modal-val">Valor (R$)</label>
-          <input type="number" id="modal-val" placeholder="0,00" step="0.01" required>
-        </div>
-
-        <div class="form-group">
-          <label for="modal-desc">Descrição / Nome do gasto</label>
-          <input type="text" id="modal-desc" placeholder="Ex: Mercado, Uber..." required>
-        </div>
-
-        <div class="form-group">
-          <label for="modal-data">Data</label>
-          <input type="date" id="modal-data" required>
-        </div>
-      </div>
-
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary btn-close-modal" data-modal="modal-lançamento">Cancelar</button>
-        <button type="button" id="btn-salvar-lançamento" class="btn btn-primary">Confirmar</button>
+    <!-- MODAIS -->
+    <div id="picker-modal" class="modal hidden" role="dialog" aria-modal="true">
+      <div class="modal-content glass-panel">
+        <header class="modal-header">
+          <h2 id="picker-title">Selecione</h2>
+          <button type="button" class="modal-close" data-close-modal="picker-modal">×</button>
+        </header>
+        <main class="modal-body">
+          <div id="picker-options" class="custom-picker-list"></div>
+        </main>
       </div>
     </div>
-  </div>
 
-  <!-- MODAL DE RENDA EXTRA -->
-  <div id="modal-extra" class="modal">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h3>Lançar Renda Extra</h3>
-        <button class="btn-close-modal" data-modal="modal-extra">&times;</button>
-      </div>
-
-      <div class="modal-body">
-        <div class="form-group">
-          <label for="extra-val">Valor da Renda Extra (R$)</label>
-          <input type="number" id="extra-val" placeholder="0,00" step="0.01" required>
-        </div>
-
-        <div class="form-group">
-          <label for="extra-desc">Origem / Descrição</label>
-          <input type="text" id="extra-desc" placeholder="Ex: Venda, Freelance, Bico..." required>
-        </div>
-      </div>
-
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary btn-close-modal" data-modal="modal-extra">Cancelar</button>
-        <button type="button" id="btn-salvar-extra" class="btn btn-primary">Adicionar Renda</button>
+    <div id="custom-confirm-modal" class="modal hidden" role="dialog" aria-modal="true">
+      <div class="modal-content glass-panel" style="max-width:380px; text-align:center;">
+        <main class="modal-body" style="padding-top:24px;">
+          <p id="custom-confirm-message" style="font-size:15px; font-weight:600; color:var(--text);"></p>
+        </main>
+        <footer class="modal-footer modal-footer-dual" style="margin-top:10px;">
+          <button id="custom-confirm-cancel" type="button" class="secondary-button">Cancelar</button>
+          <button id="custom-confirm-ok" type="button" class="danger-button">Confirmar</button>
+        </footer>
       </div>
     </div>
-  </div>
 
-  <!-- MODAL DE CONFIGURAÇÕES -->
-  <div id="modal-settings" class="modal">
-    <div class="modal-content modal-large">
-      <div class="modal-header">
-        <h3>Configurações do App</h3>
-        <button class="btn-close-modal" data-modal="modal-settings">&times;</button>
+    <div id="custom-alert-modal" class="modal hidden" role="dialog" aria-modal="true">
+      <div class="modal-content glass-panel" style="max-width:380px; text-align:center;">
+        <main class="modal-body" style="padding-top:24px;">
+          <p id="custom-alert-message" style="font-size:15px; font-weight:600; color:var(--text);"></p>
+        </main>
+        <footer class="modal-footer" style="margin-top:10px;">
+          <button id="custom-alert-ok" type="button" class="primary-button">Entender</button>
+        </footer>
       </div>
+    </div>
 
-      <div class="modal-body">
-        <!-- SEÇÃO PERSONALIZAR -->
-        <div class="settings-group">
-          <h4>Personalizar</h4>
-          
-          <div class="form-group">
-            <label>Modo de aparência</label>
-            <div class="mode-toggle-group">
-              <button type="button" id="btn-mode-dark" class="btn-mode active">
-                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" class="icon-inline"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
-                Modo escuro
+    <div id="setup-limit-modal" class="modal hidden" role="dialog" aria-modal="true">
+      <div class="modal-content glass-panel">
+        <header class="modal-header">
+          <h2 id="setup-limit-title">Ajustar Limite</h2>
+          <button type="button" class="modal-close" data-close-modal="setup-limit-modal">×</button>
+        </header>
+        <main class="modal-body">
+          <p style="color:var(--text-secondary); font-size:13px;">Definir teto de gastos para esta categoria:</p>
+          <div class="choice-group">
+            <button type="button" class="choice-button" id="setup-limit-yes">Com Limite</button>
+            <button type="button" class="choice-button" id="setup-limit-no">Sem Limite</button>
+          </div>
+          <div id="setup-limit-input-container" class="hidden">
+            <label for="setup-limit-val">Valor do Limite (R$)</label>
+            <input id="setup-limit-val" class="hero-input" type="text" inputmode="decimal" placeholder="0,00">
+          </div>
+        </main>
+        <footer class="modal-footer">
+          <button id="save-setup-limit-button" type="button" class="primary-button">Salvar Limite</button>
+        </footer>
+      </div>
+    </div>
+
+    <div id="history-modal" class="modal hidden" role="dialog" aria-modal="true">
+      <div class="modal-content glass-panel">
+        <header class="modal-header">
+          <h2>Histórico de Meses</h2>
+          <button type="button" class="modal-close" data-close-modal="history-modal">×</button>
+        </header>
+        <main class="modal-body">
+          <div id="history-container"></div>
+        </main>
+      </div>
+    </div>
+
+    <div id="expense-edit-modal" class="modal hidden" role="dialog" aria-modal="true">
+      <div class="modal-content glass-panel">
+        <header class="modal-header">
+          <h2>Detalhes do Gasto</h2>
+          <button type="button" class="modal-close" data-close-modal="expense-edit-modal">×</button>
+        </header>
+        <main class="modal-body">
+          <label for="edit-expense-value">Valor (R$)</label>
+          <input id="edit-expense-value" class="hero-input" type="text" inputmode="decimal" placeholder="0,00">
+
+          <label>Categoria</label>
+          <button type="button" id="edit-expense-category-trigger" class="custom-select-button"></button>
+
+          <label>Origem</label>
+          <button type="button" id="edit-expense-origin-trigger" class="custom-select-button"></button>
+
+          <label for="edit-expense-description">Descrição</label>
+          <input id="edit-expense-description" type="text" maxlength="100" placeholder="Opcional">
+
+          <p id="edit-expense-error" class="error-message hidden" role="alert" aria-live="polite"></p>
+        </main>
+        <footer class="modal-footer modal-footer-dual">
+          <button id="delete-expense-button" type="button" class="danger-button">Excluir</button>
+          <button id="save-expense-edit-button" type="button" class="primary-button">Salvar Alterações</button>
+        </footer>
+      </div>
+    </div>
+
+    <div id="expense-modal" class="modal hidden" role="dialog" aria-modal="true">
+      <div class="modal-content glass-panel">
+        <header class="modal-header">
+          <h2 id="expense-modal-title">Lançar gasto</h2>
+          <button type="button" class="modal-close" data-close-modal="expense-modal">×</button>
+        </header>
+        <main class="modal-body">
+          <label for="expense-value">Quanto deseja lançar? (R$)</label>
+          <input id="expense-value" class="hero-input" type="text" inputmode="decimal" placeholder="0,00">
+
+          <div id="expense-origin-section" class="reserve-origin-section">
+            <p class="reserve-origin-title">De onde retirar?</p>
+            <div class="reserve-origin-options">
+              <button type="button" id="expense-origin-salary-btn" class="reserve-origin-option selected">
+                <span class="reserve-origin-name">Salário</span>
+                <strong id="expense-salary-available" class="reserve-origin-balance">R$ 0,00</strong>
               </button>
-              <button type="button" id="btn-mode-light" class="btn-mode">
-                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" class="icon-inline"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
-                Modo claro
+              <button type="button" id="expense-origin-extra-btn" class="reserve-origin-option">
+                <span class="reserve-origin-name">Extra</span>
+                <strong id="expense-extra-available" class="reserve-origin-balance">R$ 0,00</strong>
               </button>
             </div>
           </div>
 
-          <div class="form-group">
-            <label>Tema de Cores</label>
-            <div class="themes-grid">
-              <div class="theme-card active" data-theme="tema1">
-                <div class="theme-preview theme-1-preview"></div>
-                <div class="theme-info">
-                  <span class="theme-title">FX Gold</span>
-                  <span class="theme-desc">Ouro Imperial</span>
-                </div>
-              </div>
+          <label for="expense-description">Descrição</label>
+          <input id="expense-description" type="text" maxlength="100" placeholder="Opcional">
 
-              <div class="theme-card" data-theme="tema2">
-                <div class="theme-preview theme-2-preview"></div>
-                <div class="theme-info">
-                  <span class="theme-title">Grafite Titânio</span>
-                  <span class="theme-desc">Azul Cobalto</span>
-                </div>
-              </div>
-
-              <div class="theme-card" data-theme="tema3">
-                <div class="theme-preview theme-3-preview"></div>
-                <div class="theme-info">
-                  <span class="theme-title">Esmeralda Profundo</span>
-                  <span class="theme-desc">Jade Cyber</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <hr class="divider">
-
-        <!-- SEÇÃO PARÂMETROS FINANCEIROS -->
-        <div class="settings-group">
-          <h4>Ajustar Salário</h4>
-          <div class="form-group">
-            <label for="cfg-salario">Valor do Salário (R$)</label>
-            <input type="number" id="cfg-salario" step="0.01">
-          </div>
-
-          <div class="form-group">
-            <label>Adiantamento / Salário 5° dia útil</label>
-            <div class="toggle-group">
-              <button type="button" id="cfg-vale-nao" class="btn-toggle active">Não</button>
-              <button type="button" id="cfg-vale-sim" class="btn-toggle">Sim</button>
-            </div>
-          </div>
-
-          <div id="cfg-group-vale-detalhes" class="form-group hidden">
-            <label for="cfg-valor-vale">Valor do Adiantamento (R$)</label>
-            <input type="number" id="cfg-valor-vale" step="0.01">
-          </div>
-
-          <button type="button" id="btn-save-cfg-salario" class="btn btn-secondary full-width mb-15">Salvar Salário</button>
-        </div>
-
-        <hr class="divider">
-
-        <!-- SEÇÃO SEGURANÇA E BACKUP -->
-        <div class="settings-group">
-          <h4>Segurança e Backup</h4>
-          
-          <div class="form-group">
-            <label class="checkbox-label">
-              <input type="checkbox" id="cfg-biometria">
-              <span>Habilitar Login Biométrico</span>
-            </label>
-          </div>
-
-          <div class="btn-group-column">
-            <button type="button" id="btn-export-backup" class="btn btn-outline full-width mb-10">Exportar Extrato (CSV / Excel)</button>
-            <button type="button" id="btn-reset-app" class="btn btn-danger-outline full-width">Resetar Dados do Aplicativo</button>
-          </div>
-        </div>
+          <p id="expense-error" class="error-message hidden" role="alert" aria-live="polite"></p>
+        </main>
+        <footer class="modal-footer">
+          <button id="confirm-expense-button" type="button" class="primary-button">Lançar</button>
+        </footer>
       </div>
     </div>
-  </div>
 
-  <!-- SCRIPTS -->
-  <script src="app.js"></script>
+    <div id="extra-modal" class="modal hidden" role="dialog" aria-modal="true">
+      <div class="modal-content glass-panel">
+        <header class="modal-header">
+          <h2>Adicionar Extra</h2>
+          <button type="button" class="modal-close" data-close-modal="extra-modal">×</button>
+        </header>
+        <main class="modal-body">
+          <label for="extra-value">Valor (R$)</label>
+          <input id="extra-value" class="hero-input" type="text" inputmode="decimal" placeholder="0,00">
+
+          <label for="extra-description">Descrição</label>
+          <input id="extra-description" type="text" maxlength="100" placeholder="Opcional">
+
+          <p id="extra-error" class="error-message hidden" role="alert" aria-live="polite"></p>
+        </main>
+        <footer class="modal-footer">
+          <button id="confirm-extra-button" type="button" class="primary-button">Salvar</button>
+        </footer>
+      </div>
+    </div>
+
+    <div id="reserve-modal" class="modal hidden" role="dialog" aria-modal="true">
+      <div class="modal-content glass-panel">
+        <header class="modal-header">
+          <h2>Reserva</h2>
+          <button type="button" class="modal-close" data-close-modal="reserve-modal">×</button>
+        </header>
+        <main class="modal-body">
+          <div class="reserve-balance">
+            <span>Saldo acumulado</span>
+            <strong id="reserve-balance">R$ 0,00</strong>
+          </div>
+
+          <div class="reserve-actions">
+            <button id="reserve-save-button" type="button" class="secondary-button">Guardar</button>
+            <button id="reserve-withdraw-button" type="button" class="secondary-button">Retirar</button>
+          </div>
+
+          <div id="reserve-form" class="reserve-form hidden">
+            <label for="reserve-value">Quanto deseja guardar? (R$)</label>
+            <input id="reserve-value" class="hero-input" type="text" inputmode="decimal" placeholder="0,00">
+
+            <div id="reserve-origin-section" class="reserve-origin-section hidden">
+              <p class="reserve-origin-title">De onde retirar?</p>
+              <div id="reserve-origin-options" class="reserve-origin-options">
+                <button type="button" id="reserve-origin-salary-btn" class="reserve-origin-option selected">
+                  <span class="reserve-origin-name">Salário</span>
+                  <strong id="reserve-salary-available" class="reserve-origin-balance">R$ 0,00</strong>
+                </button>
+                <button type="button" id="reserve-origin-extra-btn" class="reserve-origin-option">
+                  <span class="reserve-origin-name">Extra</span>
+                  <strong id="reserve-extra-available" class="reserve-origin-balance">R$ 0,00</strong>
+                </button>
+              </div>
+            </div>
+
+            <button id="confirm-reserve-button" type="button" class="primary-button">Guardar na Reserva</button>
+          </div>
+
+          <div id="withdraw-form" class="reserve-form hidden">
+            <label for="withdraw-value">Valor (R$)</label>
+            <input id="withdraw-value" class="hero-input" type="text" inputmode="decimal" placeholder="0,00">
+            <button id="confirm-withdraw-button" type="button" class="primary-button">Confirmar retirada</button>
+          </div>
+
+          <p id="reserve-error" class="error-message hidden" role="alert" aria-live="polite"></p>
+        </main>
+      </div>
+    </div>
+
+    <div id="category-modal" class="modal hidden" role="dialog" aria-modal="true">
+      <div class="modal-content glass-panel">
+        <header class="modal-header">
+          <h2>Categoria</h2>
+          <button type="button" class="modal-close" data-close-modal="category-modal">×</button>
+        </header>
+        <main class="modal-body">
+          <div id="category-details"></div>
+        </main>
+      </div>
+    </div>
+
+    <div id="category-editor-modal" class="modal hidden" role="dialog" aria-modal="true">
+      <div class="modal-content glass-panel">
+        <header class="modal-header">
+          <h2 id="category-editor-title">Categoria</h2>
+          <button type="button" class="modal-close" data-close-modal="category-editor-modal">×</button>
+        </header>
+        <main class="modal-body">
+          <label for="category-name">Nome</label>
+          <input id="category-name" type="text" maxlength="40" placeholder="Nome da categoria">
+
+          <label>Ícone</label>
+          <button type="button" id="category-icon-trigger" class="custom-select-button"></button>
+
+          <p style="margin-top:10px;">Limite</p>
+          <div class="choice-group">
+            <button type="button" class="choice-button" data-category-limit="yes">Sim</button>
+            <button type="button" class="choice-button" data-category-limit="no">Não</button>
+          </div>
+
+          <div id="category-limit-value-container" class="hidden" style="margin-top:12px;">
+            <label for="category-limit-value">Valor do limite (R$)</label>
+            <input id="category-limit-value" class="hero-input" type="text" inputmode="decimal" placeholder="0,00">
+          </div>
+
+          <p id="category-editor-error" class="error-message hidden" role="alert" aria-live="polite"></p>
+        </main>
+        <footer class="modal-footer">
+          <button id="save-category-button" type="button" class="primary-button">Salvar</button>
+        </footer>
+      </div>
+    </div>
+
+    <div id="chart-modal" class="modal hidden" role="dialog" aria-modal="true">
+      <div class="modal-content glass-panel">
+        <header class="modal-header">
+          <h2>Gráfico do Mês</h2>
+          <button type="button" class="modal-close" data-close-modal="chart-modal">×</button>
+        </header>
+        <main class="modal-body">
+          <div id="chart-container" class="pizza-container"></div>
+        </main>
+      </div>
+    </div>
+
+    <div id="recovery-modal" class="modal hidden" role="dialog" aria-modal="true">
+      <div class="modal-content glass-panel">
+        <header class="modal-header">
+          <h2>Recuperar acesso</h2>
+          <button type="button" class="modal-close" data-close-modal="recovery-modal">×</button>
+        </header>
+        <main class="modal-body">
+          <p id="recovery-question-label" class="settings-help"></p>
+          <label for="recovery-username">Usuário</label>
+          <input id="recovery-username" type="text" autocomplete="username">
+          <label for="recovery-answer">Resposta</label>
+          <input id="recovery-answer" type="text" autocomplete="off">
+          <label for="recovery-new-password">Nova senha</label>
+          <input id="recovery-new-password" type="password" autocomplete="new-password">
+          <label for="recovery-confirm-password">Repetir nova senha</label>
+          <input id="recovery-confirm-password" type="password" autocomplete="new-password">
+          <p id="recovery-error" class="error-message hidden" role="alert" aria-live="polite"></p>
+        </main>
+        <footer class="modal-footer">
+          <button id="recover-password-button" type="button" class="primary-button">Redefinir senha</button>
+        </footer>
+      </div>
+    </div>
+
+    <div id="password-modal" class="modal hidden" role="dialog" aria-modal="true">
+      <div class="modal-content glass-panel">
+        <header class="modal-header">
+          <h2>Alterar senha</h2>
+          <button type="button" class="modal-close" data-close-modal="password-modal">×</button>
+        </header>
+        <main class="modal-body">
+          <label for="current-password">Senha atual</label>
+          <input id="current-password" type="password" autocomplete="current-password">
+
+          <label for="new-password">Nova senha</label>
+          <input id="new-password" type="password" autocomplete="new-password">
+
+          <label for="confirm-new-password">Confirmar nova senha</label>
+          <input id="confirm-new-password" type="password" autocomplete="new-password">
+
+          <p id="password-error" class="error-message hidden" role="alert" aria-live="polite"></p>
+        </main>
+        <footer class="modal-footer">
+          <button id="save-password-button" type="button" class="primary-button">Salvar</button>
+        </footer>
+      </div>
+    </div>
+
+    <div id="delete-data-modal" class="modal hidden" role="dialog" aria-modal="true">
+      <div class="modal-content glass-panel">
+        <header class="modal-header">
+          <h2>Apagar todos os dados</h2>
+          <button type="button" class="modal-close" data-close-modal="delete-data-modal">×</button>
+        </header>
+        <main class="modal-body">
+          <p>Esta ação apagará todos os dados do FX e fará o aplicativo voltar ao estado inicial.</p>
+          <label for="delete-password">Senha atual</label>
+          <input id="delete-password" type="password" autocomplete="current-password">
+
+          <label for="delete-confirmation">Digite APAGAR para confirmar</label>
+          <input id="delete-confirmation" type="text" autocomplete="off">
+
+          <p id="delete-error" class="error-message hidden" role="alert" aria-live="polite"></p>
+        </main>
+        <footer class="modal-footer">
+          <button id="confirm-delete-data-button" type="button" class="danger-button">Apagar todos os dados</button>
+        </footer>
+      </div>
+    </div>
+
+    <script src="app.js"></script>
+    <script>
+      // Service Worker desativado em plataformas nativas do Capacitor para evitar duplicidade de cache
+      if ('serviceWorker' in navigator && !window.Capacitor?.isNativePlatform()) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('./service-worker.js')
+            .catch(err => console.error('Erro ao registrar Service Worker:', err));
+        });
+      }
+    </script>
+
+  </div>
 </body>
 </html>
