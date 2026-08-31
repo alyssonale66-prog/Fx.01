@@ -1,5 +1,5 @@
 /* ============================================================
-   FX — Matte Flow Theme (Global com Textura Geométrica Dourada)
+   FX — Temas e Estilos Base
    ============================================================ */
 
 :root {
@@ -49,6 +49,12 @@ body {
   min-height: 100vh;
   min-height: 100dvh;
   background-color: var(--bg);
+  background-image: 
+    radial-gradient(circle at 80% 20%, rgba(201, 162, 39, 0.08) 0%, transparent 40%),
+    radial-gradient(circle at 10% 80%, rgba(201, 162, 39, 0.05) 0%, transparent 45%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.02) 25%, transparent 25%),
+    linear-gradient(225deg, rgba(255, 255, 255, 0.02) 25%, transparent 25%);
+  background-size: 100% 100%, 100% 100%, 40px 40px, 40px 40px;
   color: var(--text);
   font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   font-size: 16px;
@@ -144,7 +150,7 @@ label {
 }
 
 .glass-panel {
-  background: rgba(18, 18, 18, 0.85) !important;
+  background: var(--surface);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border: 1px solid var(--border) !important;
@@ -245,7 +251,7 @@ label {
 }
 
 .choice-button.selected {
-  color: #0a0a0a;
+  color: var(--bg);
   background: var(--accent);
   border-color: var(--accent);
   box-shadow: var(--glow-gold);
@@ -818,7 +824,7 @@ label {
 }
 
 .primary-button {
-  color: #0a0a0a;
+  color: var(--bg);
   background: var(--accent);
 }
 
@@ -943,6 +949,46 @@ label {
   border: 1px solid var(--border);
 }
 
+/* ============================================================
+   MAPEAMENTO DO NOVO TEMA CLARO
+   ============================================================ */
+html[data-theme="pearl"] {
+  color-scheme: light;
+  --bg: #f4f6f8;
+  --surface: #ffffff;
+  --surface-2: #f7f5f0;
+  --surface-3: #e8ecef;
+  --border: rgba(0, 0, 0, 0.12);
+  --text: #171716;
+  --text-secondary: #5f5b54;
+  --text-muted: #757068;
+  --shadow: 0 14px 36px rgba(0, 0, 0, 0.08);
+  
+  --accent: #d4af37;
+  --accent-dark: #aa8c2c;
+  --accent-soft: rgba(212, 175, 55, 0.14);
+}
+
+/* Os escuros antigos continuam intactos */
+:root,
+html[data-theme="fx"] {
+  --accent: #c9a227;
+  --accent-dark: #a8861c;
+  --accent-soft: rgba(201,162,39,.14);
+}
+
+html[data-theme="graphite"] {
+  --accent: #79a9c9;
+  --accent-dark: #5685a6;
+  --accent-soft: rgba(121,169,201,.14);
+}
+
+html[data-theme="emerald"] {
+  --accent: #5fcb91;
+  --accent-dark: #3c9d6a;
+  --accent-soft: rgba(95,203,145,.14);
+}
+
 .brand-mark {
   display:flex;
   align-items:center;
@@ -1027,7 +1073,7 @@ label {
 
 .theme-grid {
   display:grid;
-  grid-template-columns:repeat(3,1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap:10px;
 }
 
@@ -1063,6 +1109,7 @@ label {
 .theme-preview-fx { background:linear-gradient(135deg,#090909 0 55%,#c9a227 55% 60%,#181818 60%); }
 .theme-preview-graphite { background:linear-gradient(135deg,#090b0f 0 50%,#79a9c9 50% 56%,#202832 56%); }
 .theme-preview-emerald { background:linear-gradient(135deg,#07100d 0 50%,#5fcb91 50% 56%,#193027 56%); }
+.theme-preview-pearl { background:linear-gradient(135deg, #f7f5f0 0 50%, #d4af37 50% 56%, #ffffff 56%); }
 
 @media (max-width:420px) {
   .theme-grid { grid-template-columns:1fr; }
@@ -1076,88 +1123,4 @@ label {
   border-radius:var(--radius-small);
   background:var(--surface-2);
   color:var(--text);
-}
-
-/* ==============================================
-   MÚLTIPLOS TEMAS E MODOS DE APARÊNCIA
-   ============================================== */
-
-/* MODO CLARO (PADRÃO SEM TEMA) */
-html[data-appearance="light"] {
-  color-scheme: light;
-  --bg: #f4f6f8;
-  --surface: #ffffff;
-  --surface-2: #f7f5f0;
-  --surface-3: #e8ecef;
-  --border: rgba(0, 0, 0, 0.12);
-  --text: #171716;
-  --text-secondary: #5f5b54;
-  --text-muted: #757068;
-  --shadow: 0 14px 36px rgba(0, 0, 0, 0.08);
-  --accent: #a8861c;
-  --accent-dark: #8b6e15;
-  --accent-soft: rgba(168, 134, 28, 0.14);
-}
-html[data-appearance="light"] body { background-image: none; background-color: var(--bg); }
-
-/* MODO ESCURO (PADRÃO SEM TEMA) */
-html[data-appearance="dark"] {
-  color-scheme: dark;
-  --bg: #0a0a0a;
-  --surface: #121212;
-  --surface-2: #181818;
-  --surface-3: #222222;
-  --border: rgba(255, 255, 255, 0.08);
-  --text: #f4f2ed;
-  --text-secondary: #aaa69d;
-  --text-muted: #88847c;
-  --accent: #c9a227; 
-  --accent-soft: rgba(201, 162, 39, 0.14);
-}
-html[data-appearance="dark"] body { background-image: none; background-color: var(--bg); }
-
-/* TEMAS CUSTOMIZADOS (ANIMAÇÃO / TEXTURAS) */
-html[data-theme="fx"] {
-  --accent: #c9a227;
-  --accent-dark: #a8861c;
-  --accent-soft: rgba(201, 162, 39, 0.14);
-  --bg: #080808;
-}
-html[data-theme="fx"] body {
-  background-image: 
-    radial-gradient(circle at 80% 20%, rgba(201, 162, 39, 0.08) 0%, transparent 40%),
-    radial-gradient(circle at 10% 80%, rgba(201, 162, 39, 0.05) 0%, transparent 45%),
-    linear-gradient(135deg, rgba(255, 255, 255, 0.02) 25%, transparent 25%),
-    linear-gradient(225deg, rgba(255, 255, 255, 0.02) 25%, transparent 25%);
-  background-size: 100% 100%, 100% 100%, 40px 40px, 40px 40px;
-}
-
-html[data-theme="graphite"] {
-  --accent: #79a9c9;
-  --accent-dark: #5685a6;
-  --accent-soft: rgba(121, 169, 201, 0.14);
-  --bg: #090b0f;
-}
-html[data-theme="graphite"] body {
-  background-image: 
-    radial-gradient(circle at 80% 20%, rgba(121, 169, 201, 0.08) 0%, transparent 40%),
-    radial-gradient(circle at 10% 80%, rgba(121, 169, 201, 0.05) 0%, transparent 45%),
-    linear-gradient(135deg, rgba(255, 255, 255, 0.02) 25%, transparent 25%),
-    linear-gradient(225deg, rgba(255, 255, 255, 0.02) 25%, transparent 25%);
-  background-size: 100% 100%, 100% 100%, 40px 40px, 40px 40px;
-}
-
-html[data-theme="emerald"] {
-  --accent: #5fcb91;
-  --accent-dark: #3c9d6a;
-  --accent-soft: rgba(95, 203, 145, 0.14);
-  --bg: #07100d;
-}
-html[data-theme="emerald"] body {
-  background-image: 
-    radial-gradient(circle at 80% 20%, rgba(95, 203, 145, 0.08) 0%, transparent 40%),
-    radial-gradient(circle at 10% 80%, rgba(95, 203, 145, 0.05) 0%, transparent 45%),
-    linear-gradient(135deg, rgba(255, 255, 255, 0.02) 25%, transparent 25%),
-    linear-gradient(225deg, rgba(255, 255, 255, 0.02) 25%, transparent 25%);
-  background-size: 100% 100%, 100% 100%, 40px 40px, 40px 40px;
 }
