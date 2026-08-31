@@ -1,5 +1,5 @@
 /* ============================================================
-   FX — Temas e Estilos Base (Auditado & Otimizado)
+   FX — Temas e Estilos Base
    ============================================================ */
 
 :root,
@@ -545,7 +545,6 @@ label {
   transform: scale(0.92);
 }
 
-/* Configurações em Cards */
 .settings-content {
   max-width: 560px;
   margin: 0 auto;
