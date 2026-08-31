@@ -703,7 +703,6 @@
 
     <script src="app.js"></script>
     <script>
-      // Service Worker desativado em plataformas nativas do Capacitor para evitar duplicidade de cache
       if ('serviceWorker' in navigator && !window.Capacitor?.isNativePlatform()) {
         window.addEventListener('load', () => {
           navigator.serviceWorker.register('./service-worker.js')
