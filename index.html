@@ -259,29 +259,16 @@
 
         <section class="settings-section">
           <button type="button" class="settings-item" data-settings-toggle="personalization-settings">
-            <span>Personalizar</span>
+            <span>Tema do App</span>
             <span>⌄</span>
           </button>
           <div id="personalization-settings" class="settings-panel hidden">
             <div class="personalization-group">
-              <p class="settings-label">Modo Padrão (Sem Tema)</p>
-              <div class="choice-group">
-                <button type="button" class="choice-button" data-appearance="dark" style="display: flex; align-items: center; justify-content: center; gap: 8px;">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
-                  Escuro
-                </button>
-                <button type="button" class="choice-button" data-appearance="light" style="display: flex; align-items: center; justify-content: center; gap: 8px;">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
-                  Claro
-                </button>
-              </div>
-            </div>
-            <div class="personalization-group">
-              <p class="settings-label">Modo Estiloso (Com Tema)</p>
               <div class="theme-grid">
                 <button type="button" class="theme-card" data-theme-choice="fx"><span class="theme-preview theme-preview-fx"></span><strong>FX Gold</strong><small>Ouro Imperial</small></button>
                 <button type="button" class="theme-card" data-theme-choice="graphite"><span class="theme-preview theme-preview-graphite"></span><strong>Grafite Titânio</strong><small>Azul Cobalto</small></button>
                 <button type="button" class="theme-card" data-theme-choice="emerald"><span class="theme-preview theme-preview-emerald"></span><strong>Esmeralda Profundo</strong><small>Jade Cyber</small></button>
+                <button type="button" class="theme-card" data-theme-choice="pearl"><span class="theme-preview theme-preview-pearl"></span><strong>Pérola Branca</strong><small>Ouro Claro</small></button>
               </div>
             </div>
           </div>
@@ -351,14 +338,7 @@
             <span>⌄</span>
           </button>
           <div id="security-settings" class="settings-panel hidden">
-            
-            <p class="settings-label">Privacidade de Tela</p>
-            <div class="choice-group" style="margin-top: 0;">
-              <button type="button" class="choice-button" data-block-print="yes">Bloquear Print</button>
-              <button type="button" class="choice-button" data-block-print="no">Permitir Print</button>
-            </div>
-
-            <button id="register-biometrics-button" type="button" class="secondary-button" style="margin-top:10px;">Cadastrar Biometria (Digital/Face)</button>
+            <button id="register-biometrics-button" type="button" class="secondary-button">Cadastrar Biometria (Digital/Face)</button>
             <button id="change-password-button" type="button" class="secondary-button">Alterar senha</button>
             <button id="export-csv-button" type="button" class="secondary-button">Exportar Extrato (CSV / Excel)</button>
             <button id="export-backup-button" type="button" class="secondary-button">Exportar Backup (JSON)</button>
@@ -711,7 +691,7 @@
     <script>
       if ('serviceWorker' in navigator && !window.Capacitor?.isNativePlatform()) {
         window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/service-worker.js')
+          navigator.serviceWorker.register('./service-worker.js')
             .catch(err => console.error('Erro ao registrar Service Worker:', err));
         });
       }
