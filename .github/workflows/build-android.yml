@@ -1,4 +1,4 @@
-name: build-android
+Name: build-android
 on:
   push:
     branches: [ principal, main, master ]
@@ -41,6 +41,10 @@ jobs:
           rm -rf android
           npx cap add android
           npx cap sync android
+
+      - name: Gerar Ícones e Splash do App
+        run: |
+          npx @capacitor/assets generate --android --iconPath assets/icon.png
 
       - name: Dar permissão ao Gradle
         run: chmod +x android/gradlew
