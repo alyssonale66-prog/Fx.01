@@ -116,7 +116,7 @@
       </div>
     </section>
 
-    <!-- TELA DE BLOQUEIO (MODO NUBANK) -->
+    <!-- TELA DE BLOQUEIO -->
     <section id="lock-screen" class="screen hidden" aria-labelledby="lock-title">
       <div class="lock-container">
         <div class="lock-card glass-panel">
@@ -174,10 +174,7 @@
       </header>
 
       <main class="main-content">
-
-        <!-- ABA 1: INÍCIO -->
         <div id="tab-home" class="tab-content">
-          
           <div class="welcome-header">
             <span class="welcome-subtitle">Que bom te ver de novo,</span>
             <h2 class="welcome-title">Olá, <span id="user-display-name">Usuário</span> 👋</h2>
@@ -211,7 +208,6 @@
           </section>
         </div>
 
-        <!-- ABA 2: EXTRATO -->
         <div id="tab-extrato" class="tab-content hidden">
           <section class="expenses-section" aria-labelledby="expenses-title">
             <div class="section-heading">
@@ -220,10 +216,8 @@
             <div id="expenses-list" class="expenses-grouped-container"></div>
           </section>
         </div>
-
       </main>
 
-      <!-- BARRA DE NAVEGAÇÃO INFERIOR -->
       <nav class="bottom-nav">
         <button type="button" id="nav-home-button" class="nav-button active">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
@@ -235,7 +229,6 @@
           <span>Extrato</span>
         </button>
       </nav>
-
     </section>
 
     <!-- TELA DE CONFIGURAÇÕES -->
@@ -553,7 +546,7 @@
             <label for="reserve-value">Quanto deseja guardar? (R$)</label>
             <input id="reserve-value" class="hero-input" type="text" inputmode="decimal" placeholder="0,00">
 
-            <div id="reserve-origin-section" class="reserve-origin-section hidden">
+            <div id="reserve-origin-section-alt" class="reserve-origin-section hidden">
               <p class="reserve-origin-title">De onde retirar?</p>
               <div id="reserve-origin-options" class="reserve-origin-options">
                 <button type="button" id="reserve-origin-salary-btn" class="reserve-origin-option selected">
