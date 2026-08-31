@@ -9,7 +9,6 @@ const STORAGE_KEY = "fx01_sec_data";
 const CORRUPTED_BACKUP_KEY = "fx01_corrupted_backup";
 const DEVICE_KEY_SECRET = "FX_KEY_SALT_v1";
 
-/* MAPA DE ÍCONES SVG PADRONIZADOS */
 const CATEGORY_ICONS = {
   fixed: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>`,
   reserve: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="12" x="2" y="6" rx="2"/><circle cx="12" cy="12" r="2"/></svg>`,
@@ -76,7 +75,6 @@ const screens = {
   settings: $("settings-screen")
 };
 
-/* UTILITÁRIO BASE64 EM CHUNKS (PREVINE STACK OVERFLOW NO MOTOR V8) */
 function bytesToBase64(bytes) {
   let binary = '';
   const len = bytes.byteLength;
@@ -98,7 +96,6 @@ function base64ToBytes(base64) {
   return bytes;
 }
 
-/* CAMADA DE CRIPTOGRAFIA DINÂMICA DUAL-SALT (WEB CRYPTO API) */
 async function getCryptoKey() {
   const enc = new TextEncoder();
   const userHash = state?.security?.passwordHash || "DEFAULT_SALT";
@@ -332,7 +329,7 @@ function normalizeState() {
   state.extra.balance = roundMoney(state.extra.balance || 0);
 
   if (!state.security) state.security = { passwordHash: "", locked: false, lastCycleNotificationDate: "", biometricId: null, biometricType: null, recoveryQuestion: "", recoveryAnswerHash: "" };
-  if (!state.settings) state.settings = { cycleDay: 5, hideBalances: false, appearance: null, theme: "fx" };
+  if (!state.settings) state.settings = { cycleDay: 5, hideBalances: false, appearance: "dark", theme: "fx" };
 
   normalizeCycle(state.currentCycle);
   state.cycles.forEach(normalizeCycle);
@@ -367,7 +364,7 @@ function createEmptyState() {
     salary: { reference: 0, hasAdvance: false, advanceAmount: 0, advanceDay: 20 },
     extra: { balance: 0 },
     reserve: { balance: 0 },
-    settings: { cycleDay: 5, hideBalances: false, appearance: null, theme: "fx" },
+    settings: { cycleDay: 5, hideBalances: false, appearance: "dark", theme: "fx" },
     categories: [],
     cycles: [],
     currentCycle: null
@@ -963,7 +960,7 @@ function openReserveModal() {
   hideElement("reserve-error");
   hideElement("reserve-form");
   hideElement("withdraw-form");
-  hideElement("reserve-origin-section");
+  hideElement("reserve-origin-section-alt");
 
   updateReserveModalOriginButtons();
   setText("reserve-balance", formatMoneyOrMask(getReserveBalance()));
@@ -985,13 +982,13 @@ function updateReserveModalOriginButtons() {
 function showReserveSaveForm() {
   hideElement("withdraw-form");
   showElement("reserve-form");
-  showElement("reserve-origin-section");
+  showElement("reserve-origin-section-alt");
   updateReserveModalOriginButtons();
 }
 
 function showWithdrawForm() {
   hideElement("reserve-form");
-  hideElement("reserve-origin-section");
+  hideElement("reserve-origin-section-alt");
   showElement("withdraw-form");
 }
 
@@ -1059,27 +1056,22 @@ async function exportBackup() {
     const jsonStr = JSON.stringify(state, null, 2);
     const dateStr = new Date().toISOString().slice(0, 10);
     const fileName = `fx_backup_${dateStr}.json`;
+    const file = new File([jsonStr], fileName, { type: "application/json" });
 
+    let canShare = false;
     try {
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        await navigator.clipboard.writeText(jsonStr);
-        customAlert("Backup copiado para a área de transferência com sucesso! Cole em um arquivo .json para salvar.");
-        return;
-      }
-    } catch (clipErr) {
-      console.log("Clipboard fallback", clipErr);
+      canShare = !!(navigator.canShare && navigator.canShare({ files: [file] }));
+    } catch (e) {
+      canShare = false;
     }
 
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: "Backup FX",
-          text: jsonStr
-        });
-        return;
-      } catch (shareErr) {
-        if (shareErr.name !== "AbortError") console.log("Share text fallback", shareErr);
-      }
+    if (canShare) {
+      await navigator.share({
+        files: [file],
+        title: "Backup FX",
+        text: "Seu arquivo de backup do FX"
+      });
+      return;
     }
 
     const encodedData = "data:application/json;charset=utf-8," + encodeURIComponent(jsonStr);
@@ -1118,27 +1110,22 @@ async function exportCSV() {
 
     const dateStr = new Date().toISOString().slice(0, 10);
     const fileName = `fx_extrato_${dateStr}.csv`;
+    const file = new File([csvContent], fileName, { type: "text/csv" });
 
+    let canShare = false;
     try {
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        await navigator.clipboard.writeText(csvContent);
-        customAlert("Extrato CSV copiado para a área de transferência com sucesso!");
-        return;
-      }
-    } catch (clipErr) {
-      console.log("Clipboard fallback", clipErr);
+      canShare = !!(navigator.canShare && navigator.canShare({ files: [file] }));
+    } catch (e) {
+      canShare = false;
     }
 
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: "Extrato FX",
-          text: csvContent
-        });
-        return;
-      } catch (shareErr) {
-        if (shareErr.name !== "AbortError") console.log("Share text fallback", shareErr);
-      }
+    if (canShare) {
+      await navigator.share({
+        files: [file],
+        title: "Extrato FX",
+        text: "Seu extrato em CSV"
+      });
+      return;
     }
 
     const encodedData = "data:text/csv;charset=utf-8," + encodeURIComponent(csvContent);
@@ -1459,28 +1446,19 @@ function openChartModal() {
   openModal("chart-modal");
 }
 
-/* LÓGICA DE PERSONALIZAÇÃO SEPARADA (APARÊNCIA VS TEMA) */
 function applyPersonalization() {
-  const appearance = state?.settings?.appearance || null;
+  const appearance = state?.settings?.appearance || "dark";
   const theme = state?.settings?.theme || "fx";
 
-  if (appearance) {
-    document.documentElement.setAttribute("data-appearance", appearance);
-    if (document.body) document.body.setAttribute("data-appearance", appearance);
-  } else {
-    document.documentElement.removeAttribute("data-appearance");
-    if (document.body) document.body.removeAttribute("data-appearance");
+  document.documentElement.setAttribute("data-appearance", appearance);
+  document.documentElement.setAttribute("data-theme", theme);
+  
+  if (document.body) {
+    document.body.setAttribute("data-appearance", appearance);
+    document.body.setAttribute("data-theme", theme);
   }
 
-  if (theme) {
-    document.documentElement.setAttribute("data-theme", theme);
-    if (document.body) document.body.setAttribute("data-theme", theme);
-  } else {
-    document.documentElement.setAttribute("data-theme", "fx");
-    if (document.body) document.body.setAttribute("data-theme", "fx");
-  }
-
-  document.documentElement.style.colorScheme = appearance || "dark";
+  document.documentElement.style.colorScheme = appearance;
 
   renderHideBalancesIcon();
   renderLockPasswordIcon();
@@ -1490,12 +1468,9 @@ function applyPersonalization() {
 }
 
 function renderPersonalizationControls() {
-  const appearance = state?.settings?.appearance || null;
+  const appearance = state?.settings?.appearance || "dark";
   const theme = state?.settings?.theme || "fx";
-
-  document.querySelectorAll("[data-appearance]").forEach((btn) => {
-    btn.classList.toggle("selected", btn.dataset.appearance === appearance);
-  });
+  document.querySelectorAll("[data-appearance]").forEach((btn) => btn.classList.toggle("selected", btn.dataset.appearance === appearance));
   document.querySelectorAll("[data-theme-choice]").forEach((btn) => {
     btn.classList.toggle("selected", btn.dataset.themeChoice === theme);
     btn.setAttribute("aria-pressed", String(btn.dataset.themeChoice === theme));
@@ -1505,7 +1480,6 @@ function renderPersonalizationControls() {
 function saveAppearance(value) {
   if (!["dark", "light"].includes(value)) return;
   state.settings.appearance = value;
-  state.settings.theme = null; // Ao ativar modo escuro/claro, o tema customizado é desativado
   applyPersonalization();
   renderPersonalizationControls();
   saveState();
@@ -1514,7 +1488,6 @@ function saveAppearance(value) {
 function saveTheme(value) {
   if (!["fx", "graphite", "emerald"].includes(value)) return;
   state.settings.theme = value;
-  state.settings.appearance = null; // Ao ativar um tema, o modo escuro/claro sai e fica só o tema
   applyPersonalization();
   renderPersonalizationControls();
   saveState();
