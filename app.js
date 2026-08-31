@@ -1,5 +1,5 @@
 /* ============================================================
-   FX — Versão Android Production-Ready (Auditada & Criptografada)
+   FX — Versão Android Production-Ready (Auditada & Corrigida)
    ============================================================ */
 
 "use strict";
@@ -96,10 +96,10 @@ function base64ToBytes(base64) {
   return bytes;
 }
 
+// CORREÇÃO CRÍTICA DO APK: Chave estável para evitar falha de descriptografia no cold start
 async function getCryptoKey() {
   const enc = new TextEncoder();
-  const userHash = state?.security?.passwordHash || "DEFAULT_SALT";
-  const combinedSecret = DEVICE_KEY_SECRET + userHash;
+  const combinedSecret = DEVICE_KEY_SECRET + "FX_SECURE_MASTER_STORAGE_2026";
 
   const keyMaterial = await crypto.subtle.importKey(
     "raw",
@@ -1037,7 +1037,6 @@ async function exportBackup() {
     const dateStr = new Date().toISOString().slice(0, 10);
     const fileName = `fx_backup_${dateStr}.json`;
     
-    // Convert to Blob to bypass Android WebView URI size limits
     const blob = new Blob([jsonStr], { type: "application/json" });
     const url = URL.createObjectURL(blob);
 
@@ -1095,7 +1094,6 @@ async function exportCSV() {
     const dateStr = new Date().toISOString().slice(0, 10);
     const fileName = `fx_extrato_${dateStr}.csv`;
     
-    // Blob fix for Android WebViews
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8," });
     const url = URL.createObjectURL(blob);
 
@@ -1676,6 +1674,17 @@ function renderCategories() {
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg>
       </button>
     `;
+
+    // Toque em qualquer parte do card abre o lançamento direto (exceto Reserva que abre o cofre)
+    card.addEventListener("click", (e) => {
+      if (e.target.closest("[data-category-open]")) return;
+      if (cat.id === "reserve") {
+        openReserveModal();
+      } else {
+        openExpenseModal(cat.id);
+      }
+    });
+
     container.appendChild(card);
   });
 }
@@ -2001,17 +2010,6 @@ function bindEvents() {
     if (editItem) {
       closeModal("category-modal");
       openEditExpenseModal(editItem.dataset.editExpenseId);
-      return;
-    }
-
-    const catExpense = e.target.closest("[data-category-expense]");
-    if (catExpense) {
-      const catId = catExpense.dataset.categoryExpense;
-      if (catId === "reserve") {
-        openReserveModal();
-      } else {
-        openExpenseModal(catId);
-      }
       return;
     }
 
