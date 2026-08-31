@@ -2,7 +2,8 @@
    FX — Temas e Estilos Base
    ============================================================ */
 
-:root {
+:root,
+html[data-theme="fx"] {
   --bg: #0a0a0a;
   --surface: #121212;
   --surface-2: #181818;
@@ -31,6 +32,106 @@
 
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
+  
+  color-scheme: dark;
+}
+
+html[data-theme="graphite"] {
+  --bg: #090b0f;
+  --surface: #131720;
+  --surface-2: #1c2331;
+  --surface-3: #263244;
+
+  --border: rgba(121, 169, 201, 0.15);
+  --border-gold: rgba(121, 169, 201, 0.4);
+
+  --text: #eef2f7;
+  --text-secondary: #9aa4b2;
+  --text-muted: #737f91;
+
+  --accent: #79a9c9;
+  --accent-dark: #5685a6;
+  --accent-soft: rgba(121, 169, 201, 0.14);
+
+  --danger: #d94141;
+  --danger-dark: #b23232;
+
+  --radius-small: 12px;
+  --radius-medium: 18px;
+  --radius-large: 26px;
+
+  --shadow: 0 12px 36px rgba(0, 0, 0, 0.6);
+  --glow-gold: 0 0 24px rgba(121, 169, 201, 0.35);
+
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  
+  color-scheme: dark;
+}
+
+html[data-theme="emerald"] {
+  --bg: #07100d;
+  --surface: #0f1d18;
+  --surface-2: #172a23;
+  --surface-3: #20382f;
+
+  --border: rgba(95, 203, 145, 0.15);
+  --border-gold: rgba(95, 203, 145, 0.4);
+
+  --text: #ecf7f2;
+  --text-secondary: #93b8a6;
+  --text-muted: #6e8f80;
+
+  --accent: #5fcb91;
+  --accent-dark: #3c9d6a;
+  --accent-soft: rgba(95, 203, 145, 0.14);
+
+  --danger: #d94141;
+  --danger-dark: #b23232;
+
+  --radius-small: 12px;
+  --radius-medium: 18px;
+  --radius-large: 26px;
+
+  --shadow: 0 12px 36px rgba(0, 0, 0, 0.6);
+  --glow-gold: 0 0 24px rgba(95, 203, 145, 0.35);
+
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  
+  color-scheme: dark;
+}
+
+html[data-theme="pearl"] {
+  color-scheme: light;
+  --bg: #f4f6f8;
+  --surface: #ffffff;
+  --surface-2: #f7f5f0;
+  --surface-3: #e8ecef;
+
+  --border: rgba(0, 0, 0, 0.12);
+  --border-gold: rgba(212, 175, 55, 0.4);
+
+  --text: #171716;
+  --text-secondary: #5f5b54;
+  --text-muted: #757068;
+
+  --accent: #d4af37;
+  --accent-dark: #aa8c2c;
+  --accent-soft: rgba(212, 175, 55, 0.14);
+
+  --danger: #d94141;
+  --danger-dark: #b23232;
+
+  --radius-small: 12px;
+  --radius-medium: 18px;
+  --radius-large: 26px;
+
+  --shadow: 0 14px 36px rgba(0, 0, 0, 0.08);
+  --glow-gold: 0 0 24px rgba(212, 175, 55, 0.35);
+
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 * {
@@ -42,7 +143,6 @@
 html {
   min-height: 100%;
   background: var(--bg);
-  color-scheme: dark;
 }
 
 body {
@@ -50,8 +150,8 @@ body {
   min-height: 100dvh;
   background-color: var(--bg);
   background-image: 
-    radial-gradient(circle at 80% 20%, rgba(201, 162, 39, 0.08) 0%, transparent 40%),
-    radial-gradient(circle at 10% 80%, rgba(201, 162, 39, 0.05) 0%, transparent 45%),
+    radial-gradient(circle at 80% 20%, var(--accent-soft) 0%, transparent 40%),
+    radial-gradient(circle at 10% 80%, var(--accent-soft) 0%, transparent 45%),
     linear-gradient(135deg, rgba(255, 255, 255, 0.02) 25%, transparent 25%),
     linear-gradient(225deg, rgba(255, 255, 255, 0.02) 25%, transparent 25%);
   background-size: 100% 100%, 100% 100%, 40px 40px, 40px 40px;
@@ -749,7 +849,7 @@ label {
   display: flex;
   align-items: center;
   justify-content: space-around;
-  background: rgba(14, 14, 14, 0.85);
+  background: var(--surface);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border-top: 1px solid var(--border);
@@ -947,46 +1047,6 @@ label {
   background: var(--surface-2);
   border-radius: var(--radius-small);
   border: 1px solid var(--border);
-}
-
-/* ============================================================
-   MAPEAMENTO DO NOVO TEMA CLARO
-   ============================================================ */
-html[data-theme="pearl"] {
-  color-scheme: light;
-  --bg: #f4f6f8;
-  --surface: #ffffff;
-  --surface-2: #f7f5f0;
-  --surface-3: #e8ecef;
-  --border: rgba(0, 0, 0, 0.12);
-  --text: #171716;
-  --text-secondary: #5f5b54;
-  --text-muted: #757068;
-  --shadow: 0 14px 36px rgba(0, 0, 0, 0.08);
-  
-  --accent: #d4af37;
-  --accent-dark: #aa8c2c;
-  --accent-soft: rgba(212, 175, 55, 0.14);
-}
-
-/* Os escuros antigos continuam intactos */
-:root,
-html[data-theme="fx"] {
-  --accent: #c9a227;
-  --accent-dark: #a8861c;
-  --accent-soft: rgba(201,162,39,.14);
-}
-
-html[data-theme="graphite"] {
-  --accent: #79a9c9;
-  --accent-dark: #5685a6;
-  --accent-soft: rgba(121,169,201,.14);
-}
-
-html[data-theme="emerald"] {
-  --accent: #5fcb91;
-  --accent-dark: #3c9d6a;
-  --accent-soft: rgba(95,203,145,.14);
 }
 
 .brand-mark {
