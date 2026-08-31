@@ -80,7 +80,7 @@ const screens = {
 function bytesToBase64(bytes) {
   let binary = '';
   const len = bytes.byteLength;
-  const CHUNK_SIZE = 0x2000; // 8KB
+  const CHUNK_SIZE = 0x2000;
   for (let i = 0; i < len; i += CHUNK_SIZE) {
     const chunk = bytes.subarray(i, Math.min(i + CHUNK_SIZE, len));
     binary += String.fromCharCode.apply(null, chunk);
@@ -288,7 +288,6 @@ async function loadApplication() {
   renderApplication();
 }
 
-/* SISTEMA DE MIGRAÇÃO AUTOMÁTICA DE SCHEMA (SCHEMA EVOLUTION) */
 function migrateStateSchema() {
   if (!state) return;
 
@@ -1450,14 +1449,26 @@ function openChartModal() {
   openModal("chart-modal");
 }
 
+/* FUNÇÃO CORRIGIDA PARA APLICAR MODO CLARO/ESCURO E ATUALIZAR ÍCONES */
 function applyPersonalization() {
   const appearance = state?.settings?.appearance || "dark";
   const theme = state?.settings?.theme || "fx";
-  document.documentElement.dataset.appearance = appearance;
-  document.documentElement.dataset.theme = theme;
-  document.body?.setAttribute("data-appearance", appearance);
-  document.body?.setAttribute("data-theme", theme);
+
+  document.documentElement.setAttribute("data-appearance", appearance);
+  document.documentElement.setAttribute("data-theme", theme);
+  
+  if (document.body) {
+    document.body.setAttribute("data-appearance", appearance);
+    document.body.setAttribute("data-theme", theme);
+  }
+
   document.documentElement.style.colorScheme = appearance;
+
+  renderHideBalancesIcon();
+  renderLockPasswordIcon();
+  if ($("biometric-unlock-icon")) {
+    $("biometric-unlock-icon").innerHTML = CATEGORY_ICONS.biometrics;
+  }
 }
 
 function renderPersonalizationControls() {
@@ -1684,7 +1695,7 @@ function renderCategories() {
     card.innerHTML = `
       <div class="category-main" data-category-expense="${cat.id}">
         <div class="category-top">
-          <span class="category-name" style="display:flex; align-items:center; gap:8px;">
+          <span class="category-name">
             ${getCategoryIconSvg(cat)}
             ${escapeHTML(cat.name)}
           </span>
@@ -1741,7 +1752,7 @@ function renderExpensesGrouped() {
       itemsHTML += `
         <div class="expense-item-card" data-edit-expense-id="${exp.id}">
           <div class="expense-item-left">
-            <div class="expense-item-icon" style="color:var(--accent);">${getCategoryIconSvg(cat)}</div>
+            <div class="expense-item-icon">${getCategoryIconSvg(cat)}</div>
             <div class="expense-item-details">
               <span class="expense-item-title">${escapeHTML(exp.description || catName)}</span>
               <div class="expense-item-sub">
@@ -1832,7 +1843,6 @@ async function recoverPassword() {
   customAlert("Senha redefinida com sucesso.");
 }
 
-/* GERENCIAMENTO OTIMIZADO DE EVENTOS (DELEGADOS POR TELA) */
 function bindEvents() {
   $("setup-next-button")?.addEventListener("click", handleSetupNext);
   $("setup-back-button")?.addEventListener("click", () => {
@@ -1915,7 +1925,6 @@ function bindEvents() {
     ], (val) => { selectedCategoryIcon = val; });
   });
 
-  /* ESCUTADOR PRINCIPAL OTIMIZADO */
   document.addEventListener("click", (e) => {
     const extraCard = e.target.closest(".extra-source");
     if (extraCard && !e.target.closest("#add-extra-button")) {
