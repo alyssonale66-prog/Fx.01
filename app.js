@@ -1,5 +1,5 @@
 /* ============================================================
-   FX — Versão Android Production-Ready (Auditada & Corrigida)
+   FX — Versão Android Production-Ready (Multi-Camadas & Auditada)
    ============================================================ */
 
 "use strict";
@@ -227,16 +227,72 @@ async function saveState() {
   if (!state) return;
   try {
     const encrypted = await encryptData(state);
-    if (encrypted) {
-      localStorage.setItem(STORAGE_KEY, encrypted);
+    if (!encrypted) return;
+
+    // Camada 1: LocalStorage clássico
+    localStorage.setItem(STORAGE_KEY, encrypted);
+
+    // Camada 2: Capacitor Preferences (SharedPreferences nativo do Android)
+    const Preferences = window.Capacitor?.Plugins?.Preferences;
+    if (Preferences) {
+      await Preferences.set({ key: STORAGE_KEY, value: encrypted });
+    }
+
+    // Camada 3: Arquivo físico interno (Filesystem do Capacitor)
+    const Filesystem = window.Capacitor?.Plugins?.Filesystem;
+    if (Filesystem) {
+      await Filesystem.writeFile({
+        path: "fx_master_backup.json",
+        data: encrypted,
+        directory: "DATA",
+        encoding: "utf8"
+      }).catch(() => {});
     }
   } catch (e) {
-    console.error("Erro ao salvar dados no LocalStorage:", e);
+    console.error("Erro crítico na persistência multi-camadas:", e);
   }
 }
 
 async function loadApplication() {
-  const stored = localStorage.getItem(STORAGE_KEY) || localStorage.getItem("fx01_data");
+  let stored = null;
+
+  try {
+    // Tenta carregar da Camada 3 (Filesystem nativo)
+    const Filesystem = window.Capacitor?.Plugins?.Filesystem;
+    if (Filesystem) {
+      try {
+        const fileResult = await Filesystem.readFile({
+          path: "fx_master_backup.json",
+          directory: "DATA",
+          encoding: "utf8"
+        });
+        if (fileResult && fileResult.data) {
+          stored = fileResult.data;
+        }
+      } catch (err) {
+        // Arquivo físico ainda não existe
+      }
+    }
+
+    // Se não achou na Camada 3, tenta a Camada 2 (Capacitor Preferences)
+    if (!stored) {
+      const Preferences = window.Capacitor?.Plugins?.Preferences;
+      if (Preferences) {
+        const prefResult = await Preferences.get({ key: STORAGE_KEY });
+        if (prefResult && prefResult.value) {
+          stored = prefResult.value;
+        }
+      }
+    }
+
+    // Se ainda não achou, recorre à Camada 1 (LocalStorage)
+    if (!stored) {
+      stored = localStorage.getItem(STORAGE_KEY) || localStorage.getItem("fx01_data");
+    }
+  } catch (e) {
+    console.error("Erro ao ler camadas de persistência:", e);
+  }
+
   if (!stored) {
     startInitialSetup();
     return;
@@ -1204,7 +1260,6 @@ async function authenticateBiometric() {
       });
       unlockSuccess();
     } catch (err) {
-      // CORRIGIDO: Se cancelar ou falhar, avisa sem entrar em loop e libera o campo de senha
       showElement("unlock-error", "Biometria cancelada. Digite sua senha abaixo.");
     }
   } else {
@@ -1544,6 +1599,17 @@ async function deleteAllData() {
 
   localStorage.removeItem(STORAGE_KEY);
   localStorage.removeItem("fx01_data");
+  
+  const Preferences = window.Capacitor?.Plugins?.Preferences;
+  if (Preferences) {
+    await Preferences.remove({ key: STORAGE_KEY }).catch(() => {});
+  }
+  
+  const Filesystem = window.Capacitor?.Plugins?.Filesystem;
+  if (Filesystem) {
+    await Filesystem.deleteFile({ path: "fx_master_backup.json", directory: "DATA" }).catch(() => {});
+  }
+
   state = null;
   closeModal("delete-data-modal");
   startInitialSetup();
@@ -1569,7 +1635,6 @@ function lockApp() {
     if (bioTrigger) bioTrigger.classList.remove("hidden");
     showScreen("lock");
     
-    // Tenta a biometria automaticamente 1 vez ao bloquear, sem loop se o usuário cancelar
     setTimeout(() => {
       authenticateBiometric();
     }, 250);
