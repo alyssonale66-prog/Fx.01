@@ -1,10 +1,9 @@
 /* ============================================================
-   FX — Service Worker (Estratégia Cache-First com Ícones)
+   FX — Service Worker v1.1.1 (Estratégia Cache-First Limpa)
    ============================================================ */
 
-const CACHE_NAME = 'fx-cache-v1.1.0';
+const CACHE_NAME = 'fx-cache-v1.1.1';
 const ASSETS_TO_CACHE = [
-  '/',
   '/index.html',
   '/style.css',
   '/app.js',
