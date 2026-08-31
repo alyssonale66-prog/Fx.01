@@ -45,18 +45,27 @@ jobs:
       - name: Dar permissão ao Gradle
         run: chmod +x android/gradlew
 
-      - name: Compilar APK Debug e AAB Release - FX Finance
+      - name: Decodificar Keystore para Assinatura
+        run: |
+          echo "${{ secrets.FX_KEYSTORE_BASE64 }}" | base64 -d > android/app/release.keystore
+
+      - name: Compilar APK Debug e AAB Release Assinado
         run: |
           cd android
-          ./gradlew assembleDebug bundleRelease --stacktrace
+          ./gradlew assembleDebug
+          ./gradlew bundleRelease \
+            -Pandroid.injected.signing.store.file=$(pwd)/app/release.keystore \
+            -Pandroid.injected.signing.store.password="${{ secrets.FX_KEYSTORE_PASSWORD }}" \
+            -Pandroid.injected.signing.key.alias="${{ secrets.FX_KEY_ALIAS }}" \
+            -Pandroid.injected.signing.key.password="${{ secrets.FX_KEYSTORE_PASSWORD }}"
 
       - name: Organizar Artefatos de Saída
         run: |
           mkdir -p dist-artifacts
           cp android/app/build/outputs/apk/debug/app-debug.apk dist-artifacts/FX-Finance.apk
-          cp android/app/build/outputs/bundle/release/app-release.aab dist-artifacts/FX-Finance-Release.aab
+          cp android/app/build/outputs/bundle/release/*.aab dist-artifacts/FX-Finance-Release.aab
 
-      - name: Disponibilizar Artefatos (APK + AAB)
+      - name: Disponibilizar Artefatos (APK + AAB Assinado)
         uses: actions/upload-artifact@v4
         with:
           name: FX-Financas-v${{ github.run_number }}
