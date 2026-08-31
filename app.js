@@ -1,11 +1,12 @@
 /* ============================================================
-   FX.01 — Versão Profissional Auditada & Criptografada
+   FX — Versão Android Production-Ready (Auditada & Criptografada)
    ============================================================ */
 
 "use strict";
 
 const FX_VERSION = "1.1.0";
 const STORAGE_KEY = "fx01_sec_data";
+const CORRUPTED_BACKUP_KEY = "fx01_corrupted_backup";
 const DEVICE_KEY_SECRET = "FX_KEY_SALT_v1";
 
 /* MAPA DE ÍCONES SVG PADRONIZADOS */
@@ -19,7 +20,6 @@ const CATEGORY_ICONS = {
   biometrics: `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04C4.05 16.148 3 13.686 3 11c0-4.97 4.03-9 9-9s9 4.03 9 9c0 4.015-2.631 7.41-6.284 8.571M12 7v8m0 0a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/></svg>`
 };
 
-/* ÍCONES VETORIAIS DE VISIBILIDADE E SEGURANÇA */
 const SVG_EYE_OPEN = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>`;
 const SVG_EYE_SLASH = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.52 13.52 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" x2="22" y1="2" y2="22"/></svg>`;
 
@@ -76,12 +76,37 @@ const screens = {
   settings: $("settings-screen")
 };
 
-/* CAMADA DE CRIPTOGRAFIA EM REPOUSO (WEB CRYPTO API - AES-GCM & SHA-256) */
+/* UTILITÁRIO BASE64 EM CHUNKS (PREVINE STACK OVERFLOW NO MOTOR V8) */
+function bytesToBase64(bytes) {
+  let binary = '';
+  const len = bytes.byteLength;
+  const CHUNK_SIZE = 0x2000; // 8KB
+  for (let i = 0; i < len; i += CHUNK_SIZE) {
+    const chunk = bytes.subarray(i, Math.min(i + CHUNK_SIZE, len));
+    binary += String.fromCharCode.apply(null, chunk);
+  }
+  return btoa(binary);
+}
+
+function base64ToBytes(base64) {
+  const binaryStr = atob(base64);
+  const len = binaryStr.length;
+  const bytes = new Uint8Array(len);
+  for (let i = 0; i < len; i++) {
+    bytes[i] = binaryStr.charCodeAt(i);
+  }
+  return bytes;
+}
+
+/* CAMADA DE CRIPTOGRAFIA DINÂMICA DUAL-SALT (WEB CRYPTO API) */
 async function getCryptoKey() {
   const enc = new TextEncoder();
+  const userHash = state?.security?.passwordHash || "DEFAULT_SALT";
+  const combinedSecret = DEVICE_KEY_SECRET + userHash;
+
   const keyMaterial = await crypto.subtle.importKey(
     "raw",
-    enc.encode(DEVICE_KEY_SECRET),
+    enc.encode(combinedSecret),
     "PBKDF2",
     false,
     ["deriveKey"]
@@ -124,7 +149,7 @@ async function encryptData(dataObj) {
     combined.set(iv);
     combined.set(new Uint8Array(encryptedContent), iv.length);
 
-    return btoa(String.fromCharCode.apply(null, combined));
+    return bytesToBase64(combined);
   } catch (err) {
     console.error("Erro ao criptografar dados:", err);
     return null;
@@ -134,11 +159,7 @@ async function encryptData(dataObj) {
 async function decryptData(cipherBase64) {
   try {
     const key = await getCryptoKey();
-    const binaryStr = atob(cipherBase64);
-    const combined = new Uint8Array(binaryStr.length);
-    for (let i = 0; i < binaryStr.length; i++) {
-      combined[i] = binaryStr.charCodeAt(i);
-    }
+    const combined = base64ToBytes(cipherBase64);
 
     const iv = combined.slice(0, 12);
     const data = combined.slice(12);
@@ -174,7 +195,6 @@ function initNativeLifecycle() {
   const App = window.Capacitor?.Plugins?.App;
   if (!App) return;
 
-  // Gerenciamento do botão físico "Voltar" do Android
   App.addListener("backButton", () => {
     const openModals = document.querySelectorAll(".modal:not(.hidden)");
     if (openModals.length > 0) {
@@ -196,7 +216,6 @@ function initNativeLifecycle() {
     App.exitApp();
   });
 
-  // Bloqueio automático e autenticação ao minimizar / retornar do background
   App.addListener("appStateChange", ({ isActive }) => {
     if (!isActive) {
       if (state && state.setupCompleted && !state.security.locked) {
@@ -240,13 +259,16 @@ async function loadApplication() {
     if (parsed && typeof parsed === "object") {
       state = parsed;
     } else {
-      state = createEmptyState();
+      throw new Error("Falha na decodificação do estado.");
     }
   } catch (error) {
-    console.error("Erro ao ler dados corrompidos:", error);
+    console.error("Inconsistência de leitura. Isolando backup corrompido:", error);
+    localStorage.setItem(CORRUPTED_BACKUP_KEY, stored);
+    customAlert("Detectamos uma inconsistência de leitura. Um backup de segurança foi criado em seu dispositivo.");
     state = createEmptyState();
   }
 
+  migrateStateSchema();
   normalizeState();
   applyPersonalization();
   checkCycleRollover();
@@ -264,6 +286,22 @@ async function loadApplication() {
 
   showScreen("main");
   renderApplication();
+}
+
+/* SISTEMA DE MIGRAÇÃO AUTOMÁTICA DE SCHEMA (SCHEMA EVOLUTION) */
+function migrateStateSchema() {
+  if (!state) return;
+
+  if (!state.version || state.version !== FX_VERSION) {
+    if (!state.categories) state.categories = DEFAULT_CATEGORIES.map(c => ({ ...c }));
+    if (!state.extra) state.extra = { balance: 0 };
+    if (!state.reserve) state.reserve = { balance: 0 };
+    if (!state.security.recoveryQuestion) state.security.recoveryQuestion = "";
+    if (!state.security.recoveryAnswerHash) state.security.recoveryAnswerHash = "";
+
+    state.version = FX_VERSION;
+    saveState();
+  }
 }
 
 function normalizeState() {
@@ -504,7 +542,6 @@ async function handleSetupNext() {
     if (!/^[a-z0-9_]{3,40}$/.test(username)) return showSetupError("setup-credentials-error", "Use de 3 a 40 caracteres com letras minúsculas, números ou '_'.");
     if (!password) return showSetupError("setup-credentials-error", "Crie uma senha.");
     
-    // Regra de validação reforçada: Mínimo 8 caracteres, 1 maiúscula e 1 número
     if (!/^(?=.*[A-Z])(?=.*\d).{8,}$/.test(password)) {
       return showSetupError("setup-credentials-error", "A senha precisa ter no mínimo 8 caracteres, com ao menos 1 letra MAIÚSCULA e 1 número.");
     }
@@ -1135,7 +1172,6 @@ function importBackup(event) {
   reader.readAsText(file);
 }
 
-/* INTEGRAÇÃO NATIVA DE BIOMETRIA */
 function getBiometricPlugin() {
   return window.Capacitor?.Plugins?.NativeBiometric;
 }
@@ -1322,7 +1358,6 @@ function saveCategory() {
 
     if (!name) throw new Error("Digite o nome da categoria.");
 
-    // Validação de unicidade de nome para evitar duplicações de categorias
     const duplicate = state.categories.find(c => c.name.toLowerCase() === name.toLowerCase() && c.id !== currentEditingCategoryId);
     if (duplicate) throw new Error("Já existe uma categoria cadastrada com esse nome.");
 
@@ -1748,13 +1783,11 @@ function updateSalarySplitButtons() {
   $("salary-split-info")?.classList.toggle("hidden", settingsSalarySplit !== "yes");
 }
 
-/* PARSER MONETÁRIO DE ALTA PRECISÃO COM EXPRESSÃO REGULAR ESTRITA */
 function parseMoneyInput(value) {
   if (value === null || value === undefined) return 0;
   let text = String(value).trim().replace(/\s/g, "");
   if (!text) return 0;
 
-  // Trata formatos com vírgula e múltiplos pontos (ex: 1.500,50)
   if (text.includes(",") && text.includes(".")) {
     text = text.replace(/\./g, "").replace(",", ".");
   } else if (text.includes(",")) {
@@ -1799,6 +1832,7 @@ async function recoverPassword() {
   customAlert("Senha redefinida com sucesso.");
 }
 
+/* GERENCIAMENTO OTIMIZADO DE EVENTOS (DELEGADOS POR TELA) */
 function bindEvents() {
   $("setup-next-button")?.addEventListener("click", handleSetupNext);
   $("setup-back-button")?.addEventListener("click", () => {
@@ -1881,8 +1915,8 @@ function bindEvents() {
     ], (val) => { selectedCategoryIcon = val; });
   });
 
+  /* ESCUTADOR PRINCIPAL OTIMIZADO */
   document.addEventListener("click", (e) => {
-    // Interatividade do Card Extra: clicar na área do card abre o modal
     const extraCard = e.target.closest(".extra-source");
     if (extraCard && !e.target.closest("#add-extra-button")) {
       openModal("extra-modal");
