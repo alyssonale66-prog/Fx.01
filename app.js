@@ -1,13 +1,12 @@
 /* ============================================================
-   FX — Versão Android Production-Ready (Multi-Camadas & Auditada)
+   FX — Versão Android Production-Ready v1.1.1 (Chave Dinâmica Pura)
    ============================================================ */
 
 "use strict";
 
-const FX_VERSION = "1.1.0";
+const FX_VERSION = "1.1.1";
 const STORAGE_KEY = "fx01_sec_data";
 const CORRUPTED_BACKUP_KEY = "fx01_corrupted_backup";
-const DEVICE_KEY_SECRET = "FX_KEY_SALT_v1";
 
 const CATEGORY_ICONS = {
   fixed: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>`,
@@ -64,6 +63,8 @@ let selectedCategoryIcon = "other";
 let editingSetupCategoryIndex = null;
 let setupLimitHasLimit = false;
 
+let backupActionType = null;
+let importPendingData = null;
 let customConfirmCallback = null;
 
 const $ = (id) => document.getElementById(id);
@@ -75,34 +76,42 @@ const screens = {
   settings: $("settings-screen")
 };
 
-function bytesToBase64(bytes) {
-  let binary = '';
-  const len = bytes.byteLength;
-  const CHUNK_SIZE = 0x2000;
-  for (let i = 0; i < len; i += CHUNK_SIZE) {
-    const chunk = bytes.subarray(i, Math.min(i + CHUNK_SIZE, len));
-    binary += String.fromCharCode.apply(null, chunk);
+async function getDeviceSalt() {
+  const Prefs = window.Capacitor?.Plugins?.Preferences;
+  if (!Prefs) return "FX_WEB_FALLBACK_SALT_2026";
+  let { value } = await Prefs.get({ key: "fx_device_salt" });
+  if (!value) {
+    value = crypto.randomUUID();
+    await Prefs.set({ key: "fx_device_salt", value });
   }
-  return btoa(binary);
+  return value;
 }
 
-function base64ToBytes(base64) {
-  const binaryStr = atob(base64);
-  const len = binaryStr.length;
-  const bytes = new Uint8Array(len);
-  for (let i = 0; i < len; i++) {
-    bytes[i] = binaryStr.charCodeAt(i);
-  }
-  return bytes;
+async function bytesToBase64Safe(bytes) {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result;
+      resolve(result.substr(result.indexOf(',') + 1));
+    };
+    reader.readAsDataURL(new Blob([bytes]));
+  });
 }
 
-async function getCryptoKey() {
+async function base64ToBytesSafe(base64) {
+  const res = await fetch("data:application/octet-stream;base64," + base64);
+  const buf = await res.arrayBuffer();
+  return new Uint8Array(buf);
+}
+
+async function getCryptoKey(password = null) {
   const enc = new TextEncoder();
-  const combinedSecret = DEVICE_KEY_SECRET + "FX_SECURE_MASTER_STORAGE_2026";
-
+  const deviceSalt = await getDeviceSalt();
+  const secretSource = password || deviceSalt;
+  
   const keyMaterial = await crypto.subtle.importKey(
     "raw",
-    enc.encode(combinedSecret),
+    enc.encode(secretSource),
     "PBKDF2",
     false,
     ["deriveKey"]
@@ -124,13 +133,13 @@ async function getCryptoKey() {
 async function hashString(str) {
   if (!str) return "";
   const enc = new TextEncoder();
-  const buf = await crypto.subtle.digest("SHA-256", enc.encode(str.trim().toLowerCase()));
+  const buf = await crypto.subtle.digest("SHA-256", enc.encode(str.trim()));
   return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
-async function encryptData(dataObj) {
+async function encryptData(dataObj, password = null) {
   try {
-    const key = await getCryptoKey();
+    const key = await getCryptoKey(password);
     const enc = new TextEncoder();
     const iv = crypto.getRandomValues(new Uint8Array(12));
     const encodedData = enc.encode(JSON.stringify(dataObj));
@@ -145,17 +154,17 @@ async function encryptData(dataObj) {
     combined.set(iv);
     combined.set(new Uint8Array(encryptedContent), iv.length);
 
-    return bytesToBase64(combined);
+    return await bytesToBase64Safe(combined);
   } catch (err) {
     console.error("Erro ao criptografar dados:", err);
     return null;
   }
 }
 
-async function decryptData(cipherBase64) {
+async function decryptData(cipherBase64, password = null) {
   try {
-    const key = await getCryptoKey();
-    const combined = base64ToBytes(cipherBase64);
+    const key = await getCryptoKey(password);
+    const combined = await base64ToBytesSafe(cipherBase64);
 
     const iv = combined.slice(0, 12);
     const data = combined.slice(12);
@@ -182,9 +191,12 @@ document.addEventListener("DOMContentLoaded", async () => {
 });
 
 function initInitialIcons() {
-  if ($("setup-password-eye")) $("setup-password-eye").innerHTML = SVG_EYE_OPEN;
-  if ($("setup-password-confirm-eye")) $("setup-password-confirm-eye").innerHTML = SVG_EYE_OPEN;
-  if ($("biometric-unlock-icon")) $("biometric-unlock-icon").innerHTML = CATEGORY_ICONS.biometrics;
+  const eye1 = $("setup-password-eye");
+  const eye2 = $("setup-password-confirm-eye");
+  const bio = $("biometric-unlock-icon");
+  if (eye1) eye1.innerHTML = SVG_EYE_OPEN;
+  if (eye2) eye2.innerHTML = SVG_EYE_OPEN;
+  if (bio) bio.innerHTML = CATEGORY_ICONS.biometrics;
 }
 
 function initNativeLifecycle() {
@@ -223,33 +235,43 @@ function initNativeLifecycle() {
   });
 }
 
+let isSaving = false;
+let pendingSave = false;
+
 async function saveState() {
   if (!state) return;
+  if (isSaving) {
+    pendingSave = true;
+    return;
+  }
+  isSaving = true;
   try {
-    const encrypted = await encryptData(state);
-    if (!encrypted) return;
+    do {
+      pendingSave = false;
+      const encrypted = await encryptData(state);
+      if (!encrypted) continue;
 
-    // Camada 1: LocalStorage clássico
-    localStorage.setItem(STORAGE_KEY, encrypted);
+      localStorage.setItem(STORAGE_KEY, encrypted);
 
-    // Camada 2: Capacitor Preferences (SharedPreferences nativo do Android)
-    const Preferences = window.Capacitor?.Plugins?.Preferences;
-    if (Preferences) {
-      await Preferences.set({ key: STORAGE_KEY, value: encrypted });
-    }
+      const Preferences = window.Capacitor?.Plugins?.Preferences;
+      if (Preferences) {
+        await Preferences.set({ key: STORAGE_KEY, value: encrypted });
+      }
 
-    // Camada 3: Arquivo físico interno (Filesystem do Capacitor)
-    const Filesystem = window.Capacitor?.Plugins?.Filesystem;
-    if (Filesystem) {
-      await Filesystem.writeFile({
-        path: "fx_master_backup.json",
-        data: encrypted,
-        directory: "DATA",
-        encoding: "utf8"
-      }).catch(() => {});
-    }
+      const Filesystem = window.Capacitor?.Plugins?.Filesystem;
+      if (Filesystem) {
+        await Filesystem.writeFile({
+          path: "fx_master_backup.json",
+          data: encrypted,
+          directory: "DATA",
+          encoding: "utf8"
+        }).catch(() => {});
+      }
+    } while (pendingSave);
   } catch (e) {
     console.error("Erro crítico na persistência multi-camadas:", e);
+  } finally {
+    isSaving = false;
   }
 }
 
@@ -257,7 +279,6 @@ async function loadApplication() {
   let stored = null;
 
   try {
-    // Tenta carregar da Camada 3 (Filesystem nativo)
     const Filesystem = window.Capacitor?.Plugins?.Filesystem;
     if (Filesystem) {
       try {
@@ -274,7 +295,6 @@ async function loadApplication() {
       }
     }
 
-    // Se não achou na Camada 3, tenta a Camada 2 (Capacitor Preferences)
     if (!stored) {
       const Preferences = window.Capacitor?.Plugins?.Preferences;
       if (Preferences) {
@@ -285,12 +305,15 @@ async function loadApplication() {
       }
     }
 
-    // Se ainda não achou, recorre à Camada 1 (LocalStorage)
     if (!stored) {
       stored = localStorage.getItem(STORAGE_KEY) || localStorage.getItem("fx01_data");
     }
   } catch (e) {
     console.error("Erro ao ler camadas de persistência:", e);
+  }
+
+  if (localStorage.getItem(CORRUPTED_BACKUP_KEY)) {
+    openModal("corrupted-backup-modal");
   }
 
   if (!stored) {
@@ -313,14 +336,17 @@ async function loadApplication() {
     }
   } catch (error) {
     console.error("Inconsistência de leitura. Isolando backup corrompido:", error);
-    localStorage.setItem(CORRUPTED_BACKUP_KEY, stored);
-    customAlert("Detectamos uma inconsistência de leitura. Um backup de segurança foi criado em seu dispositivo.");
+    if (!localStorage.getItem(CORRUPTED_BACKUP_KEY)) {
+      localStorage.setItem(CORRUPTED_BACKUP_KEY, stored);
+      openModal("corrupted-backup-modal");
+    }
     state = createEmptyState();
   }
 
   migrateStateSchema();
   normalizeState();
   applyPersonalization();
+  await applyScreenshotSetting();
   checkCycleRollover();
 
   if (!state.setupCompleted) {
@@ -385,7 +411,8 @@ function normalizeState() {
   state.extra.balance = roundMoney(state.extra.balance || 0);
 
   if (!state.security) state.security = { passwordHash: "", locked: false, lastCycleNotificationDate: "", biometricId: null, biometricType: null, recoveryQuestion: "", recoveryAnswerHash: "" };
-  if (!state.settings) state.settings = { cycleDay: 5, hideBalances: false, theme: "fx" };
+  if (!state.settings) state.settings = { cycleDay: 5, hideBalances: false, theme: "fx", allowScreenshots: false };
+  if (typeof state.settings.allowScreenshots !== "boolean") state.settings.allowScreenshots = false;
 
   normalizeCycle(state.currentCycle);
   state.cycles.forEach(normalizeCycle);
@@ -420,11 +447,18 @@ function createEmptyState() {
     salary: { reference: 0, hasAdvance: false, advanceAmount: 0, advanceDay: 20 },
     extra: { balance: 0 },
     reserve: { balance: 0 },
-    settings: { cycleDay: 5, hideBalances: false, theme: "fx" },
+    settings: { cycleDay: 5, hideBalances: false, theme: "fx", allowScreenshots: false },
     categories: [],
     cycles: [],
     currentCycle: null
   };
+}
+
+async function applyScreenshotSetting() {
+  const PrivacyScreen = window.Capacitor?.Plugins?.PrivacyScreen;
+  if (!PrivacyScreen) return;
+  if (state?.settings?.allowScreenshots) await PrivacyScreen.disable();
+  else await PrivacyScreen.enable();
 }
 
 function checkCycleRollover() {
@@ -432,8 +466,10 @@ function checkCycleRollover() {
 
   let now = new Date();
   let endDate = new Date(state.currentCycle.endDate);
+  let safetyCounter = 0;
 
-  while (now >= endDate) {
+  while (now >= endDate && safetyCounter < 12) {
+    safetyCounter++;
     const leftoverSalary = getSalaryBalance();
     if (leftoverSalary > 0) {
       state.extra.balance = roundMoney(state.extra.balance + leftoverSalary);
@@ -441,7 +477,7 @@ function checkCycleRollover() {
 
     state.cycles.push(JSON.parse(JSON.stringify(state.currentCycle)));
 
-    const cycleDay = state.settings.cycleDay || 5;
+    const cycleDay = Number(state.settings.cycleDay) || 5;
     const newStart = new Date(endDate);
     const newEnd = new Date(newStart.getFullYear(), newStart.getMonth() + 1, cycleDay);
 
@@ -471,6 +507,7 @@ function startInitialSetup() {
   setupRecoveryQuestionKey = "";
   showScreen("setup");
   applyPersonalization();
+  applyScreenshotSetting();
   renderSetupStep();
 }
 
@@ -702,7 +739,7 @@ function getReserveBalance() {
   return roundMoney(Math.max(0, Number(state.reserve?.balance) || 0));
 }
 
-function launchExpense(categoryId, amount, origin, description) {
+async function launchExpense(categoryId, amount, origin, description) {
   if (categoryId === "reserve") {
     openReserveModal();
     return;
@@ -736,9 +773,10 @@ function launchExpense(categoryId, amount, origin, description) {
   };
 
   state.currentCycle.expenses.push(expense);
-  normalizeCycle(state.currentCycle);
+  
+  state.currentCycle.categoryUsage[categoryId] = roundMoney((state.currentCycle.categoryUsage[categoryId] || 0) + amount);
 
-  saveState();
+  await saveState();
   if (document.activeElement) document.activeElement.blur();
   renderApplication();
 }
@@ -760,7 +798,7 @@ function openEditExpenseModal(expenseId) {
   openModal("expense-edit-modal");
 }
 
-function saveExpenseEdit() {
+async function saveExpenseEdit() {
   try {
     const expense = state.currentCycle.expenses.find((e) => e.id === currentEditingExpenseId);
     if (!expense) throw new Error("Gasto não encontrado.");
@@ -785,6 +823,7 @@ function saveExpenseEdit() {
 
     const oldAmount = expense.amount;
     const oldOrigin = expense.origin;
+    const oldCategory = expense.categoryId;
 
     if (oldOrigin === "extra") state.extra.balance = roundMoney(state.extra.balance + oldAmount);
     if (oldOrigin === "reserve") state.reserve.balance = roundMoney(state.reserve.balance + oldAmount);
@@ -818,8 +857,10 @@ function saveExpenseEdit() {
     expense.categoryId = newCategory;
     expense.description = newDesc;
 
-    normalizeCycle(state.currentCycle);
-    saveState();
+    state.currentCycle.categoryUsage[oldCategory] = roundMoney((state.currentCycle.categoryUsage[oldCategory] || 0) - oldAmount);
+    state.currentCycle.categoryUsage[newCategory] = roundMoney((state.currentCycle.categoryUsage[newCategory] || 0) + newAmount);
+
+    await saveState();
     closeModal("expense-edit-modal");
     if (document.activeElement) document.activeElement.blur();
     renderApplication();
@@ -831,7 +872,7 @@ function saveExpenseEdit() {
 function deleteExpense() {
   if (!currentEditingExpenseId) return;
 
-  customConfirm("Tem certeza que deseja excluir este gasto?", () => {
+  customConfirm("Tem certeza que deseja excluir este gasto?", async () => {
     const index = state.currentCycle.expenses.findIndex((e) => e.id === currentEditingExpenseId);
     if (index === -1) return;
 
@@ -843,10 +884,10 @@ function deleteExpense() {
       state.reserve.balance = roundMoney(state.reserve.balance + expense.amount);
     }
 
+    state.currentCycle.categoryUsage[expense.categoryId] = roundMoney((state.currentCycle.categoryUsage[expense.categoryId] || 0) - expense.amount);
     state.currentCycle.expenses.splice(index, 1);
-    normalizeCycle(state.currentCycle);
 
-    saveState();
+    await saveState();
     closeModal("expense-edit-modal");
     if (document.activeElement) document.activeElement.blur();
     renderApplication();
@@ -1025,7 +1066,7 @@ function showWithdrawForm() {
   showElement("withdraw-form");
 }
 
-function confirmReserveSave() {
+async function confirmReserveSave() {
   try {
     if (!selectedReserveOrigin) throw new Error("Selecione de onde retirar o dinheiro.");
     const amount = parseMoneyInput($("reserve-value")?.value);
@@ -1046,7 +1087,7 @@ function confirmReserveSave() {
     });
 
     state.reserve.balance = roundMoney(state.reserve.balance + amount);
-    saveState();
+    await saveState();
     closeModal("reserve-modal");
     if (document.activeElement) document.activeElement.blur();
     renderApplication();
@@ -1055,7 +1096,7 @@ function confirmReserveSave() {
   }
 }
 
-function confirmReserveWithdraw() {
+async function confirmReserveWithdraw() {
   try {
     const amount = parseMoneyInput($("withdraw-value")?.value);
     if (amount <= 0) throw new Error("Valor deve ser maior que zero.");
@@ -1073,9 +1114,9 @@ function confirmReserveWithdraw() {
     };
 
     state.currentCycle.expenses.push(expense);
-    normalizeCycle(state.currentCycle);
+    state.currentCycle.categoryUsage["other"] = roundMoney((state.currentCycle.categoryUsage["other"] || 0) + amount);
 
-    saveState();
+    await saveState();
     closeModal("reserve-modal");
     if (document.activeElement) document.activeElement.blur();
     renderApplication();
@@ -1084,47 +1125,7 @@ function confirmReserveWithdraw() {
   }
 }
 
-async function exportBackup() {
-  try {
-    const jsonStr = JSON.stringify(state, null, 2);
-    const dateStr = new Date().toISOString().slice(0, 10);
-    const fileName = `fx_backup_${dateStr}.json`;
-    
-    const blob = new Blob([jsonStr], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-
-    let canShare = false;
-    const file = new File([blob], fileName, { type: "application/json" });
-    try {
-      canShare = !!(navigator.canShare && navigator.canShare({ files: [file] }));
-    } catch (e) {
-      canShare = false;
-    }
-
-    if (canShare) {
-      await navigator.share({
-        files: [file],
-        title: "Backup FX",
-        text: "Seu arquivo de backup do FX"
-      });
-      return;
-    }
-
-    const downloadAnchor = document.createElement("a");
-    downloadAnchor.href = url;
-    downloadAnchor.download = fileName;
-    document.body.appendChild(downloadAnchor);
-    downloadAnchor.click();
-    document.body.removeChild(downloadAnchor);
-    setTimeout(() => URL.revokeObjectURL(url), 100);
-  } catch (err) {
-    if (err.name !== "AbortError") {
-      customAlert("Erro ao exportar backup: " + err.message);
-    }
-  }
-}
-
-async function exportCSV() {
+function exportCSV() {
   try {
     const expenses = state.currentCycle?.expenses || [];
     if (!expenses.length) {
@@ -1150,23 +1151,6 @@ async function exportCSV() {
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8," });
     const url = URL.createObjectURL(blob);
 
-    let canShare = false;
-    const file = new File([blob], fileName, { type: "text/csv" });
-    try {
-      canShare = !!(navigator.canShare && navigator.canShare({ files: [file] }));
-    } catch (e) {
-      canShare = false;
-    }
-
-    if (canShare) {
-      await navigator.share({
-        files: [file],
-        title: "Extrato FX",
-        text: "Seu extrato em CSV"
-      });
-      return;
-    }
-
     const downloadAnchor = document.createElement("a");
     downloadAnchor.href = url;
     downloadAnchor.download = fileName;
@@ -1179,32 +1163,6 @@ async function exportCSV() {
       customAlert("Erro ao exportar planilha CSV: " + err.message);
     }
   }
-}
-
-function importBackup(event) {
-  const file = event.target.files[0];
-  if (!file) return;
-
-  const reader = new FileReader();
-  reader.onload = async function (e) {
-    try {
-      const importedState = JSON.parse(e.target.result);
-      if (!importedState || typeof importedState !== "object" || !importedState.version) {
-        throw new Error("Arquivo de backup inválido ou incompatível.");
-      }
-
-      state = importedState;
-      normalizeState();
-      await saveState();
-      renderApplication();
-      customAlert("Backup importado com sucesso!");
-    } catch (err) {
-      customAlert("Erro ao importar backup: " + err.message);
-    } finally {
-      event.target.value = "";
-    }
-  };
-  reader.readAsText(file);
 }
 
 function getBiometricPlugin() {
@@ -1267,9 +1225,9 @@ async function authenticateBiometric() {
   }
 }
 
-function unlockSuccess() {
+async function unlockSuccess() {
   state.security.locked = false;
-  saveState();
+  await saveState();
   showScreen("main");
   renderApplication();
 }
@@ -1385,7 +1343,7 @@ function openCategoryEditorModal(catId = null) {
   openModal("category-editor-modal");
 }
 
-function saveCategory() {
+async function saveCategory() {
   try {
     const name = $("category-name").value.trim();
     const icon = selectedCategoryIcon || "other";
@@ -1424,8 +1382,7 @@ function saveCategory() {
       state.categories.push(newCat);
     }
 
-    normalizeCycle(state.currentCycle);
-    saveState();
+    await saveState();
     closeModal("category-editor-modal");
     if (document.activeElement) document.activeElement.blur();
     renderApplication();
@@ -1507,17 +1464,22 @@ function renderPersonalizationControls() {
     btn.classList.toggle("selected", btn.dataset.themeChoice === theme);
     btn.setAttribute("aria-pressed", String(btn.dataset.themeChoice === theme));
   });
+
+  const screenshot = state?.settings?.allowScreenshots === true ? "yes" : "no";
+  document.querySelectorAll("[data-screenshot-allow]").forEach((btn) => {
+    btn.classList.toggle("selected", btn.dataset.screenshotAllow === screenshot);
+  });
 }
 
-function saveTheme(value) {
+async function saveTheme(value) {
   if (!["fx", "graphite", "emerald", "pearl"].includes(value)) return;
   state.settings.theme = value;
   applyPersonalization();
   renderPersonalizationControls();
-  saveState();
+  await saveState();
 }
 
-function saveProfileSettings() {
+async function saveProfileSettings() {
   const fullName = $("settings-full-name")?.value.trim();
   const displayName = $("settings-username")?.value.trim();
   if (!fullName) return customAlert("Digite seu nome completo.");
@@ -1525,12 +1487,12 @@ function saveProfileSettings() {
   state.user.fullName = fullName;
   state.user.displayName = displayName;
   state.user.name = displayName;
-  saveState();
+  await saveState();
   renderApplication();
   customAlert("Perfil salvo com sucesso.");
 }
 
-function saveSalarySettings() {
+async function saveSalarySettings() {
   const raw = $("settings-salary")?.value;
   const salary = parseMoneyInput(raw);
 
@@ -1550,17 +1512,17 @@ function saveSalarySettings() {
     state.currentCycle.salaryReceived = roundMoney(salary);
   }
 
-  saveState();
+  await saveState();
   renderApplication();
   customAlert("Salário salvo com sucesso.");
 }
 
-function saveCycleSettings() {
+async function saveCycleSettings() {
   const newDay = Number($("settings-cycle-day")?.value);
   if (!Number.isInteger(newDay) || newDay < 1 || newDay > 28) return customAlert("Dia entre 1 e 28.");
 
   state.settings.cycleDay = newDay;
-  saveState();
+  await saveState();
   customAlert("Alteração será aplicada no próximo ciclo.");
 }
 
@@ -1580,7 +1542,7 @@ async function saveNewPassword() {
   if (newPass !== confirmPass) return showElement("password-error", "Senhas não coincidem.");
 
   state.security.passwordHash = await hashString(newPass);
-  saveState();
+  await saveState();
   closeModal("password-modal");
   customAlert("Senha alterada com sucesso.");
 }
@@ -1598,6 +1560,7 @@ async function deleteAllData() {
   }
 
   localStorage.removeItem(STORAGE_KEY);
+  localStorage.removeItem(CORRUPTED_BACKUP_KEY);
   localStorage.removeItem("fx01_data");
   
   const Preferences = window.Capacitor?.Plugins?.Preferences;
@@ -1615,10 +1578,10 @@ async function deleteAllData() {
   startInitialSetup();
 }
 
-function lockApp() {
+async function lockApp() {
   if (state) {
     state.security.locked = true;
-    saveState();
+    await saveState();
   }
   
   if ($("unlock-username")) $("unlock-username").value = state?.user?.username || "";
@@ -1657,10 +1620,10 @@ function renderHideBalancesIcon() {
   container.innerHTML = state.settings.hideBalances ? SVG_EYE_SLASH : SVG_EYE_OPEN;
 }
 
-function toggleHideBalances() {
+async function toggleHideBalances() {
   if (!state) return;
   state.settings.hideBalances = !state.settings.hideBalances;
-  saveState();
+  await saveState();
   renderApplication();
 }
 
@@ -1917,10 +1880,79 @@ function bindEvents() {
   $("nav-extrato-button")?.addEventListener("click", () => switchTab("extrato"));
   $("previous-cycle-button")?.addEventListener("click", () => openHistoryModal());
 
-  $("export-backup-button")?.addEventListener("click", exportBackup);
-  $("export-csv-button")?.addEventListener("click", exportCSV);
+  $("export-backup-button")?.addEventListener("click", () => {
+    backupActionType = 'export';
+    $("backup-password-desc").textContent = "Crie uma senha para criptografar e proteger o arquivo de backup.";
+    $("backup-action-password").value = "";
+    hideElement("backup-password-error");
+    openModal("backup-password-modal");
+  });
+
   $("import-backup-button")?.addEventListener("click", () => $("import-backup-file")?.click());
-  $("import-backup-file")?.addEventListener("change", importBackup);
+  $("import-backup-file")?.addEventListener("change", (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = function (e) {
+      importPendingData = e.target.result;
+      if (importPendingData.trim().startsWith("{")) {
+        processImport(importPendingData, null);
+      } else {
+        backupActionType = 'import';
+        $("backup-password-desc").textContent = "Digite a senha usada para proteger este backup.";
+        $("backup-action-password").value = "";
+        hideElement("backup-password-error");
+        openModal("backup-password-modal");
+      }
+      event.target.value = "";
+    };
+    reader.readAsText(file);
+  });
+
+  $("confirm-backup-action-button")?.addEventListener("click", async () => {
+    const pass = $("backup-action-password").value;
+    if (!pass) return showElement("backup-password-error", "A senha é obrigatória.");
+    
+    if (backupActionType === 'export') {
+      const encryptedStr = await encryptData(state, pass);
+      if (!encryptedStr) return showElement("backup-password-error", "Erro ao criptografar.");
+      
+      closeModal("backup-password-modal");
+      
+      const dateStr = new Date().toISOString().slice(0, 10);
+      const fileName = `fx_backup_${dateStr}.json`;
+      const blob = new Blob([encryptedStr], { type: "text/plain" });
+      const url = URL.createObjectURL(blob);
+      const downloadAnchor = document.createElement("a");
+      downloadAnchor.href = url;
+      downloadAnchor.download = fileName;
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      document.body.removeChild(downloadAnchor);
+      setTimeout(() => URL.revokeObjectURL(url), 100);
+      
+    } else if (backupActionType === 'import') {
+      await processImport(importPendingData, pass);
+    }
+  });
+
+  $("export-csv-button")?.addEventListener("click", exportCSV);
+
+  $("discard-corrupted-button")?.addEventListener("click", () => {
+    localStorage.removeItem(CORRUPTED_BACKUP_KEY);
+    closeModal("corrupted-backup-modal");
+  });
+
+  $("download-corrupted-button")?.addEventListener("click", () => {
+    const raw = localStorage.getItem(CORRUPTED_BACKUP_KEY) || "";
+    const blob = new Blob([raw], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "fx_log_corrompido.txt";
+    a.click();
+  });
 
   $("custom-alert-ok")?.addEventListener("click", () => closeModal("custom-alert-modal"));
   $("custom-confirm-cancel")?.addEventListener("click", () => closeModal("custom-confirm-modal"));
@@ -1937,7 +1969,6 @@ function bindEvents() {
   });
 
   $("toggle-hide-balances-button")?.addEventListener("click", toggleHideBalances);
-
   $("biometric-unlock-icon")?.addEventListener("click", authenticateBiometric);
   $("register-biometrics-button")?.addEventListener("click", registerBiometrics);
 
@@ -1968,7 +1999,7 @@ function bindEvents() {
     ], (val) => { selectedCategoryIcon = val; });
   });
 
-  document.addEventListener("click", (e) => {
+  document.addEventListener("click", async (e) => {
     const extraCard = e.target.closest(".extra-source");
     if (extraCard && !e.target.closest("#add-extra-button")) {
       openModal("extra-modal");
@@ -2021,6 +2052,15 @@ function bindEvents() {
         const chevron = settingsToggle.querySelector(".chevron");
         if (chevron) chevron.style.transform = isHidden ? "rotate(0deg)" : "rotate(180deg)";
       }
+      return;
+    }
+
+    const screenshotBtn = e.target.closest("[data-screenshot-allow]");
+    if (screenshotBtn) {
+      state.settings.allowScreenshots = screenshotBtn.dataset.screenshotAllow === "yes";
+      renderPersonalizationControls();
+      await applyScreenshotSetting();
+      await saveState();
       return;
     }
 
@@ -2110,23 +2150,23 @@ function bindEvents() {
   $("save-category-button")?.addEventListener("click", saveCategory);
 
   $("add-extra-button")?.addEventListener("click", () => openModal("extra-modal"));
-  $("confirm-extra-button")?.addEventListener("click", () => {
+  $("confirm-extra-button")?.addEventListener("click", async () => {
     const val = parseMoneyInput($("extra-value")?.value);
     if (val <= 0) return showElement("extra-error", "Valor inválido.");
 
     state.extra.balance = roundMoney(state.extra.balance + val);
-    saveState();
+    await saveState();
     closeModal("extra-modal");
     if (document.activeElement) document.activeElement.blur();
     renderApplication();
   });
 
-  $("confirm-expense-button")?.addEventListener("click", () => {
+  $("confirm-expense-button")?.addEventListener("click", async () => {
     try {
       const val = parseMoneyInput($("expense-value").value);
       const origin = selectedExpenseOrigin;
       const desc = $("expense-description").value;
-      launchExpense(currentCategoryId, val, origin, desc);
+      await launchExpense(currentCategoryId, val, origin, desc);
       closeModal("expense-modal");
     } catch (err) {
       showElement("expense-error", err.message);
@@ -2152,6 +2192,31 @@ function bindEvents() {
   $("settings-button")?.addEventListener("click", () => showScreen("settings"));
   $("settings-back-button")?.addEventListener("click", () => showScreen("main"));
   $("lock-button")?.addEventListener("click", lockApp);
+}
+
+async function processImport(dataStr, password) {
+  try {
+    let importedState = null;
+    if (dataStr.trim().startsWith("{")) {
+      importedState = JSON.parse(dataStr);
+    } else {
+      importedState = await decryptData(dataStr, password);
+    }
+
+    if (!importedState || typeof importedState !== "object" || !importedState.version) {
+      throw new Error("Arquivo ou senha inválidos.");
+    }
+
+    state = importedState;
+    normalizeState();
+    await applyScreenshotSetting();
+    await saveState();
+    closeModal("backup-password-modal");
+    renderApplication();
+    customAlert("Backup importado com sucesso!");
+  } catch (err) {
+    showElement("backup-password-error", "Senha incorreta ou arquivo corrompido.");
+  }
 }
 
 function switchTab(tab) {
