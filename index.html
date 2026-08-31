@@ -231,7 +231,7 @@
       </nav>
     </section>
 
-    <!-- TELA DE CONFIGURAÇÕES -->
+    <!-- TELA DE CONFIGURAÇÕES EM CARDS MODULARES -->
     <section id="settings-screen" class="screen hidden" aria-labelledby="settings-title">
       <header class="screen-header settings-header">
         <button id="settings-back-button" type="button" class="icon-button" aria-label="Voltar">←</button>
@@ -241,119 +241,150 @@
       </header>
 
       <main class="settings-content">
-        <section class="settings-section">
-          <button type="button" class="settings-item" data-settings-toggle="profile-settings">
-            <span>Perfil</span>
-            <span>⌄</span>
-          </button>
-          <div id="profile-settings" class="settings-panel hidden">
-            <label for="settings-account-username">Usuário</label>
-            <input id="settings-account-username" type="text" maxlength="40" readonly>
-            <label for="settings-full-name">Nome completo</label>
-            <input id="settings-full-name" type="text" maxlength="100" placeholder="Seu nome completo">
-            <label for="settings-username">Como gostaria de ser chamado</label>
-            <input id="settings-username" type="text" maxlength="30" placeholder="Seu nome de exibição">
-            <button id="save-profile-settings" type="button" class="primary-button">Salvar perfil</button>
-          </div>
-        </section>
+        <div class="settings-cards-grid">
+          
+          <section class="settings-card-item glass-panel">
+            <button type="button" class="settings-item-header" data-settings-toggle="profile-settings">
+              <div class="settings-item-title-group">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                <span>Perfil</span>
+              </div>
+              <span class="chevron">⌄</span>
+            </button>
+            <div id="profile-settings" class="settings-panel hidden">
+              <label for="settings-account-username">Usuário</label>
+              <input id="settings-account-username" type="text" maxlength="40" readonly>
+              <label for="settings-full-name">Nome completo</label>
+              <input id="settings-full-name" type="text" maxlength="100" placeholder="Seu nome completo">
+              <label for="settings-username">Como gostaria de ser chamado</label>
+              <input id="settings-username" type="text" maxlength="30" placeholder="Seu nome de exibição">
+              <button id="save-profile-settings" type="button" class="primary-button">Salvar perfil</button>
+            </div>
+          </section>
 
-        <section class="settings-section">
-          <button type="button" class="settings-item" data-settings-toggle="personalization-settings">
-            <span>Tema do App</span>
-            <span>⌄</span>
-          </button>
-          <div id="personalization-settings" class="settings-panel hidden">
-            <div class="personalization-group">
-              <div class="theme-grid">
-                <button type="button" class="theme-card" data-theme-choice="fx"><span class="theme-preview theme-preview-fx"></span><strong>FX Gold</strong><small>Ouro Imperial</small></button>
-                <button type="button" class="theme-card" data-theme-choice="graphite"><span class="theme-preview theme-preview-graphite"></span><strong>Grafite Titânio</strong><small>Azul Cobalto</small></button>
-                <button type="button" class="theme-card" data-theme-choice="emerald"><span class="theme-preview theme-preview-emerald"></span><strong>Esmeralda Profundo</strong><small>Jade Cyber</small></button>
-                <button type="button" class="theme-card" data-theme-choice="pearl"><span class="theme-preview theme-preview-pearl"></span><strong>Pérola Branca</strong><small>Ouro Claro</small></button>
+          <section class="settings-card-item glass-panel">
+            <button type="button" class="settings-item-header" data-settings-toggle="personalization-settings">
+              <div class="settings-item-title-group">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                <span>Tema do App</span>
+              </div>
+              <span class="chevron">⌄</span>
+            </button>
+            <div id="personalization-settings" class="settings-panel hidden">
+              <div class="personalization-group">
+                <div class="theme-grid">
+                  <button type="button" class="theme-card" data-theme-choice="fx"><span class="theme-preview theme-preview-fx"></span><strong>FX Gold</strong><small>Ouro Imperial</small></button>
+                  <button type="button" class="theme-card" data-theme-choice="graphite"><span class="theme-preview theme-preview-graphite"></span><strong>Grafite Titânio</strong><small>Azul Cobalto</small></button>
+                  <button type="button" class="theme-card" data-theme-choice="emerald"><span class="theme-preview theme-preview-emerald"></span><strong>Esmeralda Profundo</strong><small>Jade Cyber</small></button>
+                  <button type="button" class="theme-card" data-theme-choice="pearl"><span class="theme-preview theme-preview-pearl"></span><strong>Pérola Branca</strong><small>Ouro Claro</small></button>
+                </div>
               </div>
             </div>
-          </div>
-        </section>
+          </section>
 
-        <section class="settings-section">
-          <button type="button" class="settings-item" data-settings-toggle="categories-settings">
-            <span>Categorias</span>
-            <span>⌄</span>
-          </button>
-          <div id="categories-settings" class="settings-panel hidden">
-            <div id="settings-categories-list" class="settings-category-list"></div>
-            <button id="create-category-button" type="button" class="secondary-button">Criar categoria</button>
-          </div>
-        </section>
-
-        <section class="settings-section">
-          <button type="button" class="settings-item" data-settings-toggle="salary-settings">
-            <span>Salário</span>
-            <span>⌄</span>
-          </button>
-          <div id="salary-settings" class="settings-panel hidden">
-            <label for="settings-salary">Valor do Salário (R$)</label>
-            <input id="settings-salary" class="hero-input" type="text" inputmode="decimal" placeholder="0,00">
-            <p style="margin-top:10px;">Adiantamento / Salário 5° dia útil</p>
-            <div class="choice-group">
-              <button type="button" class="choice-button" data-settings-salary-split="yes">Sim</button>
-              <button type="button" class="choice-button" data-settings-salary-split="no">Não</button>
+          <section class="settings-card-item glass-panel">
+            <button type="button" class="settings-item-header" data-settings-toggle="categories-settings">
+              <div class="settings-item-title-group">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg>
+                <span>Categorias</span>
+              </div>
+              <span class="chevron">⌄</span>
+            </button>
+            <div id="categories-settings" class="settings-panel hidden">
+              <div id="settings-categories-list" class="settings-category-list"></div>
+              <button id="create-category-button" type="button" class="secondary-button">Criar categoria</button>
             </div>
-            <div id="salary-split-info" class="hidden" style="margin-top:10px;">
-              <label for="settings-advance-val">Valor do Adiantamento/Vale (R$)</label>
-              <input id="settings-advance-val" class="hero-input" type="text" inputmode="decimal" placeholder="0,00">
+          </section>
+
+          <section class="settings-card-item glass-panel">
+            <button type="button" class="settings-item-header" data-settings-toggle="salary-settings">
+              <div class="settings-item-title-group">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" x2="12" y1="2" y2="22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                <span>Salário</span>
+              </div>
+              <span class="chevron">⌄</span>
+            </button>
+            <div id="salary-settings" class="settings-panel hidden">
+              <label for="settings-salary">Valor do Salário (R$)</label>
+              <input id="settings-salary" class="hero-input" type="text" inputmode="decimal" placeholder="0,00">
+              <p style="margin-top:10px;">Adiantamento / Salário 5° dia útil</p>
+              <div class="choice-group">
+                <button type="button" class="choice-button" data-settings-salary-split="yes">Sim</button>
+                <button type="button" class="choice-button" data-settings-salary-split="no">Não</button>
+              </div>
+              <div id="salary-split-info" class="hidden" style="margin-top:10px;">
+                <label for="settings-advance-val">Valor do Adiantamento/Vale (R$)</label>
+                <input id="settings-advance-val" class="hero-input" type="text" inputmode="decimal" placeholder="0,00">
+              </div>
+              <button id="save-salary-settings" type="button" class="primary-button" style="margin-top:12px;">Salvar</button>
             </div>
-            <button id="save-salary-settings" type="button" class="primary-button" style="margin-top:12px;">Salvar</button>
-          </div>
-        </section>
+          </section>
 
-        <section class="settings-section">
-          <button type="button" class="settings-item" data-settings-toggle="cycle-settings">
-            <span>Ciclo</span>
-            <span>⌄</span>
-          </button>
-          <div id="cycle-settings" class="settings-panel hidden">
-            <label for="settings-cycle-day">Dia de início</label>
-            <input id="settings-cycle-day" type="number" min="1" max="28">
-            <button id="save-cycle-settings" type="button" class="primary-button">Salvar</button>
-          </div>
-        </section>
+          <section class="settings-card-item glass-panel">
+            <button type="button" class="settings-item-header" data-settings-toggle="cycle-settings">
+              <div class="settings-item-title-group">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg>
+                <span>Ciclo</span>
+              </div>
+              <span class="chevron">⌄</span>
+            </button>
+            <div id="cycle-settings" class="settings-panel hidden">
+              <label for="settings-cycle-day">Dia de início</label>
+              <input id="settings-cycle-day" type="number" min="1" max="28">
+              <button id="save-cycle-settings" type="button" class="primary-button">Salvar</button>
+            </div>
+          </section>
 
-        <section class="settings-section">
-          <button id="previous-cycle-button" type="button" class="settings-item">
-            <span id="previous-cycle-label">Histórico de Meses</span>
-            <span>→</span>
-          </button>
-        </section>
+          <section class="settings-card-item glass-panel">
+            <button id="previous-cycle-button" type="button" class="settings-item-header">
+              <div class="settings-item-title-group">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20v-6M6 20V10M18 20V4"/></svg>
+                <span id="previous-cycle-label">Histórico de Meses</span>
+              </div>
+              <span>→</span>
+            </button>
+          </section>
 
-        <section class="settings-section">
-          <button id="chart-button" type="button" class="settings-item">
-            <span>Gráfico do Mês</span>
-            <span>→</span>
-          </button>
-        </section>
+          <section class="settings-card-item glass-panel">
+            <button id="chart-button" type="button" class="settings-item-header">
+              <div class="settings-item-title-group">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg>
+                <span>Gráfico do Mês</span>
+              </div>
+              <span>→</span>
+            </button>
+          </section>
 
-        <section class="settings-section">
-          <button type="button" class="settings-item" data-settings-toggle="security-settings">
-            <span>Segurança e Backup</span>
-            <span>⌄</span>
-          </button>
-          <div id="security-settings" class="settings-panel hidden">
-            <button id="register-biometrics-button" type="button" class="secondary-button">Cadastrar Biometria (Digital/Face)</button>
-            <button id="change-password-button" type="button" class="secondary-button">Alterar senha</button>
-            <button id="export-csv-button" type="button" class="secondary-button">Exportar Extrato (CSV / Excel)</button>
-            <button id="export-backup-button" type="button" class="secondary-button">Exportar Backup (JSON)</button>
-            <button id="import-backup-button" type="button" class="secondary-button">Importar Backup (JSON)</button>
-            <input type="file" id="import-backup-file" accept=".json" class="hidden">
-            <button id="delete-all-data-button" type="button" class="danger-button">Apagar todos os dados</button>
-          </div>
-        </section>
+          <section class="settings-card-item glass-panel">
+            <button type="button" class="settings-item-header" data-settings-toggle="security-settings">
+              <div class="settings-item-title-group">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                <span>Segurança e Backup</span>
+              </div>
+              <span class="chevron">⌄</span>
+            </button>
+            <div id="security-settings" class="settings-panel hidden">
+              <button id="register-biometrics-button" type="button" class="secondary-button">Cadastrar Biometria (Digital/Face)</button>
+              <button id="change-password-button" type="button" class="secondary-button">Alterar senha</button>
+              <button id="export-csv-button" type="button" class="secondary-button">Exportar Extrato (CSV / Excel)</button>
+              <button id="export-backup-button" type="button" class="secondary-button">Exportar Backup (JSON)</button>
+              <button id="import-backup-button" type="button" class="secondary-button">Importar Backup (JSON)</button>
+              <input type="file" id="import-backup-file" accept=".json" class="hidden">
+              <button id="delete-all-data-button" type="button" class="danger-button">Apagar todos os dados</button>
+            </div>
+          </section>
 
-        <section class="settings-section">
-          <button id="logout-button" type="button" class="settings-item" style="color:var(--danger);">
-            <span>Sair / Bloquear Aplicativo</span>
-            <span>🔒</span>
-          </button>
-        </section>
+          <section class="settings-card-item glass-panel">
+            <button id="logout-button" type="button" class="settings-item-header" style="color:var(--danger);">
+              <div class="settings-item-title-group">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg>
+                <span>Sair / Bloquear Aplicativo</span>
+              </div>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            </button>
+          </section>
+
+        </div>
       </main>
     </section>
 
