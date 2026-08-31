@@ -96,7 +96,6 @@ function base64ToBytes(base64) {
   return bytes;
 }
 
-// CORREÇÃO CRÍTICA DO APK: Chave estável para evitar falha de descriptografia no cold start
 async function getCryptoKey() {
   const enc = new TextEncoder();
   const combinedSecret = DEVICE_KEY_SECRET + "FX_SECURE_MASTER_STORAGE_2026";
@@ -216,11 +215,9 @@ function initNativeLifecycle() {
   App.addListener("appStateChange", ({ isActive }) => {
     if (!isActive) {
       if (state && state.setupCompleted && !state.security.locked) {
+        state.security.locked = true;
+        saveState();
         lockApp();
-      }
-    } else {
-      if (state && state.security && state.security.locked && state.security.biometricId) {
-        setTimeout(() => { authenticateBiometric(); }, 250);
       }
     }
   });
@@ -1188,7 +1185,7 @@ async function registerBiometrics() {
     state.security.biometricId = "enabled";
     state.security.biometricType = "capacitor";
     await saveState();
-    customAlert("Biometria cadastrada com sucesso! Ela será solicitada automaticamente na abertura do app.");
+    customAlert("Biometria cadastrada com sucesso! Toque no ícone na tela de bloqueio para usá-la.");
   } catch (err) {
     customAlert("Não foi possível confirmar a biometria: " + (err.message || "Cancelado."));
   }
@@ -1207,7 +1204,8 @@ async function authenticateBiometric() {
       });
       unlockSuccess();
     } catch (err) {
-      showElement("unlock-error", "Biometria não reconhecida ou cancelada. Use sua senha.");
+      // CORRIGIDO: Se cancelar ou falhar, avisa sem entrar em loop e libera o campo de senha
+      showElement("unlock-error", "Biometria cancelada. Digite sua senha abaixo.");
     }
   } else {
     showElement("unlock-error", "Biometria indisponível. Use sua senha.");
@@ -1552,7 +1550,11 @@ async function deleteAllData() {
 }
 
 function lockApp() {
-  if (state) state.security.locked = true;
+  if (state) {
+    state.security.locked = true;
+    saveState();
+  }
+  
   if ($("unlock-username")) $("unlock-username").value = state?.user?.username || "";
   if ($("unlock-password")) {
     $("unlock-password").value = "";
@@ -1565,15 +1567,14 @@ function lockApp() {
   
   if (state && state.security && state.security.biometricId) {
     if (bioTrigger) bioTrigger.classList.remove("hidden");
-    saveState();
     showScreen("lock");
     
+    // Tenta a biometria automaticamente 1 vez ao bloquear, sem loop se o usuário cancelar
     setTimeout(() => {
       authenticateBiometric();
     }, 250);
   } else {
     if (bioTrigger) bioTrigger.classList.add("hidden");
-    saveState();
     showScreen("lock");
   }
 }
@@ -1675,7 +1676,6 @@ function renderCategories() {
       </button>
     `;
 
-    // Toque em qualquer parte do card abre o lançamento direto (exceto Reserva que abre o cofre)
     card.addEventListener("click", (e) => {
       if (e.target.closest("[data-category-open]")) return;
       if (cat.id === "reserve") {
