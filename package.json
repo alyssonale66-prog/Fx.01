@@ -2,12 +2,12 @@
   "name": "com.fx.finance",
   "version": "1.1.0",
   "description": "FX Finance — Controle Financeiro",
-  "main": "index.html",
   "scripts": {
-    "build": "npx capacitor-assets generate --android && mkdir -p www && cp index.html style.css app.js manifest.json service-worker.js icon-192.png icon-512.png www/ && npx cap sync android"
+    "build": "npx capacitor-assets generate --android && node -e \"const fs=require('fs'); fs.mkdirSync('www', {recursive:true}); const files=['index.html','style.css','app.js','manifest.json','service-worker.js','icon-192.png','icon-512.png']; files.forEach(f => { if(fs.existsSync(f)) fs.copyFileSync(f, 'www/'+f); });\" && npx cap sync android"
   },
   "dependencies": {
     "@capgo/capacitor-native-biometric": "6.0.0",
+    "@capacitor-community/privacy-screen": "^3.1.0",
     "@capacitor/android": "6.2.1",
     "@capacitor/app": "6.0.0",
     "@capacitor/core": "6.2.1"
