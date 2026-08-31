@@ -1,16 +1,16 @@
 /* ============================================================
-   FX — Service Worker (Cache-First)
+   FX — Service Worker (Estratégia Cache-First com Ícones)
    ============================================================ */
 
 const CACHE_NAME = 'fx-cache-v1.1.0';
 const ASSETS_TO_CACHE = [
-  './',
-  './index.html',
-  './style.css',
-  './app.js',
-  './manifest.json',
-  './icon-192.png',
-  './icon-512.png'
+  '/',
+  '/index.html',
+  '/style.css',
+  '/app.js',
+  '/manifest.json',
+  '/icon-192.png',
+  '/icon-512.png'
 ];
 
 self.addEventListener('install', (event) => {
