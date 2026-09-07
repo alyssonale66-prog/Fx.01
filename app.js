@@ -811,7 +811,7 @@ async function saveExpenseEdit() {
     if (newAmount <= 0) throw new Error("O valor deve ser maior que zero.");
 
     const targetCat = state.categories.find((c) => c.id === newCategory);
-    if (targetCat && targetCat.hasLimit && targetCat.limit && targetCat.limit > 0) {
+    if (targetCat && targetCat.hasLimit && targetCat.limit && targetCat.limit > 0 && newCategory !== "reserve") {
       let currentUsage = state.currentCycle.categoryUsage[newCategory] || 0;
       if (expense.categoryId === newCategory) {
         currentUsage -= expense.amount;
@@ -827,28 +827,33 @@ async function saveExpenseEdit() {
 
     if (oldOrigin === "extra") state.extra.balance = roundMoney(state.extra.balance + oldAmount);
     if (oldOrigin === "reserve") state.reserve.balance = roundMoney(state.reserve.balance + oldAmount);
+    if (oldCategory === "reserve") state.reserve.balance = roundMoney(state.reserve.balance - oldAmount);
 
     if (newOrigin === "extra") {
       if (newAmount > getExtraBalance()) {
-        if (oldOrigin === "extra") state.extra.balance = roundMoney(state.extra.balance - oldAmount);
-        if (oldOrigin === "reserve") state.reserve.balance = roundMoney(state.reserve.balance - oldAmount);
+        revertEditState(oldOrigin, oldCategory, oldAmount);
         throw new Error("Saldo insuficiente no Extra.");
       }
       state.extra.balance = roundMoney(state.extra.balance - newAmount);
-    } else if (newOrigin === "reserve") {
-      if (newAmount > getReserveBalance()) {
-        if (oldOrigin === "extra") state.extra.balance = roundMoney(state.extra.balance - oldAmount);
-        if (oldOrigin === "reserve") state.reserve.balance = roundMoney(state.reserve.balance - oldAmount);
+    } else if (newOrigin === "reserve" || newCategory === "reserve") {
+      if (newCategory === "reserve" && newOrigin === "reserve") {
+        revertEditState(oldOrigin, oldCategory, oldAmount);
+        throw new Error("A origem da reserva não pode ser a própria reserva.");
+      }
+      const limitSourceCheck = newOrigin === "extra" ? getExtraBalance() : getSalaryBalance();
+      if (newCategory === "reserve" && newAmount > limitSourceCheck) {
+        revertEditState(oldOrigin, oldCategory, oldAmount);
+        throw new Error("Saldo insuficiente na origem selecionada para a reserva.");
+      }
+      if (newOrigin === "reserve" && newAmount > getReserveBalance()) {
+        revertEditState(oldOrigin, oldCategory, oldAmount);
         throw new Error("Saldo insuficiente na Reserva.");
       }
-      state.reserve.balance = roundMoney(state.reserve.balance - newAmount);
-    } else if (newOrigin === "salary") {
-      expense.amount = 0;
-      if (newAmount > getSalaryBalance()) {
-        expense.amount = oldAmount;
-        if (oldOrigin === "extra") state.extra.balance = roundMoney(state.extra.balance - oldAmount);
-        if (oldOrigin === "reserve") state.reserve.balance = roundMoney(state.reserve.balance - oldAmount);
-        throw new Error("Saldo insuficiente no Salário.");
+      if (newOrigin === "reserve") {
+        state.reserve.balance = roundMoney(state.reserve.balance - newAmount);
+      }
+      if (newCategory === "reserve") {
+        state.reserve.balance = roundMoney(state.reserve.balance + newAmount);
       }
     }
 
@@ -869,6 +874,12 @@ async function saveExpenseEdit() {
   }
 }
 
+function revertEditState(oldOrigin, oldCategory, oldAmount) {
+  if (oldOrigin === "extra") state.extra.balance = roundMoney(state.extra.balance - oldAmount);
+  if (oldOrigin === "reserve") state.reserve.balance = roundMoney(state.reserve.balance - oldAmount);
+  if (oldCategory === "reserve") state.reserve.balance = roundMoney(state.reserve.balance + oldAmount);
+}
+
 function deleteExpense() {
   if (!currentEditingExpenseId) return;
 
@@ -882,6 +893,10 @@ function deleteExpense() {
       state.extra.balance = roundMoney(state.extra.balance + expense.amount);
     } else if (expense.origin === "reserve") {
       state.reserve.balance = roundMoney(state.reserve.balance + expense.amount);
+    }
+
+    if (expense.categoryId === "reserve") {
+      state.reserve.balance = roundMoney(Math.max(0, state.reserve.balance - expense.amount));
     }
 
     state.currentCycle.categoryUsage[expense.categoryId] = roundMoney((state.currentCycle.categoryUsage[expense.categoryId] || 0) - expense.amount);
@@ -1079,14 +1094,20 @@ async function confirmReserveSave() {
       state.extra.balance = roundMoney(state.extra.balance - amount);
     }
 
-    state.currentCycle.transfers.push({
+    state.reserve.balance = roundMoney(state.reserve.balance + amount);
+
+    // BUG-01 CORREÇÃO: Registrar a aplicação na reserva no extrato como uma despesa/transação da categoria reserve
+    const reserveExpense = {
       id: createId(),
       origin: selectedReserveOrigin,
       amount: amount,
+      description: "Aplicação na Reserva",
+      categoryId: "reserve",
       date: new Date().toISOString()
-    });
+    };
+    state.currentCycle.expenses.push(reserveExpense);
+    state.currentCycle.categoryUsage["reserve"] = roundMoney((state.currentCycle.categoryUsage["reserve"] || 0) + amount);
 
-    state.reserve.balance = roundMoney(state.reserve.balance + amount);
     await saveState();
     closeModal("reserve-modal");
     if (document.activeElement) document.activeElement.blur();
@@ -1983,7 +2004,6 @@ function bindEvents() {
 
   $("edit-expense-category-trigger")?.addEventListener("click", () => {
     const opts = state.categories
-      .filter((c) => c.id !== "reserve")
       .map((c) => ({ label: c.name, value: c.id, selected: c.id === selectedEditExpenseCategory }));
     openCustomPicker("Categoria do Gasto", opts, (val) => { selectedEditExpenseCategory = val; });
   });
