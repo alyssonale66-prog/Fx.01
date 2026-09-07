@@ -985,6 +985,12 @@ label {
   background: rgba(0, 0, 0, 0.75);
 }
 
+/* BUG-03: Garantir prioridade absoluta para modais de confirmação e alerta sobre o modal de edição */
+#custom-confirm-modal,
+#custom-alert-modal {
+  z-index: 110;
+}
+
 .modal-content {
   width: 100%;
   max-width: 520px;
