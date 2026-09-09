@@ -1,5 +1,5 @@
 /* ============================================================
-   FX — Versão Android Production-Ready v1.2.1 (Forensic Audited)
+   FX — Versão Android Production-Ready v1.2.1 (Full Audited & Integrated)
    ============================================================ */
 
 "use strict";
@@ -835,13 +835,6 @@ function getSalaryBalance() {
   if (!state || !state.currentCycle) return 0;
   let balance = Number(state.currentCycle.salaryReceived) || 0;
 
-  if (state.salary && state.salary.hasAdvance && state.salary.advanceAmount > 0) {
-    let now = new Date();
-    let advanceDay = Number(state.salary.advanceDay) || 20;
-    if (now.getDate() >= advanceDay) {
-    }
-  }
-
   state.currentCycle.expenses.forEach((exp) => {
     if (exp.origin === "salary") balance -= Number(exp.amount) || 0;
   });
@@ -955,7 +948,6 @@ async function saveExpenseEdit() {
     if (oldOrigin === "reserve") tempState.reserve.balance = roundMoney(tempState.reserve.balance + oldAmount);
     if (oldCategory === "reserve") tempState.reserve.balance = roundMoney(tempState.reserve.balance - oldAmount);
 
-    let tempSalaryBal = 0;
     let tempExtraBal = tempState.extra.balance;
     let tempReserveBal = tempState.reserve.balance;
 
