@@ -1,10 +1,10 @@
 /* ============================================================
-   FX — Versão Android Production-Ready v1.2.2 (Audited & Fixed)
+   FX — Versão Android Production-Ready v1.2.1 (Forensic Audited)
    ============================================================ */
 
 "use strict";
 
-const FX_VERSION = "1.2.2";
+const FX_VERSION = "1.2.1";
 const STORAGE_KEY = "fx01_sec_data";
 const CORRUPTED_BACKUP_KEY = "fx01_corrupted_backup";
 
@@ -2129,20 +2129,12 @@ async function recoverPassword() {
   customAlert("Senha redefinida com sucesso.");
 }
 
-async function startVoiceRecognition() {
+function startVoiceRecognition() {
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SpeechRecognition) {
     return customAlert("Seu dispositivo ou navegador não suporta reconhecimento de voz.");
   }
   
-  try {
-    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-      await navigator.mediaDevices.getUserMedia({ audio: true });
-    }
-  } catch (err) {
-    return customAlert("Permissão de microfone negada. Autorize o acesso nas configurações do aparelho.");
-  }
-
   const recognition = new SpeechRecognition();
   recognition.lang = 'pt-BR';
   recognition.interimResults = false;
