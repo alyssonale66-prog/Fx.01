@@ -9,19 +9,12 @@
 
   <link rel="manifest" href="manifest.json">
   <link rel="stylesheet" href="style.css">
-  
-  <style id="fx-injected-styles">
-    @keyframes pulse {
-      0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(255, 215, 0, 0.7); }
-      70% { transform: scale(1.1); box-shadow: 0 0 0 15px rgba(255, 215, 0, 0); }
-      100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(255, 215, 0, 0); }
-    }
-  </style>
 </head>
 <body>
 
   <div id="app">
 
+    <!-- TELA DE CONFIGURAÇÃO INICIAL -->
     <section id="setup-screen" class="screen hidden" aria-labelledby="setup-title">
       <div class="setup-container">
         <header class="screen-header">
@@ -123,6 +116,7 @@
       </div>
     </section>
 
+    <!-- TELA DE BLOQUEIO -->
     <section id="lock-screen" class="screen hidden" aria-labelledby="lock-title">
       <div class="lock-container">
         <div class="lock-card glass-panel">
@@ -158,6 +152,7 @@
       </div>
     </section>
 
+    <!-- TELA PRINCIPAL -->
     <section id="main-screen" class="screen hidden" aria-labelledby="main-title">
       
       <header class="main-header">
@@ -212,7 +207,8 @@
             <div id="categories-list" class="categories-list"></div>
           </section>
 
-          <button id="voice-launch-fab" type="button" aria-label="Lançar por voz" title="Lançar por voz" style="position: fixed; bottom: 80px; right: 20px; width: 56px; height: 56px; border-radius: 28px; background: var(--accent); color: var(--surface); display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(0,0,0,0.3); z-index: 100; border: none; cursor: pointer;">
+          <!-- Botão Flutuante de Voz (FAB) -->
+          <button id="voice-launch-fab" type="button" aria-label="Lançar por voz" title="Lançar por voz" style="position: fixed; bottom: 80px; right: 20px; width: 56px; height: 56px; border-radius: 28px; background: var(--accent); color: var(--bg); display: flex; align-items: center; justify-content: center; box-shadow: var(--shadow); z-index: 80; border: none; cursor: pointer;">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/><line x1="8" x2="16" y1="22" y2="22"/></svg>
           </button>
         </div>
@@ -240,6 +236,7 @@
       </nav>
     </section>
 
+    <!-- TELA DE CONFIGURAÇÕES EM CARDS MODULARES -->
     <section id="settings-screen" class="screen hidden" aria-labelledby="settings-title">
       <header class="screen-header settings-header">
         <button id="settings-back-button" type="button" class="icon-button" aria-label="Voltar">←</button>
@@ -420,17 +417,17 @@
       </main>
     </section>
 
-    <!-- Modais do Sistema -->
+    <!-- MODAIS -->
     <div id="voice-listening-modal" class="modal hidden" role="dialog" aria-modal="true">
-      <div class="modal-content glass-panel" style="max-width:300px; text-align:center;">
-         <main class="modal-body" style="padding:30px 20px;">
-            <div class="mic-pulse-animation" style="width:60px; height:60px; border-radius:30px; background:var(--accent); color:var(--surface); display:flex; align-items:center; justify-content:center; margin:0 auto 20px; animation: pulse 1.5s infinite;">
-              <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/><line x1="8" x2="16" y1="22" y2="22"/></svg>
+      <div class="modal-content glass-panel" style="max-width:320px; text-align:center;">
+         <main class="modal-body" style="padding:32px 20px;">
+            <div class="mic-pulse-animation" style="width:64px; height:64px; border-radius:32px; background:var(--accent); color:var(--bg); display:flex; align-items:center; justify-content:center; margin:0 auto 20px;">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/><line x1="8" x2="16" y1="22" y2="22"/></svg>
             </div>
-            <h3 style="margin-bottom:8px;">Ouvindo...</h3>
+            <h3 style="margin-bottom:6px; font-size:18px;">Ouvindo comando...</h3>
             <p style="font-size:13px; color:var(--text-secondary);">Ex: "Gastei 50 reais de lazer no extra"</p>
          </main>
-         <footer class="modal-footer">
+         <footer class="modal-footer" style="padding:0 20px 20px;">
             <button type="button" class="secondary-button" data-close-modal="voice-listening-modal">Cancelar</button>
          </footer>
       </div>
