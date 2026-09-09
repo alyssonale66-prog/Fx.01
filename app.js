@@ -1,10 +1,10 @@
 /* ============================================================
-   FX — Versão Android Production-Ready v1.1.1 (Chave Dinâmica Pura)
+   FX — Versão Android Production-Ready v1.2.1 (Forensic Audited)
    ============================================================ */
 
 "use strict";
 
-const FX_VERSION = "1.1.1";
+const FX_VERSION = "1.2.1";
 const STORAGE_KEY = "fx01_sec_data";
 const CORRUPTED_BACKUP_KEY = "fx01_corrupted_backup";
 
@@ -48,6 +48,7 @@ let state = null;
 let currentCategoryId = null;
 let currentEditingCategoryId = null;
 let currentEditingExpenseId = null;
+let currentEditingAutomationId = null;
 let currentSetupStep = 1;
 let setupSalarySplit = null;
 let setupCategories = [];
@@ -60,12 +61,15 @@ let selectedExpenseOrigin = "salary";
 let selectedEditExpenseOrigin = "salary";
 let selectedEditExpenseCategory = "fixed";
 let selectedCategoryIcon = "other";
+let selectedAutomationOrigin = "salary";
+let selectedAutomationCategory = "fixed";
 let editingSetupCategoryIndex = null;
 let setupLimitHasLimit = false;
 
 let backupActionType = null;
 let importPendingData = null;
 let customConfirmCallback = null;
+let activeModalsStack = [];
 
 const $ = (id) => document.getElementById(id);
 
@@ -178,8 +182,24 @@ async function decryptData(cipherBase64, password = null) {
     const dec = new TextDecoder();
     return JSON.parse(dec.decode(decryptedContent));
   } catch (err) {
-    console.error("Erro ao decriptografar dados:", err);
-    return null;
+    if (password) {
+      throw new Error("Senha incorreta ou dados corrompidos.");
+    }
+    try {
+      const fallbackKey = await getCryptoKey(null);
+      const combined = await base64ToBytesSafe(cipherBase64);
+      const iv = combined.slice(0, 12);
+      const data = combined.slice(12);
+      const decryptedContent = await crypto.subtle.decrypt(
+        { name: "AES-GCM", iv: iv },
+        fallbackKey,
+        data
+      );
+      return JSON.parse(new TextDecoder().decode(decryptedContent));
+    } catch (fallbackErr) {
+      console.error("Erro ao decriptografar dados com fallback:", fallbackErr);
+      throw new Error("Falha na decodificação do estado.");
+    }
   }
 }
 
@@ -204,10 +224,9 @@ function initNativeLifecycle() {
   if (!App) return;
 
   App.addListener("backButton", () => {
-    const openModals = document.querySelectorAll(".modal:not(.hidden)");
-    if (openModals.length > 0) {
-      const topModal = openModals[openModals.length - 1];
-      topModal.classList.add("hidden");
+    if (activeModalsStack.length > 0) {
+      const topModalId = activeModalsStack.pop();
+      closeModal(topModalId);
       return;
     }
 
@@ -290,9 +309,7 @@ async function loadApplication() {
         if (fileResult && fileResult.data) {
           stored = fileResult.data;
         }
-      } catch (err) {
-        // Arquivo físico ainda não existe
-      }
+      } catch (err) {}
     }
 
     if (!stored) {
@@ -348,6 +365,10 @@ async function loadApplication() {
   applyPersonalization();
   await applyScreenshotSetting();
   checkCycleRollover();
+  
+  if (state.setupCompleted && !state.security.locked) {
+    await processAutomations();
+  }
 
   if (!state.setupCompleted) {
     startInitialSetup();
@@ -365,18 +386,25 @@ async function loadApplication() {
 
 function migrateStateSchema() {
   if (!state) return;
-
   if (state.settings && state.settings.appearance) {
     delete state.settings.appearance;
   }
-
+  if (!Array.isArray(state.automations)) state.automations = [];
   if (!state.version || state.version !== FX_VERSION) {
-    if (!state.categories) state.categories = DEFAULT_CATEGORIES.map(c => ({ ...c }));
+    if (!Array.isArray(state.categories) || state.categories.length === 0) {
+      state.categories = DEFAULT_CATEGORIES.map(c => ({ ...c }));
+    } else {
+      DEFAULT_CATEGORIES.forEach(def => {
+        if (!state.categories.some(c => c.id === def.id)) {
+          state.categories.push({ ...def });
+        }
+      });
+    }
     if (!state.extra) state.extra = { balance: 0 };
     if (!state.reserve) state.reserve = { balance: 0 };
     if (!state.security.recoveryQuestion) state.security.recoveryQuestion = "";
     if (!state.security.recoveryAnswerHash) state.security.recoveryAnswerHash = "";
-
+    if (!state.salary) state.salary = { reference: 0, hasAdvance: false, advanceAmount: 0, advanceDay: 20 };
     state.version = FX_VERSION;
     saveState();
   }
@@ -395,8 +423,9 @@ function normalizeState() {
   if (!state.user.displayName && state.user.name) state.user.displayName = state.user.name;
   if (!state.user.name && state.user.displayName) state.user.name = state.user.displayName;
   
-  if (!Array.isArray(state.categories)) state.categories = [];
+  if (!Array.isArray(state.categories)) state.categories = DEFAULT_CATEGORIES.map(c => ({ ...c }));
   if (!Array.isArray(state.cycles)) state.cycles = [];
+  if (!Array.isArray(state.automations)) state.automations = [];
   if (!state.currentCycle) state.currentCycle = null;
 
   if (!state.reserve) state.reserve = { balance: 0 };
@@ -448,8 +477,9 @@ function createEmptyState() {
     extra: { balance: 0 },
     reserve: { balance: 0 },
     settings: { cycleDay: 5, hideBalances: false, theme: "fx", allowScreenshots: false },
-    categories: [],
+    categories: DEFAULT_CATEGORIES.map(c => ({ ...c })),
     cycles: [],
+    automations: [],
     currentCycle: null
   };
 }
@@ -461,25 +491,40 @@ async function applyScreenshotSetting() {
   else await PrivacyScreen.enable();
 }
 
+function getLastDayOfMonth(year, month) {
+  return new Date(year, month + 1, 0).getDate();
+}
+
+function addMonthsSafely(date, months, cycleDay) {
+  let targetYear = date.getFullYear();
+  let targetMonth = date.getMonth() + months;
+  let maxDay = getLastDayOfMonth(targetYear, targetMonth);
+  let safeDay = Math.min(cycleDay, maxDay);
+  return new Date(targetYear, targetMonth, safeDay);
+}
+
 function checkCycleRollover() {
   if (!state || !state.currentCycle || !state.currentCycle.endDate) return;
 
   let now = new Date();
   let endDate = new Date(state.currentCycle.endDate);
+  let cycleDay = Number(state.settings.cycleDay) || 5;
   let safetyCounter = 0;
 
-  while (now >= endDate && safetyCounter < 12) {
+  while (now >= endDate && safetyCounter < 24) {
     safetyCounter++;
     const leftoverSalary = getSalaryBalance();
     if (leftoverSalary > 0) {
       state.extra.balance = roundMoney(state.extra.balance + leftoverSalary);
     }
 
-    state.cycles.push(JSON.parse(JSON.stringify(state.currentCycle)));
+    const currentCycleCopy = JSON.parse(JSON.stringify(state.currentCycle));
+    currentCycleCopy.leftoverSalary = roundMoney(leftoverSalary);
+    state.cycles.push(currentCycleCopy);
 
-    const cycleDay = Number(state.settings.cycleDay) || 5;
+    const prevStart = new Date(state.currentCycle.startDate);
     const newStart = new Date(endDate);
-    const newEnd = new Date(newStart.getFullYear(), newStart.getMonth() + 1, cycleDay);
+    const newEnd = addMonthsSafely(newStart, 1, cycleDay);
 
     state.currentCycle = {
       id: createId(),
@@ -497,6 +542,75 @@ function checkCycleRollover() {
   }
 
   saveState();
+}
+
+async function processAutomations() {
+  if (!state || !state.currentCycle || !Array.isArray(state.automations) || state.automations.length === 0) return;
+  
+  const today = new Date();
+  let modified = false;
+
+  for (let auto of state.automations) {
+    let lastProcessed = auto.lastProcessedDate ? new Date(auto.lastProcessedDate) : new Date(state.currentCycle.startDate);
+    let targetDay = Number(auto.targetDay) || 1;
+
+    let cursorYear = lastProcessed.getFullYear();
+    let cursorMonth = lastProcessed.getMonth();
+    
+    let safetyLoop = 0;
+    while (safetyLoop < 12) {
+      safetyLoop++;
+      let maxDay = getLastDayOfMonth(cursorYear, cursorMonth);
+      let effectiveDay = Math.min(targetDay, maxDay);
+      let occurrenceDate = new Date(cursorYear, cursorMonth, effectiveDay);
+
+      let cycleStart = new Date(state.currentCycle.startDate);
+      let cycleEnd = new Date(state.currentCycle.endDate);
+
+      if (occurrenceDate > today) break;
+
+      let monthKey = `${cursorYear}-${cursorMonth + 1}`;
+      let alreadyDone = auto.lastTriggeredMonth === monthKey || (auto.processedMonths && auto.processedMonths.includes(monthKey));
+
+      if (!alreadyDone && occurrenceDate >= cycleStart && occurrenceDate <= cycleEnd) {
+        const available = auto.origin === "salary" ? getSalaryBalance() : (auto.origin === "extra" ? getExtraBalance() : getReserveBalance());
+        
+        if (auto.amount <= available) {
+          if (auto.origin === "extra") state.extra.balance = roundMoney(state.extra.balance - auto.amount);
+          if (auto.origin === "reserve") state.reserve.balance = roundMoney(state.reserve.balance - auto.amount);
+          
+          const expense = {
+            id: createId(),
+            origin: auto.origin,
+            amount: auto.amount,
+            description: auto.description || "Lançamento Recorrente",
+            categoryId: auto.categoryId,
+            date: occurrenceDate.toISOString()
+          };
+          state.currentCycle.expenses.push(expense);
+          state.currentCycle.categoryUsage[auto.categoryId] = roundMoney((state.currentCycle.categoryUsage[auto.categoryId] || 0) + auto.amount);
+          
+          auto.lastTriggeredMonth = monthKey;
+          if (!Array.isArray(auto.processedMonths)) auto.processedMonths = [];
+          if (!auto.processedMonths.includes(monthKey)) auto.processedMonths.push(monthKey);
+          auto.lastProcessedDate = occurrenceDate.toISOString();
+          modified = true;
+        } else {
+          break; 
+        }
+      }
+
+      cursorMonth++;
+      if (cursorMonth > 11) {
+        cursorMonth = 0;
+        cursorYear++;
+      }
+    }
+  }
+  
+  if (modified) {
+    await saveState();
+  }
 }
 
 function startInitialSetup() {
@@ -699,8 +813,9 @@ async function completeInitialSetup() {
 
 function createInitialCycle() {
   const now = new Date();
-  const start = new Date(now.getFullYear(), now.getMonth(), state.settings.cycleDay);
-  const end = new Date(now.getFullYear(), now.getMonth() + 1, state.settings.cycleDay);
+  const cycleDay = Number(state.settings.cycleDay) || 5;
+  const start = new Date(now.getFullYear(), now.getMonth(), cycleDay);
+  const end = addMonthsSafely(start, 1, cycleDay);
 
   state.currentCycle = {
     id: createId(),
@@ -719,6 +834,13 @@ function createInitialCycle() {
 function getSalaryBalance() {
   if (!state || !state.currentCycle) return 0;
   let balance = Number(state.currentCycle.salaryReceived) || 0;
+
+  if (state.salary && state.salary.hasAdvance && state.salary.advanceAmount > 0) {
+    let now = new Date();
+    let advanceDay = Number(state.salary.advanceDay) || 20;
+    if (now.getDate() >= advanceDay) {
+    }
+  }
 
   state.currentCycle.expenses.forEach((exp) => {
     if (exp.origin === "salary") balance -= Number(exp.amount) || 0;
@@ -759,8 +881,9 @@ async function launchExpense(categoryId, amount, origin, description) {
   const available = origin === "salary" ? getSalaryBalance() : getExtraBalance();
   if (amount > available) throw new Error("Saldo insuficiente na origem selecionada.");
 
+  let tempExtra = roundMoney(state.extra.balance);
   if (origin === "extra") {
-    state.extra.balance = roundMoney(state.extra.balance - amount);
+    tempExtra = roundMoney(tempExtra - amount);
   }
 
   const expense = {
@@ -772,8 +895,8 @@ async function launchExpense(categoryId, amount, origin, description) {
     date: new Date().toISOString()
   };
 
+  state.extra.balance = tempExtra;
   state.currentCycle.expenses.push(expense);
-  
   state.currentCycle.categoryUsage[categoryId] = roundMoney((state.currentCycle.categoryUsage[categoryId] || 0) + amount);
 
   await saveState();
@@ -810,61 +933,61 @@ async function saveExpenseEdit() {
 
     if (newAmount <= 0) throw new Error("O valor deve ser maior que zero.");
 
-    const targetCat = state.categories.find((c) => c.id === newCategory);
+    let tempState = JSON.parse(JSON.stringify(state));
+    let tempExpense = tempState.currentCycle.expenses.find(e => e.id === currentEditingExpenseId);
+
+    const targetCat = tempState.categories.find((c) => c.id === newCategory);
     if (targetCat && targetCat.hasLimit && targetCat.limit && targetCat.limit > 0 && newCategory !== "reserve") {
-      let currentUsage = state.currentCycle.categoryUsage[newCategory] || 0;
-      if (expense.categoryId === newCategory) {
-        currentUsage -= expense.amount;
+      let currentUsage = tempState.currentCycle.categoryUsage[newCategory] || 0;
+      if (tempExpense.categoryId === newCategory) {
+        currentUsage -= tempExpense.amount;
       }
       if (roundMoney(currentUsage + newAmount) > targetCat.limit) {
         throw new Error(`Este valor excede o limite da categoria (${formatMoney(targetCat.limit)}).`);
       }
     }
 
-    const oldAmount = expense.amount;
-    const oldOrigin = expense.origin;
-    const oldCategory = expense.categoryId;
+    const oldAmount = tempExpense.amount;
+    const oldOrigin = tempExpense.origin;
+    const oldCategory = tempExpense.categoryId;
 
-    if (oldOrigin === "extra") state.extra.balance = roundMoney(state.extra.balance + oldAmount);
-    if (oldOrigin === "reserve") state.reserve.balance = roundMoney(state.reserve.balance + oldAmount);
-    if (oldCategory === "reserve") state.reserve.balance = roundMoney(state.reserve.balance - oldAmount);
+    if (oldOrigin === "extra") tempState.extra.balance = roundMoney(tempState.extra.balance + oldAmount);
+    if (oldOrigin === "reserve") tempState.reserve.balance = roundMoney(tempState.reserve.balance + oldAmount);
+    if (oldCategory === "reserve") tempState.reserve.balance = roundMoney(tempState.reserve.balance - oldAmount);
+
+    let tempSalaryBal = 0;
+    let tempExtraBal = tempState.extra.balance;
+    let tempReserveBal = tempState.reserve.balance;
 
     if (newOrigin === "extra") {
-      if (newAmount > getExtraBalance()) {
-        revertEditState(oldOrigin, oldCategory, oldAmount);
+      if (newAmount > tempExtraBal) {
         throw new Error("Saldo insuficiente no Extra.");
       }
-      state.extra.balance = roundMoney(state.extra.balance - newAmount);
+      tempState.extra.balance = roundMoney(tempExtraBal - newAmount);
     } else if (newOrigin === "reserve" || newCategory === "reserve") {
       if (newCategory === "reserve" && newOrigin === "reserve") {
-        revertEditState(oldOrigin, oldCategory, oldAmount);
         throw new Error("A origem da reserva não pode ser a própria reserva.");
       }
-      const limitSourceCheck = newOrigin === "extra" ? getExtraBalance() : getSalaryBalance();
-      if (newCategory === "reserve" && newAmount > limitSourceCheck) {
-        revertEditState(oldOrigin, oldCategory, oldAmount);
-        throw new Error("Saldo insuficiente na origem selecionada para a reserva.");
-      }
-      if (newOrigin === "reserve" && newAmount > getReserveBalance()) {
-        revertEditState(oldOrigin, oldCategory, oldAmount);
+      if (newOrigin === "reserve" && newAmount > tempReserveBal) {
         throw new Error("Saldo insuficiente na Reserva.");
       }
       if (newOrigin === "reserve") {
-        state.reserve.balance = roundMoney(state.reserve.balance - newAmount);
+        tempState.reserve.balance = roundMoney(tempReserveBal - newAmount);
       }
       if (newCategory === "reserve") {
-        state.reserve.balance = roundMoney(state.reserve.balance + newAmount);
+        tempState.reserve.balance = roundMoney(tempReserveBal + newAmount);
       }
     }
 
-    expense.amount = newAmount;
-    expense.origin = newOrigin;
-    expense.categoryId = newCategory;
-    expense.description = newDesc;
+    tempState.currentCycle.categoryUsage[oldCategory] = roundMoney((tempState.currentCycle.categoryUsage[oldCategory] || 0) - oldAmount);
+    tempState.currentCycle.categoryUsage[newCategory] = roundMoney((tempState.currentCycle.categoryUsage[newCategory] || 0) + newAmount);
 
-    state.currentCycle.categoryUsage[oldCategory] = roundMoney((state.currentCycle.categoryUsage[oldCategory] || 0) - oldAmount);
-    state.currentCycle.categoryUsage[newCategory] = roundMoney((state.currentCycle.categoryUsage[newCategory] || 0) + newAmount);
+    tempExpense.amount = newAmount;
+    tempExpense.origin = newOrigin;
+    tempExpense.categoryId = newCategory;
+    tempExpense.description = newDesc;
 
+    state = tempState;
     await saveState();
     closeModal("expense-edit-modal");
     if (document.activeElement) document.activeElement.blur();
@@ -872,12 +995,6 @@ async function saveExpenseEdit() {
   } catch (err) {
     showElement("edit-expense-error", err.message);
   }
-}
-
-function revertEditState(oldOrigin, oldCategory, oldAmount) {
-  if (oldOrigin === "extra") state.extra.balance = roundMoney(state.extra.balance - oldAmount);
-  if (oldOrigin === "reserve") state.reserve.balance = roundMoney(state.reserve.balance - oldAmount);
-  if (oldCategory === "reserve") state.reserve.balance = roundMoney(state.reserve.balance + oldAmount);
 }
 
 function deleteExpense() {
@@ -1096,7 +1213,6 @@ async function confirmReserveSave() {
 
     state.reserve.balance = roundMoney(state.reserve.balance + amount);
 
-    // BUG-01 CORREÇÃO: Registrar a aplicação na reserva no extrato como uma despesa/transação da categoria reserve
     const reserveExpense = {
       id: createId(),
       origin: selectedReserveOrigin,
@@ -1146,6 +1262,17 @@ async function confirmReserveWithdraw() {
   }
 }
 
+function escapeCSVField(fieldValue) {
+  let str = String(fieldValue ?? "");
+  if (/^[=+\-@\t\r]/.test(str)) {
+    str = "'" + str;
+  }
+  if (str.includes('"') || str.includes(';') || str.includes('\n') || str.includes('\r')) {
+    str = '"' + str.replace(/"/g, '""') + '"';
+  }
+  return str;
+}
+
 function exportCSV() {
   try {
     const expenses = state.currentCycle?.expenses || [];
@@ -1160,10 +1287,10 @@ function exportCSV() {
       const catName = cat ? cat.name : "Outros";
       const dateStr = new Date(exp.date).toLocaleDateString("pt-BR");
       const originStr = exp.origin === "salary" ? "Salário" : exp.origin === "extra" ? "Extra" : "Reserva";
-      const descStr = (exp.description || catName).replace(/;/g, ",");
+      const descStr = exp.description || catName;
       const valStr = exp.amount.toFixed(2).replace(".", ",");
 
-      csvContent += `${dateStr};"${catName}";${originStr};"${descStr}";${valStr}\n`;
+      csvContent += `${escapeCSVField(dateStr)};${escapeCSVField(catName)};${escapeCSVField(originStr)};${escapeCSVField(descStr)};${escapeCSVField(valStr)}\n`;
     });
 
     const dateStr = new Date().toISOString().slice(0, 10);
@@ -1249,6 +1376,7 @@ async function authenticateBiometric() {
 async function unlockSuccess() {
   state.security.locked = false;
   await saveState();
+  await processAutomations();
   showScreen("main");
   renderApplication();
 }
@@ -1285,6 +1413,19 @@ function updateCustomSelectTriggers() {
     const found = RECOVERY_QUESTIONS.find(q => q.value === setupRecoveryQuestionKey);
     recQuestBtn.textContent = found ? found.label : "Selecione uma pergunta";
   }
+  
+  const autoOriginBtn = $("automation-origin-trigger");
+  if (autoOriginBtn) {
+    if (selectedAutomationOrigin === "salary") autoOriginBtn.textContent = "Salário";
+    else if (selectedAutomationOrigin === "extra") autoOriginBtn.textContent = "Extra";
+    else autoOriginBtn.textContent = "Reserva";
+  }
+
+  const autoCatBtn = $("automation-category-trigger");
+  if (autoCatBtn) {
+    const cat = state.categories.find(c => c.id === selectedAutomationCategory);
+    autoCatBtn.textContent = cat ? cat.name : "Selecione";
+  }
 }
 
 function openCustomPicker(title, options, onSelect) {
@@ -1317,6 +1458,8 @@ function renderSettingsCategories() {
     const item = document.createElement("div");
     item.className = "settings-category-item";
 
+    const isImmutable = cat.immutable || cat.id === "reserve";
+
     item.innerHTML = `
       <div style="display:flex; align-items:center; gap:10px;">
         <div style="color:var(--accent); display:flex; align-items:center;">${getCategoryIconSvg(cat)}</div>
@@ -1325,9 +1468,7 @@ function renderSettingsCategories() {
           <div class="settings-category-limit">${cat.hasLimit && cat.limit ? `Limite: ${formatMoneyOrMask(cat.limit)}` : "Sem limite"}</div>
         </div>
       </div>
-      <button type="button" class="secondary-button" style="width:auto; padding:6px 14px; min-height:34px; font-size:12px;" data-edit-category-id="${cat.id}">
-        Editar
-      </button>
+      ${!isImmutable ? `<button type="button" class="secondary-button" style="width:auto; padding:6px 14px; min-height:34px; font-size:12px;" data-edit-category-id="${cat.id}">Editar</button>` : `<span style="font-size:11px; color:var(--text-muted); font-weight:600;">Protegida</span>`}
     `;
     container.appendChild(item);
   });
@@ -1339,7 +1480,7 @@ function openCategoryEditorModal(catId = null) {
 
   if (catId) {
     const cat = state.categories.find((c) => c.id === catId);
-    if (!cat) return;
+    if (!cat || cat.immutable) return;
 
     if ($("category-editor-title")) $("category-editor-title").textContent = "Editar Categoria";
     $("category-name").value = cat.name;
@@ -1667,6 +1808,7 @@ function renderApplication() {
   renderCategories();
   renderExpensesGrouped();
   renderSettingsCategories();
+  renderAutomations();
   renderSettingsValues();
 }
 
@@ -1802,6 +1944,123 @@ function renderExpensesGrouped() {
   });
 }
 
+function renderAutomations() {
+  const container = $("settings-automations-list");
+  if (!container) return;
+  container.innerHTML = "";
+  
+  if (!state.automations || state.automations.length === 0) {
+    container.innerHTML = `<div style="text-align:center; padding:15px; color:var(--text-muted); font-size:14px;">Nenhuma automação ativa.</div>`;
+    return;
+  }
+
+  state.automations.forEach((auto) => {
+    const cat = state.categories.find((c) => c.id === auto.categoryId) || { name: "Outros", icon: "other" };
+    
+    const item = document.createElement("div");
+    item.className = "settings-category-item";
+
+    item.innerHTML = `
+      <div style="display:flex; align-items:center; gap:10px;">
+        <div style="color:var(--accent); display:flex; align-items:center;">${getCategoryIconSvg(cat)}</div>
+        <div class="settings-category-info">
+          <div class="settings-category-name">${escapeHTML(auto.description)}</div>
+          <div class="settings-category-limit">Todo dia ${auto.targetDay} • ${formatMoneyOrMask(auto.amount)} (${auto.origin})</div>
+        </div>
+      </div>
+      <button type="button" class="secondary-button" style="width:auto; padding:6px 14px; min-height:34px; font-size:12px;" data-edit-automation-id="${auto.id}">
+        Editar
+      </button>
+    `;
+    container.appendChild(item);
+  });
+}
+
+function openAutomationEditorModal(autoId = null) {
+  currentEditingAutomationId = autoId;
+  hideElement("automation-editor-error");
+  
+  if (autoId) {
+    const auto = state.automations.find(a => a.id === autoId);
+    if (!auto) return;
+    
+    if ($("automation-editor-title")) $("automation-editor-title").textContent = "Editar Automação";
+    $("automation-description").value = auto.description;
+    $("automation-value").value = auto.amount.toFixed(2);
+    $("automation-day").value = auto.targetDay;
+    
+    selectedAutomationOrigin = auto.origin;
+    selectedAutomationCategory = auto.categoryId;
+    
+    showElement("delete-automation-button");
+  } else {
+    if ($("automation-editor-title")) $("automation-editor-title").textContent = "Nova Automação";
+    $("automation-description").value = "";
+    $("automation-value").value = "";
+    $("automation-day").value = "";
+    
+    selectedAutomationOrigin = "salary";
+    selectedAutomationCategory = "fixed";
+    
+    hideElement("delete-automation-button");
+  }
+  
+  updateCustomSelectTriggers();
+  openModal("automation-editor-modal");
+}
+
+async function saveAutomation() {
+  try {
+    const desc = $("automation-description").value.trim();
+    const val = parseMoneyInput($("automation-value").value);
+    const day = Number($("automation-day").value);
+    
+    if (!desc) throw new Error("A descrição é obrigatória.");
+    if (val <= 0) throw new Error("O valor deve ser maior que zero.");
+    if (!Number.isInteger(day) || day < 1 || day > 31) throw new Error("O dia deve ser entre 1 e 31.");
+    
+    if (currentEditingAutomationId) {
+      const auto = state.automations.find(a => a.id === currentEditingAutomationId);
+      if (auto) {
+        auto.description = desc;
+        auto.amount = val;
+        auto.targetDay = day;
+        auto.origin = selectedAutomationOrigin;
+        auto.categoryId = selectedAutomationCategory;
+      }
+    } else {
+      state.automations.push({
+        id: createId(),
+        description: desc,
+        amount: val,
+        targetDay: day,
+        origin: selectedAutomationOrigin,
+        categoryId: selectedAutomationCategory,
+        lastTriggeredMonth: "",
+        lastProcessedDate: new Date().toISOString()
+      });
+    }
+    
+    await saveState();
+    closeModal("automation-editor-modal");
+    if (document.activeElement) document.activeElement.blur();
+    renderApplication();
+  } catch (err) {
+    showElement("automation-editor-error", err.message);
+  }
+}
+
+async function deleteAutomation() {
+  if (!currentEditingAutomationId) return;
+  
+  customConfirm("Tem certeza que deseja excluir esta automação?", async () => {
+    state.automations = state.automations.filter(a => a.id !== currentEditingAutomationId);
+    await saveState();
+    closeModal("automation-editor-modal");
+    renderApplication();
+  });
+}
+
 function renderSettingsValues() {
   if ($("settings-account-username")) $("settings-account-username").value = state.user?.username || "";
   if ($("settings-full-name")) $("settings-full-name").value = state.user?.fullName || "";
@@ -1868,6 +2127,77 @@ async function recoverPassword() {
   await saveState();
   closeModal("recovery-modal");
   customAlert("Senha redefinida com sucesso.");
+}
+
+function startVoiceRecognition() {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) {
+    return customAlert("Seu dispositivo ou navegador não suporta reconhecimento de voz.");
+  }
+  
+  const recognition = new SpeechRecognition();
+  recognition.lang = 'pt-BR';
+  recognition.interimResults = false;
+  recognition.maxAlternatives = 1;
+  
+  recognition.onstart = () => openModal("voice-listening-modal");
+  
+  recognition.onresult = (event) => {
+    closeModal("voice-listening-modal");
+    const transcript = event.results[0][0].transcript.toLowerCase();
+    parseVoiceCommand(transcript);
+  };
+  
+  recognition.onerror = (e) => {
+    closeModal("voice-listening-modal");
+    if (e.error !== "no-speech") customAlert("Erro no microfone ou permissão negada: " + e.error);
+  };
+  
+  recognition.onend = () => { closeModal("voice-listening-modal"); };
+  
+  recognition.start();
+}
+
+function parseVoiceCommand(text) {
+  const valMatch = text.match(/(\d+(?:[.,]\d{1,2})?)/);
+  let amount = 0;
+  if (valMatch) amount = parseMoneyInput(valMatch[1]);
+
+  if(amount <= 0) {
+    return customAlert("Não entendi o valor. Tente dizer: 'Gastei 50 reais de Lazer no Extra'.");
+  }
+
+  let origin = text.includes("extra") ? "extra" : (text.includes("reserva") ? "reserve" : "salary");
+  let categoryId = "other";
+  
+  let bestMatchId = null;
+  for(let cat of state.categories) {
+    if (text.includes(cat.name.toLowerCase())) {
+      bestMatchId = cat.id;
+      break;
+    }
+  }
+  
+  if (bestMatchId) {
+    categoryId = bestMatchId;
+  } else {
+    const dict = {
+      "fixo": "fixed", "casa": "fixed", "conta": "fixed", "energia": "fixed",
+      "medicamento": "medicine", "remédio": "medicine", "farmácia": "medicine",
+      "lazer": "leisure", "comida": "leisure", "restaurante": "leisure", "ifood": "leisure", "uber": "leisure",
+      "celular": "phone", "telefone": "phone", "internet": "phone",
+      "reserva": "reserve", "cofre": "reserve", "guardar": "reserve", "guardei": "reserve"
+    };
+    for (let key in dict) {
+      if (text.includes(key)) { categoryId = dict[key]; break; }
+    }
+  }
+
+  openExpenseModal(categoryId);
+  $("expense-value").value = amount.toFixed(2);
+  $("expense-description").value = text.charAt(0).toUpperCase() + text.slice(1);
+  selectedExpenseOrigin = origin;
+  updateExpenseModalOriginButtons();
 }
 
 function bindEvents() {
@@ -1992,6 +2322,8 @@ function bindEvents() {
   $("toggle-hide-balances-button")?.addEventListener("click", toggleHideBalances);
   $("biometric-unlock-icon")?.addEventListener("click", authenticateBiometric);
   $("register-biometrics-button")?.addEventListener("click", registerBiometrics);
+  
+  $("voice-launch-fab")?.addEventListener("click", startVoiceRecognition);
 
   $("edit-expense-origin-trigger")?.addEventListener("click", () => {
     const opts = [
@@ -2017,6 +2349,21 @@ function bindEvents() {
       { label: "Celular (Smartphone)", value: "phone", selected: selectedCategoryIcon === "phone" },
       { label: "Outros (Caixa)", value: "other", selected: selectedCategoryIcon === "other" }
     ], (val) => { selectedCategoryIcon = val; });
+  });
+  
+  $("automation-origin-trigger")?.addEventListener("click", () => {
+    const opts = [
+      { label: "Salário", value: "salary", selected: selectedAutomationOrigin === "salary" },
+      { label: "Extra", value: "extra", selected: selectedAutomationOrigin === "extra" },
+      { label: "Reserva", value: "reserve", selected: selectedAutomationOrigin === "reserve" }
+    ];
+    openCustomPicker("Origem do Gasto", opts, (val) => { selectedAutomationOrigin = val; });
+  });
+
+  $("automation-category-trigger")?.addEventListener("click", () => {
+    const opts = state.categories
+      .map((c) => ({ label: c.name, value: c.id, selected: c.id === selectedAutomationCategory }));
+    openCustomPicker("Categoria do Gasto", opts, (val) => { selectedAutomationCategory = val; });
   });
 
   document.addEventListener("click", async (e) => {
@@ -2087,6 +2434,12 @@ function bindEvents() {
     const editCatBtn = e.target.closest("[data-edit-category-id]");
     if (editCatBtn) {
       openCategoryEditorModal(editCatBtn.dataset.editCategoryId);
+      return;
+    }
+    
+    const editAutoBtn = e.target.closest("[data-edit-automation-id]");
+    if (editAutoBtn) {
+      openAutomationEditorModal(editAutoBtn.dataset.editAutomationId);
       return;
     }
 
@@ -2168,6 +2521,10 @@ function bindEvents() {
 
   $("create-category-button")?.addEventListener("click", () => openCategoryEditorModal());
   $("save-category-button")?.addEventListener("click", saveCategory);
+  
+  $("create-automation-button")?.addEventListener("click", () => openAutomationEditorModal());
+  $("save-automation-button")?.addEventListener("click", saveAutomation);
+  $("delete-automation-button")?.addEventListener("click", deleteAutomation);
 
   $("add-extra-button")?.addEventListener("click", () => openModal("extra-modal"));
   $("confirm-extra-button")?.addEventListener("click", async () => {
@@ -2228,6 +2585,7 @@ async function processImport(dataStr, password) {
     }
 
     state = importedState;
+    migrateStateSchema();
     normalizeState();
     await applyScreenshotSetting();
     await saveState();
@@ -2292,8 +2650,23 @@ function showScreen(name) {
   screens[name]?.classList.remove("hidden");
 }
 
-function openModal(id) { $(id)?.classList.remove("hidden"); }
-function closeModal(id) { $(id)?.classList.add("hidden"); }
+function openModal(id) {
+  const el = $(id);
+  if (el) {
+    el.classList.remove("hidden");
+    if (!activeModalsStack.includes(id)) {
+      activeModalsStack.push(id);
+    }
+  }
+}
+
+function closeModal(id) {
+  const el = $(id);
+  if (el) {
+    el.classList.add("hidden");
+    activeModalsStack = activeModalsStack.filter(modalId => modalId !== id);
+  }
+}
 
 function roundMoney(v) { return Math.round((Number(v) + Number.EPSILON) * 100) / 100; }
 function formatMoney(v) { return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v); }
